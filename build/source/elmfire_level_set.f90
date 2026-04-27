@@ -29,10 +29,11 @@ LOGICAL, INTENT(IN) :: IS_VIRTUAL_RUN
 INTEGER :: I, ILOC, J, IX, IY, ITIMESTEP, IX_IGN, IY_IGN, ISTEP, K, LU, IT1, IT2, &
            COUNT_START, COUNT_END, IDUMPCOUNT, ICOUNT, IXSTART, IYSTART, IXSTOP, IYSTOP, IX2, IY2, &
            ITLO_METEOROLOGY, ITHI_METEOROLOGY, BINARY_OUTPUTS_SIZE, IT_EA, IXCEN, IYCEN, IOS, IPYROME, &
-           N_TO_TAG, N_SPOT_FIRES, IT2_LSP, ICOL, IROW, YEAR, MONTH, DAY_OF_MONTH, HOUR, &
-           BAND_L, BAND_H, IERR=0, DAY_OF_SIM, totalDuration
+           N_TO_TAG, N_SPOT_FIRES, IT2_LSP, ICOL, IROW, YEAR , MONTH, DAY_OF_MONTH, HOUR, &
+           BAND_L, BAND_H, IERR=0, DAY_OF_SIM, totalDuration,  BLDGFM
 INTEGER, SAVE :: NX, NY, NDUMPS
 INTEGER, POINTER, SAVE, DIMENSION(:) :: IX_TO_TAG, IY_TO_TAG, IX_SPOT_FIRE, IY_SPOT_FIRE
+INTEGER, PARAMETER :: NO_DATA = -9999
 
 REAL :: T_LAST_EXTENDED_ATTACK, T_LAST_INTERPOLATE_M1, T_LAST_INTERPOLATE_M10, T_LAST_INTERPOLATE_M100, &
         T_LAST_INTERPOLATE_MLH, T_LAST_INTERPOLATE_MLW, T_LAST_INTERPOLATE_FMC, T_LAST_INTERPOLATE_WIND, &
@@ -56,8 +57,6 @@ LOGICAL :: IA_HAS_OCCURRED, LOPEN, GO, CALL_SPOTTING, JUST_INTERPOLATED, DUMP_SM
 LOGICAL, SAVE :: FIRSTCALL
 LOGICAL, DIMENSION(1:100) :: ALREADY_IGNITED
 
-REAL, ALLOCATABLE, DIMENSION(:,:) :: DYNAMIC_ARRAY  ! Dynamic array to store IX and IY DWI_SU
-
 CHARACTER(4) :: FOUR_IWX_BAND, FOUR_IRANK_WORLD
 CHARACTER(7) :: SEVEN_ICASE
 CHARACTER(16) :: TIMESTAMP
@@ -66,7 +65,7 @@ CHARACTER(400) :: FN
 ! parameters for checking if all simulations are finished
 integer :: rank_finished , global_flag
 
-TYPE(NODE), POINTER :: C => NULL(), DUMMY_NODE => NULL()
+TYPE(NODE), POINTER :: C => NULL(), DUMMY_NODE => NULL(), L_WUI_P => NULL()
 
 ! TYPE (FUEL_MODEL_TABLE_TYPE) :: FMT
 
@@ -165,6 +164,7 @@ DO WHILE (T .le. totalDuration)
          IDUMPCOUNT = 0
          DUMPTIMES(:) = 9E9
          DUMPTIMES(0) = 0.
+         !This need to be revised if we want to dump more than 1000 times or if we want to dump at non-regular intervals
          DO WHILE (T_temp .LT. TSTOP)
             T_temp                = T_temp + DTDUMP
             IDUMPCOUNT            = IDUMPCOUNT + 1
@@ -178,6 +178,31 @@ DO WHILE (T .le. totalDuration)
          ALLOCATE(EVERTAGGED      (1:NX,1:NY)); EVERTAGGED(:,:) = .FALSE.
          ALLOCATE(EVERTAGGED_IX   (1:NX*NY))
          ALLOCATE(EVERTAGGED_IY   (1:NX*NY))
+
+         ! Allocate additional arrays for WU-E calculation and outputs
+         IF (USE_BLDG_SPREAD_MODEL) THEN
+         ALLOCATE(HRR_TRANSIENT_MAP      (1:NX,1:NY)); HRR_TRANSIENT_MAP(:,:) = 0
+         IF (BLDG_SPREAD_MODEL_TYPE .EQ. 2) THEN
+            ALLOCATE(TOTAL_DFC_WUI          (1:NX,1:NY)); TOTAL_DFC_WUI(:,:) = 0
+            ALLOCATE(TOTAL_RADIATION_WUI    (1:NX,1:NY)); TOTAL_RADIATION_WUI(:,:) = 0
+            ALLOCATE(TRANSIENT_DFC_WUI      (1:NX,1:NY)); TRANSIENT_DFC_WUI(:,:) = 0
+            ALLOCATE(TRANSIENT_RADIATION_WUI(1:NX,1:NY)); TRANSIENT_RADIATION_WUI(:,:) = 0
+            ALLOCATE(FUEL_LOAD_REMAIN       (1:NX,1:NY)); FUEL_LOAD_REMAIN(:,:) = 0
+            DO IY=1,NY
+            DO IX=1,NX
+               IF (FBFM%I2(IX,IY,1) .EQ. 91) THEN
+                  BLDGFM=BLDG_FUEL_MODEL%I2(IX,IY,1)
+                  IF(BLDGFM .EQ. NO_DATA) BLDGFM=1
+                  FUEL_LOAD_REMAIN(IX,IY) = BUILDING_FUEL_MODEL_TABLE(BLDGFM)%FUEL_LOAD
+               ENDIF
+            ENDDO
+            ENDDO
+            ALLOCATE(TAGGED_WUI    (1:NX,1:NY)); TAGGED_WUI(:,:) = .FALSE.
+            ALLOCATE(EVERTAGGED_WUI(1:NX,1:NY)); EVERTAGGED_WUI(:,:) = .FALSE.
+
+            ALLOCATE(ELLIPSE_PROPERTY_MAP(1:NX,1:NY))
+         ENDIF
+         ENDIF
 
          IF (USE_UMD_SPOTTING_MODEL) THEN
             ALLOCATE(EMBER_TIGN      (1:NX,1:NY)); EMBER_TIGN(:,:) = -1.
@@ -335,6 +360,7 @@ DO WHILE (T .le. totalDuration)
       LIST_TAGGED                 = NEW_DLL(); LIST_TAGGED%NUM_NODES=0
       LIST_BURNED                 = NEW_DLL(); LIST_BURNED%NUM_NODES=0
       LIST_SUPPRESSED             = NEW_DLL(); LIST_SUPPRESSED%NUM_NODES=0
+      LIST_WUI_BURNING            = NEW_DLL(); LIST_WUI_BURNING%NUM_NODES=0
       LIST_EMBER_DEPOSITED        = NEW_DLL(); LIST_EMBER_DEPOSITED%NUM_NODES=0
       NUM_EVERTAGGED              = 0
 
@@ -370,13 +396,13 @@ DO WHILE (T .le. totalDuration)
 
       CALL ACCUMULATE_CPU_USAGE(33, IT1, IT2)
 
-      IF (.NOT. RANDOM_IGNITIONS) PHIP(:,:) = PHI0%R4(:,:,1)
-
-      IF (DUMP_EMBER_FLUX .AND. (.NOT. ACCUMULATE_EMBER_FLUX) ) EMBER_FLUX%R4(:,:,1) = 0
+      ! IF (DUMP_EMBER_FLUX .AND. (.NOT. ACCUMULATE_EMBER_FLUX) ) EMBER_FLUX%R4(:,:,1) = 0
 
       IF (USE_BARRIERS) BANDTHICKNESS = 1
       ! Tag bands where initial phi values are less than 0:
       IF (.NOT. RANDOM_IGNITIONS) THEN
+         PHIP(:,:) = PHI0%R4(:,:,1)
+
          ! Get initial wind information for nodes in LIST_BURNED, for spotting model
          ITLO_METEOROLOGY = IWX_BAND_START - BAND_L + 1
          ITHI_METEOROLOGY = IWX_BAND_START - BAND_L + 1
@@ -409,8 +435,7 @@ DO WHILE (T .le. totalDuration)
                ICOUNT = ICOUNT + 1
 
                CALL APPEND(LIST_BURNED, IX, IY, T)
-               CALL APPEND_TO_DYNAMIC_ARRAY(IX, IY, LIST_BURNED%NUM_NODES, DYNAMIC_ARRAY) ! Yiren DEBUG
-
+               
                IF (WX_BILINEAR_INTERPOLATION) THEN
                   CALL INTERP_RASTER_LINKEDLIST_SINGLE_BILINEAR (LIST_BURNED%TAIL, M1_LO  (:,:), M1_HI  (:,:), F_METEOROLOGY, 1)
                   CALL INTERP_RASTER_LINKEDLIST_SINGLE_BILINEAR (LIST_BURNED%TAIL, M10_LO (:,:), M10_HI (:,:), F_METEOROLOGY, 2)
@@ -437,8 +462,18 @@ DO WHILE (T .le. totalDuration)
                LIST_BURNED%TAIL%WS20_NOW               = WS20_LO(ICOL,IROW) * (1. - F_METEOROLOGY) + F_METEOROLOGY * WS20_HI(ICOL,IROW)
                LIST_BURNED%TAIL%BURNED                 = .FALSE.
 #ifdef _WUI
-               IF (USE_BLDG_SPREAD_MODEL) LIST_BURNED%TAIL%IBLDGFM =BLDG_FUEL_MODEL%I2(IX,IY,1)
+               IF (USE_BLDG_SPREAD_MODEL) THEN
+                  
+                  IF(BLDG_FUEL_MODEL%I2(IX,IY,1) .NE. NO_DATA) THEN
+                     LIST_BURNED%TAIL%IBLDGFM =  BLDG_FUEL_MODEL%I2(IX,IY,1)
+                  ELSE
+                     LIST_BURNED%TAIL%IBLDGFM =  1
+                  ENDIF
+                  ! Tagged WUI cells.
+                  IF(BLDG_SPREAD_MODEL_TYPE .EQ. 2) CALL TAG_WUI(NX, NY, IX, IY, T)
+               ENDIF
 #endif
+
 #ifdef _SUPPRESSION
                IF (ENABLE_EXTENDED_ATTACK .AND. USE_SDI) C%SDI = SDI_FACTOR * SDI%R4(ICOL,IROW,1)
 #endif
@@ -465,7 +500,7 @@ DO WHILE (T .le. totalDuration)
             CALL CALC_NORMAL_VECTORS (ISTEP, HALFRCELLSIZE)
 
             ! Calculate x and y components of velocity from elliptical spread dimensions
-            CALL UX_AND_UY_ELLIPTICAL(LIST_BURNED, LIST_BURNED, 1.0, ISTEP, T, DYNAMIC_ARRAY)
+            CALL UX_AND_UY_ELLIPTICAL(LIST_BURNED, LIST_BURNED, 1.0, ISTEP, T)
             
             call UPDATE_LOCAL_SPREAD_PROPERTIES(LIST_BURNED, C)
          ENDDO
@@ -475,7 +510,69 @@ DO WHILE (T .le. totalDuration)
             C%BURNED = .TRUE.
             C => C%NEXT
          ENDDO
-         
+
+#ifdef _WUI
+         ! Initialize the linked list for WUI
+         IF (USE_BLDG_SPREAD_MODEL .AND. (BLDG_SPREAD_MODEL_TYPE .EQ. 2) .AND. (LIST_WUI_BURNING%NUM_NODES .GT. 0)) THEN
+            IF (WX_BILINEAR_INTERPOLATION) THEN
+               CALL INTERP_RASTER_LINKEDLIST_BILINEAR (LIST_WUI_BURNING, M1_LO  (:,:), M1_HI  (:,:), F_METEOROLOGY, 1)
+               CALL INTERP_RASTER_LINKEDLIST_BILINEAR (LIST_WUI_BURNING, M10_LO (:,:), M10_HI (:,:), F_METEOROLOGY, 2)
+               CALL INTERP_RASTER_LINKEDLIST_BILINEAR (LIST_WUI_BURNING, M100_LO(:,:), M100_HI(:,:), F_METEOROLOGY, 3)
+               CALL INTERP_RASTER_LINKEDLIST_BILINEAR (LIST_WUI_BURNING, MLH_LO (:,:), MLH_HI (:,:), F_METEOROLOGY, 4)
+               CALL INTERP_RASTER_LINKEDLIST_BILINEAR (LIST_WUI_BURNING, MLW_LO (:,:), MLW_HI (:,:), F_METEOROLOGY, 5)
+               CALL INTERP_RASTER_LINKEDLIST_BILINEAR (LIST_WUI_BURNING, FMC_LO (:,:), FMC_HI (:,:), F_METEOROLOGY, 6)
+               CALL INTERP_RASTER_LINKEDLIST_BILINEAR (LIST_WUI_BURNING, WS20_LO(:,:), WS20_HI(:,:), F_METEOROLOGY, 7)
+            ELSE
+               CALL INTERP_RASTER_LINKEDLIST (LIST_WUI_BURNING, M1_LO  (:,:), M1_HI  (:,:), F_METEOROLOGY, 1)
+               CALL INTERP_RASTER_LINKEDLIST (LIST_WUI_BURNING, M10_LO (:,:), M10_HI (:,:), F_METEOROLOGY, 2)
+               CALL INTERP_RASTER_LINKEDLIST (LIST_WUI_BURNING, M100_LO(:,:), M100_HI(:,:), F_METEOROLOGY, 3)
+               CALL INTERP_RASTER_LINKEDLIST (LIST_WUI_BURNING, MLH_LO (:,:), MLH_HI (:,:), F_METEOROLOGY, 4)
+               CALL INTERP_RASTER_LINKEDLIST (LIST_WUI_BURNING, MLW_LO (:,:), MLW_HI (:,:), F_METEOROLOGY, 5)
+               CALL INTERP_RASTER_LINKEDLIST (LIST_WUI_BURNING, FMC_LO (:,:), FMC_HI (:,:), F_METEOROLOGY, 6)
+               CALL INTERP_RASTER_LINKEDLIST (LIST_WUI_BURNING, WS20_LO(:,:), WS20_HI(:,:), F_METEOROLOGY, 7)
+            ENDIF
+            
+            CALL INTERP_WD_RASTER(LIST_WUI_BURNING, WD20_LO(:,:), WD20_HI(:,:), F_METEOROLOGY)
+
+            L_WUI_P => LIST_WUI_BURNING%HEAD
+            DO I = 1, LIST_WUI_BURNING%NUM_NODES
+               IX = L_WUI_P%IX
+               IY = L_WUI_P%IY
+               CALL ELLIPSE_UCB(L_WUI_P)
+               ! Skip non-burning pixels
+               IF (PHIP(IX,IY) .GT. 0.) THEN
+                  L_WUI_P => L_WUI_P%NEXT
+                  CYCLE
+               ELSE
+                  L_WUI_P%TIME_OF_ARRIVAL=TIME_OF_ARRIVAL(IX,IY)
+               ENDIF
+               ! Prepare vegetative cell in WUI for ellipse/heat flux calculation
+               IF (L_WUI_P%IFBFM .NE. 91) THEN
+                  if (trim(SURFACE_SPREAD_MODEL) .eq. "ROTHERMEL") then
+                     CALL ROTHERMEL_SURFACE_SPREAD_RATE(LIST_WUI_BURNING, L_WUI_P)
+                  else if (trim(SURFACE_SPREAD_MODEL) .eq. "CFFDRS") then
+                     CALL CFFDRS_SPREAD_RATE(LIST_WUI_BURNING, L_WUI_P, daily_bui(DAY_OF_SIM))
+                  ENDIF
+                  DO ISTEP=1,2
+                     ! Calcaulate components of normal vector
+                     CALL CALC_NORMAL_VECTORS (ISTEP, HALFRCELLSIZE)
+
+                     ! Calculate x and y components of velocity from elliptical spread dimensions
+                     CALL UX_AND_UY_ELLIPTICAL(LIST_WUI_BURNING, LIST_WUI_BURNING, 1.0, ISTEP, T)
+                     
+                     call UPDATE_LOCAL_SPREAD_PROPERTIES(LIST_WUI_BURNING, L_WUI_P)
+                  ENDDO
+               ENDIF   
+               CALL HRR_TRANSIENT(L_WUI_P, T)
+               CALL CALC_WUI_HEATFLUX(L_WUI_P, NX, NY)
+           
+               HRR_TRANSIENT_MAP(IX,IY) = L_WUI_P%HRR_TRANSIENT
+
+               L_WUI_P => L_WUI_P%NEXT
+            ENDDO
+         ENDIF
+#endif
+
 #ifdef _SUPPRESSION
          IF (ENABLE_EXTENDED_ATTACK) SUPP(0)%ACRES = ACRES
 #endif
@@ -565,7 +662,12 @@ DO WHILE (T .le. totalDuration)
          IF (ITIMESTEP .EQ. 1) THEN
             CALL TAG_BAND(NX,NY,IX_IGN,IY_IGN,T)
             CALL APPEND(LIST_BURNED,IX_IGN,IY_IGN,T)
-            CALL APPEND_TO_DYNAMIC_ARRAY(IX_IGN,IY_IGN, LIST_BURNED%NUM_NODES, DYNAMIC_ARRAY)
+#ifdef _WUI
+            IF (USE_BLDG_SPREAD_MODEL .AND. BLDG_SPREAD_MODEL_TYPE .EQ. 2) THEN
+               ! Tag WUI cells
+               CALL TAG_WUI(NX, NY, IX_IGN, IY_IGN, T) 
+            ENDIF
+#endif
          ENDIF
       ENDIF
 
@@ -578,8 +680,12 @@ DO WHILE (T .le. totalDuration)
                IY_IGN = IROW_FROM_Y(Y_IGN(I),ANALYSIS_YLLCORNER,ANALYSIS_CELLSIZE)
                CALL TAG_BAND(NX,NY,IX_IGN,IY_IGN,T)
                CALL APPEND(LIST_BURNED,IX_IGN,IY_IGN,T) ! Yiren DEBUG
-               CALL APPEND_TO_DYNAMIC_ARRAY(IX_IGN,IY_IGN, LIST_BURNED%NUM_NODES, DYNAMIC_ARRAY) ! Yiren DEBUG
                PHIP    (IX_IGN,IY_IGN) = -1.0
+
+               IF (USE_BLDG_SPREAD_MODEL .AND. BLDG_SPREAD_MODEL_TYPE .EQ. 2) THEN
+                  ! Tag WUI cells
+                  CALL TAG_WUI(NX, NY, IX_IGN, IY_IGN, T) 
+               ENDIF
             ENDIF
          ENDDO
       ENDIF
@@ -649,8 +755,14 @@ DO WHILE (T .le. totalDuration)
          JUST_INTERPOLATED = .TRUE.
          IF (WX_BILINEAR_INTERPOLATION) THEN
             CALL INTERP_RASTER_LINKEDLIST_BILINEAR(LIST_TAGGED, M1_LO  (:,:), M1_HI  (:,:), F_METEOROLOGY, 1)
+            IF (USE_BLDG_SPREAD_MODEL .AND. (BLDG_SPREAD_MODEL_TYPE .EQ. 2)) THEN
+               CALL INTERP_RASTER_LINKEDLIST_BILINEAR(LIST_WUI_BURNING, M1_LO  (:,:), M1_HI  (:,:), F_METEOROLOGY, 1)
+            ENDIF
          ELSE
             CALL INTERP_RASTER_LINKEDLIST(LIST_TAGGED, M1_LO  (:,:), M1_HI  (:,:), F_METEOROLOGY, 1)
+            IF (USE_BLDG_SPREAD_MODEL .AND. (BLDG_SPREAD_MODEL_TYPE .EQ. 2)) THEN
+               CALL INTERP_RASTER_LINKEDLIST(LIST_WUI_BURNING, M1_LO  (:,:), M1_HI  (:,:), F_METEOROLOGY, 1)
+            ENDIF
          ENDIF
       ENDIF
 
@@ -659,8 +771,14 @@ DO WHILE (T .le. totalDuration)
          JUST_INTERPOLATED = .TRUE.
          IF (WX_BILINEAR_INTERPOLATION) THEN
             CALL INTERP_RASTER_LINKEDLIST_BILINEAR(LIST_TAGGED, M10_LO (:,:), M10_HI (:,:), F_METEOROLOGY, 2)
+            IF (USE_BLDG_SPREAD_MODEL .AND. (BLDG_SPREAD_MODEL_TYPE .EQ. 2)) THEN
+               CALL INTERP_RASTER_LINKEDLIST_BILINEAR(LIST_WUI_BURNING, M10_LO (:,:), M10_HI (:,:), F_METEOROLOGY, 2)
+            ENDIF
          ELSE
             CALL INTERP_RASTER_LINKEDLIST(LIST_TAGGED, M10_LO (:,:), M10_HI (:,:), F_METEOROLOGY, 2)
+            IF (USE_BLDG_SPREAD_MODEL .AND. (BLDG_SPREAD_MODEL_TYPE .EQ. 2)) THEN
+               CALL INTERP_RASTER_LINKEDLIST(LIST_WUI_BURNING, M10_LO (:,:), M10_HI (:,:), F_METEOROLOGY, 2)
+            ENDIF
          ENDIF
       ENDIF
 
@@ -669,8 +787,14 @@ DO WHILE (T .le. totalDuration)
          JUST_INTERPOLATED = .TRUE.
          IF (WX_BILINEAR_INTERPOLATION) THEN
             CALL INTERP_RASTER_LINKEDLIST_BILINEAR(LIST_TAGGED, M100_LO(:,:), M100_HI(:,:), F_METEOROLOGY, 3)
+            IF (USE_BLDG_SPREAD_MODEL .AND. (BLDG_SPREAD_MODEL_TYPE .EQ. 2)) THEN
+               CALL INTERP_RASTER_LINKEDLIST_BILINEAR(LIST_WUI_BURNING, M100_LO(:,:), M100_HI(:,:), F_METEOROLOGY, 3)
+            ENDIF
          ELSE
             CALL INTERP_RASTER_LINKEDLIST(LIST_TAGGED, M100_LO(:,:), M100_HI(:,:), F_METEOROLOGY, 3)
+            IF (USE_BLDG_SPREAD_MODEL .AND. (BLDG_SPREAD_MODEL_TYPE .EQ. 2)) THEN
+               CALL INTERP_RASTER_LINKEDLIST(LIST_WUI_BURNING, M100_LO(:,:), M100_HI(:,:), F_METEOROLOGY, 3)
+            ENDIF
          ENDIF
       ENDIF
 
@@ -679,8 +803,14 @@ DO WHILE (T .le. totalDuration)
          JUST_INTERPOLATED = .TRUE.
          IF (WX_BILINEAR_INTERPOLATION) THEN
             CALL INTERP_RASTER_LINKEDLIST_BILINEAR(LIST_TAGGED, MLH_LO (:,:), MLH_HI (:,:), F_METEOROLOGY, 4)
+            IF (USE_BLDG_SPREAD_MODEL .AND. (BLDG_SPREAD_MODEL_TYPE .EQ. 2)) THEN
+               CALL INTERP_RASTER_LINKEDLIST_BILINEAR(LIST_WUI_BURNING, MLH_LO (:,:), MLH_HI (:,:), F_METEOROLOGY, 4)
+            ENDIF
          ELSE
             CALL INTERP_RASTER_LINKEDLIST(LIST_TAGGED, MLH_LO (:,:), MLH_HI (:,:), F_METEOROLOGY, 4)
+            IF (USE_BLDG_SPREAD_MODEL .AND. (BLDG_SPREAD_MODEL_TYPE .EQ. 2)) THEN
+               CALL INTERP_RASTER_LINKEDLIST(LIST_WUI_BURNING, MLH_LO (:,:), MLH_HI (:,:), F_METEOROLOGY, 4)
+            ENDIF
          ENDIF
       ENDIF
 
@@ -689,8 +819,14 @@ DO WHILE (T .le. totalDuration)
          JUST_INTERPOLATED = .TRUE.
          IF (WX_BILINEAR_INTERPOLATION) THEN
             CALL INTERP_RASTER_LINKEDLIST_BILINEAR(LIST_TAGGED, MLW_LO (:,:), MLW_HI (:,:), F_METEOROLOGY, 5)
+            IF (USE_BLDG_SPREAD_MODEL .AND. (BLDG_SPREAD_MODEL_TYPE .EQ. 2)) THEN
+               CALL INTERP_RASTER_LINKEDLIST_BILINEAR(LIST_WUI_BURNING, MLW_LO (:,:), MLW_HI (:,:), F_METEOROLOGY, 5)
+            ENDIF
          ELSE
             CALL INTERP_RASTER_LINKEDLIST(LIST_TAGGED, MLW_LO (:,:), MLW_HI (:,:), F_METEOROLOGY, 5)
+            IF (USE_BLDG_SPREAD_MODEL .AND. (BLDG_SPREAD_MODEL_TYPE .EQ. 2)) THEN
+               CALL INTERP_RASTER_LINKEDLIST(LIST_WUI_BURNING, MLW_LO (:,:), MLW_HI (:,:), F_METEOROLOGY, 5)
+            ENDIF
          ENDIF
       ENDIF
 
@@ -699,8 +835,14 @@ DO WHILE (T .le. totalDuration)
          JUST_INTERPOLATED = .TRUE.
          IF (WX_BILINEAR_INTERPOLATION) THEN
             CALL INTERP_RASTER_LINKEDLIST_BILINEAR(LIST_TAGGED, FMC_LO (:,:), FMC_HI (:,:), F_METEOROLOGY, 6)
+            IF (USE_BLDG_SPREAD_MODEL .AND. (BLDG_SPREAD_MODEL_TYPE .EQ. 2)) THEN
+               CALL INTERP_RASTER_LINKEDLIST_BILINEAR(LIST_WUI_BURNING, FMC_LO (:,:), FMC_HI (:,:), F_METEOROLOGY, 6)
+            ENDIF
          ELSE
             CALL INTERP_RASTER_LINKEDLIST(LIST_TAGGED, FMC_LO (:,:), FMC_HI (:,:), F_METEOROLOGY, 6)
+            IF (USE_BLDG_SPREAD_MODEL .AND. (BLDG_SPREAD_MODEL_TYPE .EQ. 2)) THEN
+               CALL INTERP_RASTER_LINKEDLIST(LIST_WUI_BURNING, FMC_LO (:,:), FMC_HI (:,:), F_METEOROLOGY, 6)
+            ENDIF
          ENDIF
       ENDIF
 
@@ -708,13 +850,20 @@ DO WHILE (T .le. totalDuration)
          T_LAST_INTERPOLATE_WIND = T
          JUST_INTERPOLATED = .TRUE.
          IF (WX_BILINEAR_INTERPOLATION) THEN
-            ! CALL INTERP_RASTER_LINKEDLIST_BILINEAR(LIST_TAGGED, WS20_LO(:,:), WS20_HI(:,:), F_METEOROLOGY, 7)
             CALL INTERP_WIND_LINKEDLIST_BILINEAR(LIST_TAGGED, WS20_LO(:,:), WS20_HI(:,:), WD20_LO(:,:), WD20_HI(:,:), F_METEOROLOGY)
+            IF (USE_BLDG_SPREAD_MODEL .AND. (BLDG_SPREAD_MODEL_TYPE .EQ. 2)) THEN
+               CALL INTERP_WIND_LINKEDLIST_BILINEAR(LIST_WUI_BURNING, WS20_LO(:,:), WS20_HI(:,:), WD20_LO(:,:), WD20_HI(:,:), F_METEOROLOGY)
+            ENDIF
          ELSE
             CALL INTERP_RASTER_LINKEDLIST(LIST_TAGGED, WS20_LO(:,:), WS20_HI(:,:), F_METEOROLOGY, 7)
             CALL INTERP_WD_RASTER(LIST_TAGGED, WD20_LO(:,:), WD20_HI(:,:), F_METEOROLOGY)
+
+            IF (USE_BLDG_SPREAD_MODEL .AND. (BLDG_SPREAD_MODEL_TYPE .EQ. 2)) THEN
+               CALL INTERP_RASTER_LINKEDLIST(LIST_WUI_BURNING, WS20_LO(:,:), WS20_HI(:,:), F_METEOROLOGY, 7)
+               CALL INTERP_WD_RASTER(LIST_WUI_BURNING, WD20_LO(:,:), WD20_HI(:,:), F_METEOROLOGY)
+            ENDIF
          ENDIF
-            ! CALL INTERP_WD_RASTER(LIST_TAGGED, WD20_LO(:,:), WD20_HI(:,:), F_METEOROLOGY)
+   !      CALL INTERP_WD_RASTER(LIST_TAGGED, WD20_LO(:,:), WD20_HI(:,:), F_METEOROLOGY)
       ENDIF
 
       IF (WIND_FLUCTUATIONS .AND. T - T_LAST_WIND_FLUCTUATIONS .GE. DT_WIND_FLUCTUATIONS) THEN
@@ -738,6 +887,49 @@ DO WHILE (T .le. totalDuration)
       ! Adjust spread rate for passive and active crown fire (Cruz):
       ! Note that this adjusts spread rate in not only burned cells but nearby cells
       ! that are "about to burn"
+
+#ifdef _WUI
+      ! Refactored WU-E model, call these out of the spreading rate subroutines
+
+      IF (USE_BLDG_SPREAD_MODEL .AND. (BLDG_SPREAD_MODEL_TYPE .EQ. 2) .AND. (LIST_WUI_BURNING%NUM_NODES .GT. 0)) THEN
+         L_WUI_P => LIST_WUI_BURNING%HEAD
+         DO I = 1, LIST_WUI_BURNING%NUM_NODES
+            IX = L_WUI_P%IX
+            IY = L_WUI_P%IY
+            ! Update the ellipse parimeter (does it make sense? Unignited cells has fire perimeter already?)
+            CALL ELLIPSE_UCB(L_WUI_P)
+            ! Skip non-burning pixels
+            IF (PHIP(IX,IY) .GT. 0.) THEN
+               L_WUI_P => L_WUI_P%NEXT
+               CYCLE
+            ELSE
+               L_WUI_P%TIME_OF_ARRIVAL=TIME_OF_ARRIVAL(IX,IY)
+            ENDIF
+            ! Prepare vegetative cell in WUI for ellipse/heat flux calculation
+            IF (L_WUI_P%IFBFM .NE. 91) THEN
+               if (trim(SURFACE_SPREAD_MODEL) .eq. "ROTHERMEL") then
+                  CALL ROTHERMEL_SURFACE_SPREAD_RATE(LIST_WUI_BURNING, L_WUI_P)
+               else if (trim(SURFACE_SPREAD_MODEL) .eq. "CFFDRS") then
+                  CALL CFFDRS_SPREAD_RATE(LIST_WUI_BURNING, L_WUI_P, daily_bui(DAY_OF_SIM))
+               ENDIF
+               DO ISTEP=1,2
+                  ! Calcaulate components of normal vector
+                  CALL CALC_NORMAL_VECTORS (ISTEP, HALFRCELLSIZE)
+
+                  ! Calculate x and y components of velocity from elliptical spread dimensions
+                  CALL UX_AND_UY_ELLIPTICAL(LIST_WUI_BURNING, LIST_WUI_BURNING, 1.0, ISTEP, T)
+                  
+                  call UPDATE_LOCAL_SPREAD_PROPERTIES(LIST_WUI_BURNING, L_WUI_P)
+               ENDDO
+            ENDIF
+            CALL HRR_TRANSIENT(L_WUI_P, T) ! This is to be modified to update HRR_TRANSIENT for all burning cells.
+            CALL CALC_WUI_HEATFLUX(L_WUI_P, NX, NY)
+
+            L_WUI_P => L_WUI_P%NEXT
+         ENDDO
+      ENDIF
+#endif
+
       DO ISTEP = 1, 2
 
          ! Calculate components of normal vector
@@ -745,7 +937,7 @@ DO WHILE (T .le. totalDuration)
          CALL ACCUMULATE_CPU_USAGE(41, IT1, IT2)
 
          ! Calculate x and y components of velocity from elliptical spread dimensions
-         CALL UX_AND_UY_ELLIPTICAL(LIST_TAGGED, LIST_BURNED, SURFACE_ACCELERATION_FACTOR, ISTEP, T, DYNAMIC_ARRAY)
+         CALL UX_AND_UY_ELLIPTICAL(LIST_TAGGED, LIST_BURNED, SURFACE_ACCELERATION_FACTOR, ISTEP, T)
          CALL ACCUMULATE_CPU_USAGE(42, IT1, IT2)
          
          ! Update local spread properties that depend on canopy / fire velocity
@@ -800,7 +992,6 @@ DO WHILE (T .le. totalDuration)
             ENDIF
 
             CALL APPEND(LIST_BURNED, IX, IY, T)
-            CALL APPEND_TO_DYNAMIC_ARRAY(IX, IY, LIST_BURNED%NUM_NODES, DYNAMIC_ARRAY)   !DWI_SU
 
             LIST_BURNED%TAIL%IR                     = C%IR
             LIST_BURNED%TAIL%VS0                    = C%VS0
@@ -828,13 +1019,16 @@ DO WHILE (T .le. totalDuration)
             LIST_BURNED%TAIL%LOCAL_EMBERGEN_DURATION= C%LOCAL_EMBERGEN_DURATION
 
 #ifdef _WUI
-            IF (USE_BLDG_SPREAD_MODEL) LIST_BURNED%TAIL%IBLDGFM = C%IBLDGFM
+            IF (USE_BLDG_SPREAD_MODEL) THEN
+               IF(BLDG_FUEL_MODEL%I2(IX,IY,1) .NE. NO_DATA) THEN
+                  LIST_BURNED%TAIL%IBLDGFM =  BLDG_FUEL_MODEL%I2(IX,IY,1)
+               ELSE
+                  LIST_BURNED%TAIL%IBLDGFM =  1
+               ENDIF
+               ! Tag WUI cells
+               IF(BLDG_SPREAD_MODEL_TYPE .EQ. 2) CALL TAG_WUI(NX, NY, IX, IY, T) 
+            ENDIF
 #endif
-
-!#ifdef _UMDSPOTTING
-!            LIST_BURNED%TAIL%LOCAL_EMBERGEN_DURATION= C%LOCAL_EMBERGEN_DURATION
-!            LIST_BURNED%TAIL%TAU_EMBERGEN = 0.
-!#endif
 
 #ifdef _SMOKE
             IF (ENABLE_SMOKE_OUTPUTS) THEN
@@ -874,11 +1068,7 @@ DO WHILE (T .le. totalDuration)
             IF (ENABLE_SPOTTING .AND. USE_SUPERSEDED_SPOTTING .AND. (.NOT. USE_UMD_SPOTTING_MODEL)) THEN
                CALL_SPOTTING = .FALSE.
                IF(C%IFBFM .EQ. 91) THEN
-#ifdef _WUI
-               ! Refresh transient HRRPUA for Hamada model, to be used in eulerian firebrand model
-                  IF(USE_BLDG_SPREAD_MODEL) CALL HRR_TRANSIENT(C, T)
-#endif               
-                  FLIN = C%HRR_TRANSIENT*ANALYSIS_CELLSIZE+1E-5
+                  FLIN = HRR_TRANSIENT_MAP(C%IX,C%IY)*ANALYSIS_CELLSIZE+1E-5
                ELSE
                   FLIN = C%FLIN_SURFACE
                ENDIF
@@ -944,7 +1134,7 @@ DO WHILE (T .le. totalDuration)
 #endif
 
       CALL ACCUMULATE_CPU_USAGE(45, IT1, IT2)
-
+! Main firebrand ignition and Eulerian ember trajectory integration:
       DO I = 1, N_TO_TAG
          CALL TAG_BAND(NX, NY, IX_TO_TAG(I), IY_TO_TAG(I), T)
       ENDDO
@@ -981,8 +1171,8 @@ DO WHILE (T .le. totalDuration)
                         WRITE(712,'(A)') 'IX_FROM, IY_FROM, IX_TO, IY_TO, TLAUNCH, TIGN'
                      ENDIF
 
-                        WRITE(712,998) SPOTTING_STATS(I)%IX_FROM, SPOTTING_STATS(I)%IY_FROM, IX, IY, SPOTTING_STATS(I)%TLAUNCH, SPOTTING_STATS(I)%TIGN, SPOTTING_STATS(I)%DIST, SPOTTING_STATS(I)%FLIN
-                     ENDIF
+                     WRITE(712,998) SPOTTING_STATS(I)%IX_FROM, SPOTTING_STATS(I)%IY_FROM, IX, IY, SPOTTING_STATS(I)%TLAUNCH, SPOTTING_STATS(I)%TIGN
+                  ENDIF
 
                ENDIF
             ENDDO
@@ -1302,6 +1492,18 @@ DO WHILE (T .le. totalDuration)
       IF (ABS(T - DUMPTIMES(IDUMPCOUNT)) .LE. 0.5*DT .OR. T .GE. DUMPTIMES(IDUMPCOUNT)) THEN
          CALL MAIN_DUMP_ROUTINE(IDUMPCOUNT, NDUMPS, ICASE, T, ACRES)
       ENDIF
+
+#ifdef _WUI
+      IF (USE_BLDG_SPREAD_MODEL .AND. (BLDG_SPREAD_MODEL_TYPE .EQ. 2)) THEN
+         IF (DUMP_FUEL_CONSUMPTION) CALL CALC_FUEL_CONSUMPTION(DT, NX, NY)
+         ! Untag excessive wui nodes
+         CALL UNTAG_CELLS_WUI(T, NX, NY)
+         ! Reset the transient heat flux.
+         TRANSIENT_DFC_WUI(:,:) = 0.
+         TRANSIENT_RADIATION_WUI(:,:) = 0.
+         HRR_TRANSIENT_MAP(:,:) = 0.
+      ENDIF
+#endif
    ENDIF
 
    T = T + DT
@@ -1392,8 +1594,7 @@ DO WHILE (T .le. totalDuration)
                         SURFACE_FIRE(I,J) = 1
 
                         CALL APPEND(LIST_BURNED, I, J, T)
-                        CALL APPEND_TO_DYNAMIC_ARRAY(I, J, LIST_BURNED%NUM_NODES, DYNAMIC_ARRAY) ! Yiren DEBUG
-
+                        
                         STATS_SURFACE_FIRE_AREA(ICASE) = STATS_SURFACE_FIRE_AREA(ICASE) + ACRES_PER_PIXEL
                         STATS_AFFECTED_POPULATION(ICASE) = STATS_AFFECTED_POPULATION(ICASE) + POPULATION_DENSITY%R4(I,J,1)
                      ENDIF
@@ -1670,20 +1871,22 @@ DO
    ENDIF
 
 ! Remove single isolated tagged pixels:
-   IX1 = MAX(1, IX-1)
-   IF (.NOT. TAGGED(IX1,IY) ) THEN
-      IX2 = MIN(NX, IX+1) 
-      IF (.NOT. TAGGED(IX2,IY) ) THEN
-         IY1 = MAX(1, IY-1) 
-         IF (.NOT. TAGGED(IX,IY1)) THEN
-            IY2 = MIN(NY, IY+1)
-            IF (.NOT. TAGGED(IX,IY2)) THEN
-               C%TIME_SUPPRESSED = T
-               NUM_DELETED = NUM_DELETED + 1
-               CALL DELETE_NODE(LIST_TAGGED, C)
-               TAGGED(IX,IY) = .FALSE.
-               C => C%NEXT
-               CYCLE
+   IF(.NOT. USE_BLDG_SPREAD_MODEL) THEN!Additional condition added to avoid isolated burning structures to be removed from the list_tagged 
+      IX1 = MAX(1, IX-1)
+      IF (.NOT. TAGGED(IX1,IY) ) THEN
+         IX2 = MIN(NX, IX+1) 
+         IF (.NOT. TAGGED(IX2,IY) ) THEN
+            IY1 = MAX(1, IY-1) 
+            IF (.NOT. TAGGED(IX,IY1)) THEN
+               IY2 = MIN(NY, IY+1)
+               IF (.NOT. TAGGED(IX,IY2)) THEN
+                  C%TIME_SUPPRESSED = T
+                  NUM_DELETED = NUM_DELETED + 1
+                  CALL DELETE_NODE(LIST_TAGGED, C)
+                  TAGGED(IX,IY) = .FALSE.
+                  C => C%NEXT
+                  CYCLE
+               ENDIF
             ENDIF
          ENDIF
       ENDIF
@@ -1762,15 +1965,13 @@ END SUBROUTINE CALC_NORMAL_VECTORS
 ! *****************************************************************************
 
 ! *****************************************************************************
-SUBROUTINE UX_AND_UY_ELLIPTICAL(L, LB, ACCELERATION_FACTOR, ISTEP, T_ELMFIRE, DYNAMIC_ARRAY)
+SUBROUTINE UX_AND_UY_ELLIPTICAL(L, LB, ACCELERATION_FACTOR, ISTEP, T_ELMFIRE)
 ! *****************************************************************************
 ! Parameter T_ELMFIRE added to update fireline intensity of structures over time
 REAL, INTENT(IN) :: ACCELERATION_FACTOR, T_ELMFIRE
 TYPE(DLL), INTENT(INOUT) :: L, LB
 INTEGER, INTENT(IN) :: ISTEP
 TYPE(NODE), POINTER :: C, LB_P
-
-REAL, ALLOCATABLE, INTENT(INOUT), DIMENSION(:,:) :: DYNAMIC_ARRAY  ! Dynamic array to store IX and IY - DWI_SU
 
 REAL :: PHIMAG, PHIWX, PHIWY, PHIX, PHIY, WSMFEFF, BOH, APHIS, APHIW, SINASPMPI, COSASPMPI, &
         RPHIMAG, SQRT_LOW2_M1
@@ -1779,18 +1980,6 @@ REAL, PARAMETER :: KWPM2_TO_BTUPFT2MIN = 60. * 0.3048 * 0.3048 / 1.055, FTPMIN_T
 LOGICAL :: DONE, CROWN_FIRE_AT_START, CROWN_FIRE_AT_END
 
 C => L%HEAD
-#ifdef _WUI
-IF (USE_BLDG_SPREAD_MODEL .AND. (BLDG_SPREAD_MODEL_TYPE .EQ. 2)) THEN
-   LB_P => LB%HEAD
-
-   DO I = 1, LB%NUM_NODES
-      CALL ELLIPSE_UCB(LB_P)
-      CALL HRR_TRANSIENT(LB_P, T_ELMFIRE)
-      LB_P%FLIN_SURFACE = LB_P%HRR_TRANSIENT*ANALYSIS_CELLSIZE ! kW/m
-      LB_P => LB_P%NEXT
-   ENDDO
-ENDIF
-#endif
 
 IF (ISTEP .EQ. 1) THEN
    DO I = 1, L%NUM_NODES
@@ -1869,7 +2058,7 @@ IF (ISTEP .EQ. 1) THEN
             IF (USE_BLDG_SPREAD_MODEL .AND. C%IFBFM .EQ. 91) THEN
                CONTINUE
                IF (BLDG_SPREAD_MODEL_TYPE .EQ. 1) CALL HAMADA(C) ! GET C%VELOCITY_DMS, C%VBACK & C%LOW
-               IF (BLDG_SPREAD_MODEL_TYPE .EQ. 2) CALL UMD_UCB_BLDG_SPREAD(C, LB, DYNAMIC_ARRAY) ! GET C%VELOCITY_DMS, C%VBACK & C%LOW
+               IF (BLDG_SPREAD_MODEL_TYPE .EQ. 2) CALL UMD_UCB_BLDG_SPREAD(C, T_ELMFIRE) ! GET C%VELOCITY_DMS, C%VBACK & C%LOW
                CONTINUE
             ENDIF
 #endif      
@@ -1919,26 +2108,14 @@ ELSE !ISTEP .EQ. 2
 #endif
 
 #ifdef _WUI                  
-         IF (USE_BLDG_SPREAD_MODEL .AND. BLDG_SPREAD_MODEL_TYPE .EQ. 2 .AND. C%IFBFM .EQ. 91) THEN
-            C%FLIN_SURFACE = C%HRR_TRANSIENT*ANALYSIS_CELLSIZE ! kW/m
-         ENDIF
-         IF (USE_BLDG_SPREAD_MODEL .AND. BLDG_SPREAD_MODEL_TYPE .EQ. 1 .AND. C%IFBFM .EQ. 91) THEN
-            CALL HRR_TRANSIENT(C, T_ELMFIRE)
-            C%FLIN_SURFACE = C%HRR_TRANSIENT*ANALYSIS_CELLSIZE ! kW/m
+         IF (USE_BLDG_SPREAD_MODEL .AND. (C%IFBFM .EQ. 91)) THEN
+            C%FLIN_SURFACE = HRR_TRANSIENT_MAP(C%IX,C%IY)*ANALYSIS_CELLSIZE ! kW/m
          ENDIF
          ! Model type 3: FLIN_SURFACE is already set in BLDG_SPREAD_MODEL_3
 #endif
 
-      ! ELSE
-      !    IF (USE_BLDG_SPREAD_MODEL .AND. (BLDG_SPREAD_MODEL_TYPE .EQ. 2) .AND. (C%IFBFM .EQ. 91)) THEN
-      !       CALL HRR_TRANSIENT(C, T_ELMFIRE)
-      !       C%FLIN_SURFACE = C%HRR_TRANSIENT*ANALYSIS_CELLSIZE ! kW/m
-      !    ENDIF
-
       ENDIF
 
-      ! This is the best place to retrieve C%HRR_TRANSIENT for the output raster
-      
       C => C%NEXT
 
    ENDDO
@@ -2183,6 +2360,134 @@ CONTAINS
 END SUBROUTINE CFL_AND_FLUX_LIMITER
 ! *****************************************************************************
 
+#ifdef _WUI
+! *****************************************************************************
+SUBROUTINE TAG_WUI(NX, NY, IXLOC, IYLOC, T)
+! *****************************************************************************
+
+INTEGER, INTENT(IN) :: NX, NY, IXLOC, IYLOC
+REAL, INTENT(IN) :: T
+INTEGER :: IXTAGSTART, IXTAGSTOP, IYTAGSTART, IYTAGSTOP, IX, IY
+LOGICAL :: CELL_IN_WUI
+
+IXTAGSTART = MAX(3,    IXLOC - BANDTHICKNESS_WUI) 
+IXTAGSTOP  = MIN(NX-2, IXLOC + BANDTHICKNESS_WUI)
+IYTAGSTART = MAX(3,    IYLOC - BANDTHICKNESS_WUI) 
+IYTAGSTOP  = MIN(NY-2, IYLOC + BANDTHICKNESS_WUI)
+
+IF (FBFM%I2(IXLOC, IYLOC, 1) .EQ. 91) THEN
+   ! Tag all cells within the BANDTHICKNESS_WUI surrounding an urban cell to LIST_WUI_BURNING
+   DO IY = IYTAGSTART, IYTAGSTOP
+   DO IX = IXTAGSTART, IXTAGSTOP
+      IF (ISNONBURNABLE(IX,IY)) CYCLE
+      IF (.NOT. TAGGED_WUI(IX,IY) .AND. (.NOT. EVERTAGGED_WUI(IX,IY)) ) THEN 
+         TAGGED_WUI    (IX,IY) = .TRUE.
+         EVERTAGGED_WUI(IX,IY) = .TRUE.
+         CALL APPEND(LIST_WUI_BURNING, IX, IY, T)
+
+         LIST_WUI_BURNING%TAIL%TIME_OF_ARRIVAL = TIME_OF_ARRIVAL(IX,IY)
+      ENDIF
+   ENDDO
+   ENDDO
+ELSE
+   ! Only tag the burning vegetative cells when it is close enough (<BANDTHICKNESS_WUI) to urban cells
+   IF (ISNONBURNABLE(IXLOC, IYLOC)) RETURN
+   IF (.NOT. TAGGED_WUI(IXLOC, IYLOC) .AND. (.NOT. EVERTAGGED_WUI(IXLOC, IYLOC)) ) THEN 
+
+      CELL_IN_WUI = .FALSE.
+      DO IY = IYTAGSTART, IYTAGSTOP
+      DO IX = IXTAGSTART, IXTAGSTOP
+         IF (FBFM%I2(IX,IY,1) .EQ. 91) THEN
+            CELL_IN_WUI = .TRUE.
+            IF (.NOT. TAGGED_WUI(IX,IY) .AND. (.NOT. EVERTAGGED_WUI(IX,IY)) ) THEN 
+               TAGGED_WUI    (IX,IY) = .TRUE.
+               EVERTAGGED_WUI(IX,IY) = .TRUE.
+               CALL APPEND(LIST_WUI_BURNING, IX, IY, T)
+
+               LIST_WUI_BURNING%TAIL%TIME_OF_ARRIVAL = TIME_OF_ARRIVAL(IX,IY)
+            ENDIF
+         ENDIF
+      ENDDO
+      ENDDO
+
+      IF (CELL_IN_WUI) THEN
+         TAGGED_WUI    (IXLOC, IYLOC) = .TRUE.
+         EVERTAGGED_WUI(IXLOC, IYLOC) = .TRUE.
+         CALL APPEND(LIST_WUI_BURNING, IXLOC, IYLOC, T)
+
+         LIST_WUI_BURNING%TAIL%TIME_OF_ARRIVAL = TIME_OF_ARRIVAL(IXLOC, IYLOC)
+      ENDIF
+   ENDIF
+ENDIF
+
+! *****************************************************************************
+END SUBROUTINE TAG_WUI
+! *****************************************************************************
+
+! *****************************************************************************
+SUBROUTINE UNTAG_CELLS_WUI(T, NX, NY)
+! *****************************************************************************
+! Delete WUI nodes when they stop burning:
+! (reach end of design fire curve or heat flux drop below threshold value)
+TYPE(NODE), POINTER :: C => NULL()
+REAL, INTENT(IN) :: T
+INTEGER, INTENT(IN) :: NX, NY
+INTEGER :: IXLOC, IYLOC, IX, IY, IXTAGSTART, IXTAGSTOP, IYTAGSTART, IYTAGSTOP
+REAL :: TOTAL_HEAT_FLUX
+LOGICAL :: UNBURNED_IN_BANDTHICKNESS_WUI
+
+IF (LIST_WUI_BURNING%NUM_NODES .LE. 0) RETURN
+
+C=>LIST_WUI_BURNING%HEAD
+
+DO 
+   IF (LIST_WUI_BURNING%NUM_NODES .LE. 0) EXIT
+   IF (.NOT. ASSOCIATED(C)) EXIT
+! Remove cells that have been reached the end of HRR curve:
+   IXLOC=C%IX
+   IYLOC=C%IY
+   IF (C%BURNED) THEN 
+      CALL DELETE_NODE(LIST_WUI_BURNING, C)
+      C => C%NEXT
+      CYCLE
+   ENDIF
+
+! Remove cells recieve lower-than threshold HF:
+   TOTAL_HEAT_FLUX = TRANSIENT_DFC_WUI(IXLOC,IYLOC)+TRANSIENT_RADIATION_WUI(IXLOC,IYLOC)
+   ! IF (TOTAL_HEAT_FLUX .LE. CRITICL_HF_WUI .AND. TIME_OF_ARRIVAL(IXLOC,IYLOC) .GT. 0. .AND. T-TIME_OF_ARRIVAL(IXLOC,IYLOC) .GT. 3000. ) THEN
+   IF (TIME_OF_ARRIVAL(IXLOC, IYLOC) .GT. 0. .AND. T-TIME_OF_ARRIVAL(IXLOC, IYLOC) .GT. 5000. ) THEN 
+      CALL DELETE_NODE(LIST_WUI_BURNING, C)
+      C => C%NEXT
+      CYCLE
+   ENDIF
+
+! Accelerate calculation, misssing heat flux history
+   IXTAGSTART = MAX(3,    IXLOC - BANDTHICKNESS_WUI) 
+   IXTAGSTOP  = MIN(NX-2, IXLOC + BANDTHICKNESS_WUI)
+   IYTAGSTART = MAX(3,    IYLOC - BANDTHICKNESS_WUI) 
+   IYTAGSTOP  = MIN(NY-2, IYLOC + BANDTHICKNESS_WUI)
+   UNBURNED_IN_BANDTHICKNESS_WUI = .FALSE.
+   DO IY = IYTAGSTART, IYTAGSTOP
+   DO IX = IXTAGSTART, IXTAGSTOP
+      IF (ISNONBURNABLE(IX,IY)) CYCLE
+      IF (PHIP(IX, IY) .GT. 0.) UNBURNED_IN_BANDTHICKNESS_WUI = .TRUE.
+   ENDDO
+   ENDDO
+   IF (.NOT. UNBURNED_IN_BANDTHICKNESS_WUI) THEN 
+      CALL DELETE_NODE(LIST_WUI_BURNING, C)
+      C => C%NEXT
+      CYCLE
+   ENDIF
+
+   C => C%NEXT    
+
+ENDDO
+
+! *****************************************************************************
+END SUBROUTINE UNTAG_CELLS_WUI
+! *****************************************************************************
+#endif
+
 #ifdef _UMDSPOTTING
 ! *****************************************************************************
 SUBROUTINE EULERIAN_SPOTTING_MAIN(NX_ELM, NY_ELM, CELLSIZE_ELM, T_ELMFIRE, DT_ELMFIRE, WS20, MINIMUM_CURRENT_WX_BAND)
@@ -2197,7 +2502,7 @@ TYPE (NODE), POINTER :: C
 INTEGER :: IX, IY
 
 ! Move all trackers forward by 1 level-set time step (tracker trajectories are solved using smaller time steps)
-! It avoids allocating a big table to memorize firebrands will be deposited in the future steps.
+! It avoids allocating a big table to memorize firebrands that will be deposited in the future steps.
 C => LIST_EMBER_TRACKER%HEAD
 DO
    IF (LIST_EMBER_TRACKER%NUM_NODES .LE. 0) EXIT

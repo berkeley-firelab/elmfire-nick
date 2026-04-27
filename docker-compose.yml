@@ -8,6 +8,7 @@ services:
     working_dir: /elmfire/elmfire
     entrypoint: bash
     volumes:
+      - ./:/elmfire/elmfire/
       - ./docker_shared_folder:/elmfire/elmfire/docker_shared_folder
     environment:
       - USE_SLURM=no
