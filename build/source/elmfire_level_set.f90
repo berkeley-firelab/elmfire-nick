@@ -469,7 +469,7 @@ DO WHILE (T .le. totalDuration)
                   ELSE
                      LIST_BURNED%TAIL%IBLDGFM =  1
                   ENDIF
-                  ! Tagged WUI cells.
+                  ! Tagged WUI cells, for use in the refactored WUI spread model
                   IF(BLDG_SPREAD_MODEL_TYPE .EQ. 2) CALL TAG_WUI(NX, NY, IX, IY, T)
                ENDIF
 #endif
@@ -500,7 +500,7 @@ DO WHILE (T .le. totalDuration)
             CALL CALC_NORMAL_VECTORS (ISTEP, HALFRCELLSIZE)
 
             ! Calculate x and y components of velocity from elliptical spread dimensions
-            CALL UX_AND_UY_ELLIPTICAL(LIST_BURNED, LIST_BURNED, 1.0, ISTEP, T)
+            CALL UX_AND_UY_ELLIPTICAL(LIST_BURNED, LIST_BURNED, 1.0, ISTEP, T, DT)
             
             call UPDATE_LOCAL_SPREAD_PROPERTIES(LIST_BURNED, C)
          ENDDO
@@ -512,7 +512,7 @@ DO WHILE (T .le. totalDuration)
          ENDDO
 
 #ifdef _WUI
-         ! Initialize the linked list for WUI
+         ! Initialize the linked list for WUI, following added for the refactored WUI spread model 
          IF (USE_BLDG_SPREAD_MODEL .AND. (BLDG_SPREAD_MODEL_TYPE .EQ. 2) .AND. (LIST_WUI_BURNING%NUM_NODES .GT. 0)) THEN
             IF (WX_BILINEAR_INTERPOLATION) THEN
                CALL INTERP_RASTER_LINKEDLIST_BILINEAR (LIST_WUI_BURNING, M1_LO  (:,:), M1_HI  (:,:), F_METEOROLOGY, 1)
@@ -558,13 +558,13 @@ DO WHILE (T .le. totalDuration)
                      CALL CALC_NORMAL_VECTORS (ISTEP, HALFRCELLSIZE)
 
                      ! Calculate x and y components of velocity from elliptical spread dimensions
-                     CALL UX_AND_UY_ELLIPTICAL(LIST_WUI_BURNING, LIST_WUI_BURNING, 1.0, ISTEP, T)
+                     CALL UX_AND_UY_ELLIPTICAL(LIST_WUI_BURNING, LIST_WUI_BURNING, 1.0, ISTEP, T, DT)
                      
                      call UPDATE_LOCAL_SPREAD_PROPERTIES(LIST_WUI_BURNING, L_WUI_P)
                   ENDDO
                ENDIF   
                CALL HRR_TRANSIENT(L_WUI_P, T)
-               CALL CALC_WUI_HEATFLUX(L_WUI_P, NX, NY)
+               CALL CALC_WUI_HEATFLUX(L_WUI_P, NX, NY, DT)
            
                HRR_TRANSIENT_MAP(IX,IY) = L_WUI_P%HRR_TRANSIENT
 
@@ -917,13 +917,13 @@ DO WHILE (T .le. totalDuration)
                   CALL CALC_NORMAL_VECTORS (ISTEP, HALFRCELLSIZE)
 
                   ! Calculate x and y components of velocity from elliptical spread dimensions
-                  CALL UX_AND_UY_ELLIPTICAL(LIST_WUI_BURNING, LIST_WUI_BURNING, 1.0, ISTEP, T)
+                  CALL UX_AND_UY_ELLIPTICAL(LIST_WUI_BURNING, LIST_WUI_BURNING, 1.0, ISTEP, T, DT)
                   
                   call UPDATE_LOCAL_SPREAD_PROPERTIES(LIST_WUI_BURNING, L_WUI_P)
                ENDDO
             ENDIF
             CALL HRR_TRANSIENT(L_WUI_P, T) ! This is to be modified to update HRR_TRANSIENT for all burning cells.
-            CALL CALC_WUI_HEATFLUX(L_WUI_P, NX, NY)
+            CALL CALC_WUI_HEATFLUX(L_WUI_P, NX, NY, DT)
 
             L_WUI_P => L_WUI_P%NEXT
          ENDDO
@@ -937,7 +937,7 @@ DO WHILE (T .le. totalDuration)
          CALL ACCUMULATE_CPU_USAGE(41, IT1, IT2)
 
          ! Calculate x and y components of velocity from elliptical spread dimensions
-         CALL UX_AND_UY_ELLIPTICAL(LIST_TAGGED, LIST_BURNED, SURFACE_ACCELERATION_FACTOR, ISTEP, T)
+         CALL UX_AND_UY_ELLIPTICAL(LIST_TAGGED, LIST_BURNED, SURFACE_ACCELERATION_FACTOR, ISTEP, T, DT)
          CALL ACCUMULATE_CPU_USAGE(42, IT1, IT2)
          
          ! Update local spread properties that depend on canopy / fire velocity
@@ -1965,10 +1965,10 @@ END SUBROUTINE CALC_NORMAL_VECTORS
 ! *****************************************************************************
 
 ! *****************************************************************************
-SUBROUTINE UX_AND_UY_ELLIPTICAL(L, LB, ACCELERATION_FACTOR, ISTEP, T_ELMFIRE)
+SUBROUTINE UX_AND_UY_ELLIPTICAL(L, LB, ACCELERATION_FACTOR, ISTEP, T_ELMFIRE, DT_ELMFIRE)
 ! *****************************************************************************
 ! Parameter T_ELMFIRE added to update fireline intensity of structures over time
-REAL, INTENT(IN) :: ACCELERATION_FACTOR, T_ELMFIRE
+REAL, INTENT(IN) :: ACCELERATION_FACTOR, T_ELMFIRE, DT_ELMFIRE
 TYPE(DLL), INTENT(INOUT) :: L, LB
 INTEGER, INTENT(IN) :: ISTEP
 TYPE(NODE), POINTER :: C, LB_P
@@ -2058,7 +2058,7 @@ IF (ISTEP .EQ. 1) THEN
             IF (USE_BLDG_SPREAD_MODEL .AND. C%IFBFM .EQ. 91) THEN
                CONTINUE
                IF (BLDG_SPREAD_MODEL_TYPE .EQ. 1) CALL HAMADA(C) ! GET C%VELOCITY_DMS, C%VBACK & C%LOW
-               IF (BLDG_SPREAD_MODEL_TYPE .EQ. 2) CALL UMD_UCB_BLDG_SPREAD(C, T_ELMFIRE) ! GET C%VELOCITY_DMS, C%VBACK & C%LOW
+               IF (BLDG_SPREAD_MODEL_TYPE .EQ. 2) CALL UMD_UCB_BLDG_SPREAD(C, T_ELMFIRE, DT_ELMFIRE) ! GET C%VELOCITY_DMS, C%VBACK & C%LOW
                CONTINUE
             ENDIF
 #endif      
@@ -2429,7 +2429,7 @@ SUBROUTINE UNTAG_CELLS_WUI(T, NX, NY)
 ! *****************************************************************************
 ! Delete WUI nodes when they stop burning:
 ! (reach end of design fire curve or heat flux drop below threshold value)
-TYPE(NODE), POINTER :: C => NULL()
+TYPE(NODE), POINTER :: C => NULL(), NEXT_C => NULL()
 REAL, INTENT(IN) :: T
 INTEGER, INTENT(IN) :: NX, NY
 INTEGER :: IXLOC, IYLOC, IX, IY, IXTAGSTART, IXTAGSTOP, IYTAGSTART, IYTAGSTOP
@@ -2446,18 +2446,23 @@ DO
 ! Remove cells that have been reached the end of HRR curve:
    IXLOC=C%IX
    IYLOC=C%IY
-   IF (C%BURNED) THEN 
+   IF (C%BURNED) THEN
+      NEXT_C => C%NEXT
       CALL DELETE_NODE(LIST_WUI_BURNING, C)
-      C => C%NEXT
+      C => NEXT_C
       CYCLE
    ENDIF
+
 
 ! Remove cells recieve lower-than threshold HF:
    TOTAL_HEAT_FLUX = TRANSIENT_DFC_WUI(IXLOC,IYLOC)+TRANSIENT_RADIATION_WUI(IXLOC,IYLOC)
    ! IF (TOTAL_HEAT_FLUX .LE. CRITICL_HF_WUI .AND. TIME_OF_ARRIVAL(IXLOC,IYLOC) .GT. 0. .AND. T-TIME_OF_ARRIVAL(IXLOC,IYLOC) .GT. 3000. ) THEN
    IF (TIME_OF_ARRIVAL(IXLOC, IYLOC) .GT. 0. .AND. T-TIME_OF_ARRIVAL(IXLOC, IYLOC) .GT. 5000. ) THEN 
+      TAGGED_WUI    (IXLOC,IYLOC) = .FALSE.
+      EVERTAGGED_WUI(IXLOC,IYLOC) = .FALSE.
+      NEXT_C => C%NEXT
       CALL DELETE_NODE(LIST_WUI_BURNING, C)
-      C => C%NEXT
+      C => NEXT_C
       CYCLE
    ENDIF
 
@@ -2474,12 +2479,15 @@ DO
    ENDDO
    ENDDO
    IF (.NOT. UNBURNED_IN_BANDTHICKNESS_WUI) THEN 
+      TAGGED_WUI    (IXLOC,IYLOC) = .FALSE.
+      EVERTAGGED_WUI(IXLOC,IYLOC) = .FALSE.
+      NEXT_C => C%NEXT
       CALL DELETE_NODE(LIST_WUI_BURNING, C)
-      C => C%NEXT
+      C => NEXT_C
       CYCLE
    ENDIF
 
-   C => C%NEXT    
+   C => C%NEXT
 
 ENDDO
 
