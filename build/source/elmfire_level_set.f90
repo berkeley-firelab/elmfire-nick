@@ -199,6 +199,8 @@ DO WHILE (T .le. totalDuration)
             ENDDO
             ALLOCATE(TAGGED_WUI    (1:NX,1:NY)); TAGGED_WUI(:,:) = .FALSE.
             ALLOCATE(EVERTAGGED_WUI(1:NX,1:NY)); EVERTAGGED_WUI(:,:) = .FALSE.
+            ALLOCATE(TEST_INTERFACE_WUI(1:NX,1:NY)); TEST_INTERFACE_WUI(:,:) = .FALSE.
+            ALLOCATE(WTU_SPREAD_WUI(1:NX,1:NY)); WTU_SPREAD_WUI(:,:) = .FALSE.
 
             ALLOCATE(ELLIPSE_PROPERTY_MAP(1:NX,1:NY))
          ENDIF
@@ -500,7 +502,7 @@ DO WHILE (T .le. totalDuration)
             CALL CALC_NORMAL_VECTORS (ISTEP, HALFRCELLSIZE)
 
             ! Calculate x and y components of velocity from elliptical spread dimensions
-            CALL UX_AND_UY_ELLIPTICAL(LIST_BURNED, LIST_BURNED, 1.0, ISTEP, T, DT)
+            CALL UX_AND_UY_ELLIPTICAL(LIST_BURNED, 1.0, ISTEP, DT)
             
             call UPDATE_LOCAL_SPREAD_PROPERTIES(LIST_BURNED, C)
          ENDDO
@@ -546,23 +548,18 @@ DO WHILE (T .le. totalDuration)
                ELSE
                   L_WUI_P%TIME_OF_ARRIVAL=TIME_OF_ARRIVAL(IX,IY)
                ENDIF
-               ! Prepare vegetative cell in WUI for ellipse/heat flux calculation
+               ! Prepare vegetative cell HRRPUA in WUI for ellipse/heat flux calculation
                IF (L_WUI_P%IFBFM .NE. 91) THEN
-                  if (trim(SURFACE_SPREAD_MODEL) .eq. "ROTHERMEL") then
+                  IF (TRIM(SURFACE_SPREAD_MODEL) .EQ. "ROTHERMEL") THEN
                      CALL ROTHERMEL_SURFACE_SPREAD_RATE(LIST_WUI_BURNING, L_WUI_P)
-                  else if (trim(SURFACE_SPREAD_MODEL) .eq. "CFFDRS") then
+                  ELSE IF (TRIM(SURFACE_SPREAD_MODEL) .EQ. "CFFDRS") THEN
                      CALL CFFDRS_SPREAD_RATE(LIST_WUI_BURNING, L_WUI_P, daily_bui(DAY_OF_SIM))
                   ENDIF
-                  DO ISTEP=1,2
-                     ! Calcaulate components of normal vector
-                     CALL CALC_NORMAL_VECTORS (ISTEP, HALFRCELLSIZE)
 
-                     ! Calculate x and y components of velocity from elliptical spread dimensions
-                     CALL UX_AND_UY_ELLIPTICAL(LIST_WUI_BURNING, LIST_WUI_BURNING, 1.0, ISTEP, T, DT)
-                     
-                     call UPDATE_LOCAL_SPREAD_PROPERTIES(LIST_WUI_BURNING, L_WUI_P)
-                  ENDDO
-               ENDIF   
+                  ! Approximate vegetative WU-E source intensity using head-fire FLIN.
+                  L_WUI_P%FLIN_SURFACE = L_WUI_P%FLIN_DMS_SURFACE
+                  L_WUI_P%HRRPUA = L_WUI_P%FLIN_SURFACE / ANALYSIS_CELLSIZE
+               ENDIF
                CALL HRR_TRANSIENT(L_WUI_P, T)
                CALL CALC_WUI_HEATFLUX(L_WUI_P, NX, NY, DT)
            
@@ -660,6 +657,9 @@ DO WHILE (T .le. totalDuration)
          PHIP    (IX_IGN,IY_IGN) = -1.0
          ! IF (ITIMESTEP .EQ. 1) CALL TAG_BAND(NX,NY,IX_IGN,IY_IGN,T)
          IF (ITIMESTEP .EQ. 1) THEN
+            TIME_OF_ARRIVAL(IX_IGN,IY_IGN) = T
+            SURFACE_FIRE(IX_IGN,IY_IGN) = 1
+
             CALL TAG_BAND(NX,NY,IX_IGN,IY_IGN,T)
             CALL APPEND(LIST_BURNED,IX_IGN,IY_IGN,T)
 #ifdef _WUI
@@ -678,9 +678,12 @@ DO WHILE (T .le. totalDuration)
                ALREADY_IGNITED(I) = .TRUE.
                IX_IGN = ICOL_FROM_X(X_IGN(I),ANALYSIS_XLLCORNER,ANALYSIS_CELLSIZE)
                IY_IGN = IROW_FROM_Y(Y_IGN(I),ANALYSIS_YLLCORNER,ANALYSIS_CELLSIZE)
-               CALL TAG_BAND(NX,NY,IX_IGN,IY_IGN,T)
-               CALL APPEND(LIST_BURNED,IX_IGN,IY_IGN,T) ! Yiren DEBUG
                PHIP    (IX_IGN,IY_IGN) = -1.0
+               TIME_OF_ARRIVAL(IX_IGN,IY_IGN) = T
+               SURFACE_FIRE(IX_IGN,IY_IGN) = 1
+
+               CALL TAG_BAND(NX,NY,IX_IGN,IY_IGN,T)
+               CALL APPEND(LIST_BURNED,IX_IGN,IY_IGN,T)
 
                IF (USE_BLDG_SPREAD_MODEL .AND. BLDG_SPREAD_MODEL_TYPE .EQ. 2) THEN
                   ! Tag WUI cells
@@ -905,22 +908,17 @@ DO WHILE (T .le. totalDuration)
             ELSE
                L_WUI_P%TIME_OF_ARRIVAL=TIME_OF_ARRIVAL(IX,IY)
             ENDIF
-            ! Prepare vegetative cell in WUI for ellipse/heat flux calculation
+            ! Prepare vegetative cell HRRPUA in WUI for ellipse/heat flux calculation
             IF (L_WUI_P%IFBFM .NE. 91) THEN
-               if (trim(SURFACE_SPREAD_MODEL) .eq. "ROTHERMEL") then
+               IF (TRIM(SURFACE_SPREAD_MODEL) .EQ. "ROTHERMEL") THEN
                   CALL ROTHERMEL_SURFACE_SPREAD_RATE(LIST_WUI_BURNING, L_WUI_P)
-               else if (trim(SURFACE_SPREAD_MODEL) .eq. "CFFDRS") then
+               ELSE IF (TRIM(SURFACE_SPREAD_MODEL) .EQ. "CFFDRS") THEN
                   CALL CFFDRS_SPREAD_RATE(LIST_WUI_BURNING, L_WUI_P, daily_bui(DAY_OF_SIM))
                ENDIF
-               DO ISTEP=1,2
-                  ! Calcaulate components of normal vector
-                  CALL CALC_NORMAL_VECTORS (ISTEP, HALFRCELLSIZE)
 
-                  ! Calculate x and y components of velocity from elliptical spread dimensions
-                  CALL UX_AND_UY_ELLIPTICAL(LIST_WUI_BURNING, LIST_WUI_BURNING, 1.0, ISTEP, T, DT)
-                  
-                  call UPDATE_LOCAL_SPREAD_PROPERTIES(LIST_WUI_BURNING, L_WUI_P)
-               ENDDO
+               ! Approximate vegetative WU-E source intensity using head-fire FLIN.
+               L_WUI_P%FLIN_SURFACE = L_WUI_P%FLIN_DMS_SURFACE
+               L_WUI_P%HRRPUA = L_WUI_P%FLIN_SURFACE / ANALYSIS_CELLSIZE
             ENDIF
             CALL HRR_TRANSIENT(L_WUI_P, T) ! This is to be modified to update HRR_TRANSIENT for all burning cells.
             CALL CALC_WUI_HEATFLUX(L_WUI_P, NX, NY, DT)
@@ -937,7 +935,7 @@ DO WHILE (T .le. totalDuration)
          CALL ACCUMULATE_CPU_USAGE(41, IT1, IT2)
 
          ! Calculate x and y components of velocity from elliptical spread dimensions
-         CALL UX_AND_UY_ELLIPTICAL(LIST_TAGGED, LIST_BURNED, SURFACE_ACCELERATION_FACTOR, ISTEP, T, DT)
+         CALL UX_AND_UY_ELLIPTICAL(LIST_TAGGED, SURFACE_ACCELERATION_FACTOR, ISTEP, DT)
          CALL ACCUMULATE_CPU_USAGE(42, IT1, IT2)
          
          ! Update local spread properties that depend on canopy / fire velocity
@@ -1017,6 +1015,13 @@ DO WHILE (T .le. totalDuration)
             LIST_BURNED%TAIL%WS20_NOW               = C%WS20_NOW
             LIST_BURNED%TAIL%WD20_NOW               = C%WD20_NOW
             LIST_BURNED%TAIL%LOCAL_EMBERGEN_DURATION= C%LOCAL_EMBERGEN_DURATION
+
+            ! Record transient HRRPUA for burned vegetative cells. WUI cells are updated in the WUI heat flux calculation.
+#ifdef _WUI
+            IF (C%IFBFM .NE. 91 .AND. DUMP_HRR_TRANSIENT) THEN
+               HRR_TRANSIENT_MAP(IX,IY) = C%HRRPUA
+            ENDIF
+#endif
 
 #ifdef _WUI
             IF (USE_BLDG_SPREAD_MODEL) THEN
@@ -1502,6 +1507,8 @@ DO WHILE (T .le. totalDuration)
          TRANSIENT_DFC_WUI(:,:) = 0.
          TRANSIENT_RADIATION_WUI(:,:) = 0.
          HRR_TRANSIENT_MAP(:,:) = 0.
+         TEST_INTERFACE_WUI(:,:) = .FALSE.
+         WTU_SPREAD_WUI(:,:) = .FALSE.
       ENDIF
 #endif
    ENDIF
@@ -1965,13 +1972,13 @@ END SUBROUTINE CALC_NORMAL_VECTORS
 ! *****************************************************************************
 
 ! *****************************************************************************
-SUBROUTINE UX_AND_UY_ELLIPTICAL(L, LB, ACCELERATION_FACTOR, ISTEP, T_ELMFIRE, DT_ELMFIRE)
+SUBROUTINE UX_AND_UY_ELLIPTICAL(L, ACCELERATION_FACTOR, ISTEP, DT_ELMFIRE)
 ! *****************************************************************************
 ! Parameter T_ELMFIRE added to update fireline intensity of structures over time
-REAL, INTENT(IN) :: ACCELERATION_FACTOR, T_ELMFIRE, DT_ELMFIRE
-TYPE(DLL), INTENT(INOUT) :: L, LB
+REAL, INTENT(IN) :: ACCELERATION_FACTOR, DT_ELMFIRE
+TYPE(DLL), INTENT(INOUT) :: L
 INTEGER, INTENT(IN) :: ISTEP
-TYPE(NODE), POINTER :: C, LB_P
+TYPE(NODE), POINTER :: C
 
 REAL :: PHIMAG, PHIWX, PHIWY, PHIX, PHIY, WSMFEFF, BOH, APHIS, APHIW, SINASPMPI, COSASPMPI, &
         RPHIMAG, SQRT_LOW2_M1
@@ -2055,10 +2062,18 @@ IF (ISTEP .EQ. 1) THEN
             ENDIF
             C%VBACK = BOH * C%VELOCITY_DMS
 #ifdef _WUI
+            C%TEST_INTERFACE = .FALSE.
+            C%WTU_SPREAD = .FALSE.
+
+            IF (USE_BLDG_SPREAD_MODEL .AND. BLDG_SPREAD_MODEL_TYPE .EQ. 2 .AND. INTERFACE_MODEL_TYPE .EQ. 2) THEN
+               C%TEST_INTERFACE = TEST_INTERFACE_WUI(C%IX,C%IY)
+               C%WTU_SPREAD = WTU_SPREAD_WUI(C%IX,C%IY)
+            ENDIF
+
             IF (USE_BLDG_SPREAD_MODEL .AND. C%IFBFM .EQ. 91) THEN
                CONTINUE
                IF (BLDG_SPREAD_MODEL_TYPE .EQ. 1) CALL HAMADA(C) ! GET C%VELOCITY_DMS, C%VBACK & C%LOW
-               IF (BLDG_SPREAD_MODEL_TYPE .EQ. 2) CALL UMD_UCB_BLDG_SPREAD(C, T_ELMFIRE, DT_ELMFIRE) ! GET C%VELOCITY_DMS, C%VBACK & C%LOW
+               IF (BLDG_SPREAD_MODEL_TYPE .EQ. 2) CALL UMD_UCB_BLDG_SPREAD(C, DT_ELMFIRE) ! GET C%VELOCITY_DMS, C%VBACK & C%LOW
                CONTINUE
             ENDIF
 #endif      
@@ -2433,7 +2448,7 @@ TYPE(NODE), POINTER :: C => NULL(), NEXT_C => NULL()
 REAL, INTENT(IN) :: T
 INTEGER, INTENT(IN) :: NX, NY
 INTEGER :: IXLOC, IYLOC, IX, IY, IXTAGSTART, IXTAGSTOP, IYTAGSTART, IYTAGSTOP
-REAL :: TOTAL_HEAT_FLUX
+! REAL :: TOTAL_HEAT_FLUX
 LOGICAL :: UNBURNED_IN_BANDTHICKNESS_WUI
 
 IF (LIST_WUI_BURNING%NUM_NODES .LE. 0) RETURN
@@ -2454,10 +2469,11 @@ DO
    ENDIF
 
 
-! Remove cells recieve lower-than threshold HF:
-   TOTAL_HEAT_FLUX = TRANSIENT_DFC_WUI(IXLOC,IYLOC)+TRANSIENT_RADIATION_WUI(IXLOC,IYLOC)
+! Remove stale vegetative WUI cells after their transient HRR has ended:
+   ! TOTAL_HEAT_FLUX = TRANSIENT_DFC_WUI(IXLOC,IYLOC)+TRANSIENT_RADIATION_WUI(IXLOC,IYLOC)
    ! IF (TOTAL_HEAT_FLUX .LE. CRITICL_HF_WUI .AND. TIME_OF_ARRIVAL(IXLOC,IYLOC) .GT. 0. .AND. T-TIME_OF_ARRIVAL(IXLOC,IYLOC) .GT. 3000. ) THEN
-   IF (TIME_OF_ARRIVAL(IXLOC, IYLOC) .GT. 0. .AND. T-TIME_OF_ARRIVAL(IXLOC, IYLOC) .GT. 5000. ) THEN 
+   IF (C%IFBFM .NE. 91 .AND. C%HRR_TRANSIENT .LE. 0. .AND. &
+       TIME_OF_ARRIVAL(IXLOC, IYLOC) .GT. 0. .AND. T-TIME_OF_ARRIVAL(IXLOC, IYLOC) .GT. 5000. ) THEN
       TAGGED_WUI    (IXLOC,IYLOC) = .FALSE.
       EVERTAGGED_WUI(IXLOC,IYLOC) = .FALSE.
       NEXT_C => C%NEXT
