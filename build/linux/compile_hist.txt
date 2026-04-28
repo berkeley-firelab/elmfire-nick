@@ -1,0 +1,1742 @@
+Making elmfire_gnu_mpi_linux
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O3 -unroll -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_vars.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O3 -unroll -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/sort.for
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O3 -unroll -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_subs.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O3 -unroll -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_init.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O3 -unroll -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_namelists.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O3 -unroll -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_spread_rate.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O3 -unroll -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_ignition.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O3 -unroll -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_io.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O3 -unroll -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_spotting.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O3 -unroll -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_suppression.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O3 -unroll -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_spotting_superseded.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O3 -unroll -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_calibration.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O3 -unroll -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_level_set.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O3 -unroll -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire.f90
+mpifort -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O3 -unroll -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none -o elmfire elmfire_vars.o sort.o elmfire_subs.o elmfire_init.o elmfire_namelists.o elmfire_spread_rate.o  elmfire_ignition.o elmfire_io.o elmfire_spotting.o elmfire_suppression.o elmfire_spotting_superseded.o elmfire_calibration.o elmfire_level_set.o elmfire.o
+Making elmfire_gnu_mpi_gprof_linux
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_vars.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/sort.for
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_subs.f90
+../../source/elmfire_subs.f90:1776:24:
+
+ 1776 |    ANALYSIS_CELLSIZE  = abs(dx)
+      |                        1
+Warning: Possible change of value in conversion from REAL(8) to REAL(4) at (1) [-Wconversion]
+../../source/elmfire_subs.f90:1777:24:
+
+ 1777 |    ANALYSIS_XLLCORNER = x0
+      |                        1
+Warning: Possible change of value in conversion from REAL(8) to REAL(4) at (1) [-Wconversion]
+../../source/elmfire_subs.f90:1778:24:
+
+ 1778 |    ANALYSIS_YLLCORNER = y0 + dy * dble(nrows)
+      |                        1
+Warning: Possible change of value in conversion from REAL(8) to REAL(4) at (1) [-Wconversion]
+../../source/elmfire_subs.f90:753:25:
+
+  753 | WDNOW = WDNOW * 180. / PI
+      |                         ^
+Warning: ‘wdnow’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_subs.f90:651:28:
+
+  651 |    WDNOW = WDNOW * 180. / PI
+      |                            ^
+Warning: ‘wdnow’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_subs.f90:255:54:
+
+  255 | RASTER%BANDROWBYTES  = (RASTER%NBITS/8) * RASTER%NCOLS
+      |                                                      ^
+Warning: ‘nbits’ may be used uninitialized [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_init.f90
+../../source/elmfire_init.f90:825:16:
+
+  825 | INTEGER :: IBAND, IROW, ICOL
+      |                ^
+Warning: ‘iband’ may be used uninitialized [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_namelists.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_spread_rate.f90
+../../source/elmfire_spread_rate.f90:364:15:
+
+  364 |          RSO = C%CRITICAL_FLIN /(300*C%SFC)
+      |               1
+Warning: Possible change of value in conversion from REAL(4) to INTEGER(4) at (1) [-Wconversion]
+../../source/elmfire_spread_rate.f90:213:12:
+
+  213 |    aspect = mod(ASP%R4(C%IX,C%IY,1),360.0)
+      |            1
+Warning: Possible change of value in conversion from REAL(4) to INTEGER(4) at (1) [-Wconversion]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_ignition.f90
+../../source/elmfire_ignition.f90:152:65:
+
+  152 |                RCOUNT_NOERC_SUM = RCOUNT_NOERC_SUM + RCOUNT_NOERC
+      |                                                                 ^
+Warning: ‘rcount_noerc’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_io.f90
+../../source/elmfire_io.f90:2719:34:
+
+ 2719 |          FILE_TYPE = CURRENT_VALUE
+      |                                  1
+Warning: CHARACTER expression will be truncated in assignment (64/1024) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2723:35:
+
+ 2723 |          INTERLEAVE = CURRENT_VALUE
+      |                                   1
+Warning: CHARACTER expression will be truncated in assignment (3/1024) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2727:33:
+
+ 2727 |          MAP_INFO = CURRENT_VALUE
+      |                                 1
+Warning: CHARACTER expression will be truncated in assignment (256/1024) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2054:79:
+
+ 2054 | IF (IT .GE.       0 .AND. IT .LT.       10) CTSEC = '000000' // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/13) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2055:79:
+
+ 2055 | IF (IT .GE.      10 .AND. IT .LT.      100) CTSEC = '00000'  // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/12) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2056:79:
+
+ 2056 | IF (IT .GE.     100 .AND. IT .LT.     1000) CTSEC = '0000'   // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/11) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2057:79:
+
+ 2057 | IF (IT .GE.    1000 .AND. IT .LT.    10000) CTSEC = '000'    // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/10) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2058:79:
+
+ 2058 | IF (IT .GE.   10000 .AND. IT .LT.   100000) CTSEC = '00'     // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/9) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2059:79:
+
+ 2059 | IF (IT .GE.  100000 .AND. IT .LT.  1000000) CTSEC = '0'      // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/8) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1994:79:
+
+ 1994 | IF (IT .GE.       0 .AND. IT .LT.       10) CTSEC = '000000' // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/13) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1995:79:
+
+ 1995 | IF (IT .GE.      10 .AND. IT .LT.      100) CTSEC = '00000'  // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/12) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1996:79:
+
+ 1996 | IF (IT .GE.     100 .AND. IT .LT.     1000) CTSEC = '0000'   // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/11) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1997:79:
+
+ 1997 | IF (IT .GE.    1000 .AND. IT .LT.    10000) CTSEC = '000'    // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/10) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1998:79:
+
+ 1998 | IF (IT .GE.   10000 .AND. IT .LT.   100000) CTSEC = '00'     // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/9) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1999:79:
+
+ 1999 | IF (IT .GE.  100000 .AND. IT .LT.  1000000) CTSEC = '0'      // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/8) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1361:42:
+
+ 1361 |             RASTER%PIXELTYPE='UNSIGNEDINT'
+      |                                          1
+Warning: CHARACTER expression will be truncated in assignment (10/11) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1730:25:
+
+ 1730 |       RASTER%I2(:,:,:) = RASTER%NODATA_VALUE
+      |                         1
+Warning: Possible change of value in conversion from REAL(4) to INTEGER(2) at (1) [-Wconversion]
+../../source/elmfire_io.f90:733:83:
+
+  733 |       IF (IRANK_WORLD .EQ. PARALLEL_IO_RANK(32)) BLDG_FUEL_MODEL%I2      (:,:,:) = BLDG_FUEL_MODEL_CONSTANT
+      |                                                                                   1
+Warning: Possible change of value in conversion from INTEGER(4) to INTEGER(2) at (1) [-Wconversion]
+../../source/elmfire_io.f90:506:83:
+
+  506 |       IF (IRANK_WORLD .EQ. PARALLEL_IO_RANK(32)) BLDG_FUEL_MODEL%I2      (:,:,:) = BLDG_FUEL_MODEL_CONSTANT
+      |                                                                                   1
+Warning: Possible change of value in conversion from INTEGER(4) to INTEGER(2) at (1) [-Wconversion]
+../../source/elmfire_io.f90:1780:54:
+
+ 1780 | INTEGER :: IOS, IBAND, ITILE, JTILE, IBAND_OUT, NBANDS
+      |                                                      ^
+Warning: ‘nbands’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_spotting.f90
+../../source/elmfire_spotting.f90:722:38:
+
+  722 |    X(1:2)   = X(1:2) + UWIND(1:2) * DT
+      |                                      ^
+Warning: ‘uwind[1]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:580:34:
+
+  580 | REAL, DIMENSION(3) :: X, X0, UWIND, OFFSET
+      |                                  ^
+note: ‘uwind[1]’ was declared here
+../../source/elmfire_spotting.f90:722:38:
+
+  722 |    X(1:2)   = X(1:2) + UWIND(1:2) * DT
+      |                                      ^
+Warning: ‘uwind[0]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:580:34:
+
+  580 | REAL, DIMENSION(3) :: X, X0, UWIND, OFFSET
+      |                                  ^
+note: ‘uwind[0]’ was declared here
+../../source/elmfire_spotting.f90:457:41:
+
+  457 |       X(1:2)   = X(1:2) + UWIND(1:2) * DT
+      |                                         ^
+Warning: ‘uwind[1]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:309:34:
+
+  309 | REAL, DIMENSION(3) :: X, X0, UWIND, OFFSET
+      |                                  ^
+note: ‘uwind[1]’ was declared here
+../../source/elmfire_spotting.f90:457:41:
+
+  457 |       X(1:2)   = X(1:2) + UWIND(1:2) * DT
+      |                                         ^
+Warning: ‘uwind[0]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:309:34:
+
+  309 | REAL, DIMENSION(3) :: X, X0, UWIND, OFFSET
+      |                                  ^
+note: ‘uwind[0]’ was declared here
+../../source/elmfire_spotting.f90:342:71:
+
+  342 |       HIGH = SARDOY_PDFINV(X_MAX+CELLSIZE_ELM*0.5, MU_DIST, SIGMA_DIST)
+      |                                                                       ^
+Warning: ‘x_max’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:308:77:
+
+  308 | REAL :: R0, IGNPROB, WD1TO, WD2TO, WDTO, WS20, T, TSTOP, DT, HIGH, LOW, X_MAX, P_IGNITION, LNORM_QUANTILE, QUANTILE
+      |                                                                             ^
+note: ‘x_max’ was declared here
+../../source/elmfire_spotting.f90:110:56:
+
+  110 |    LIST_EMBER_TRACKER%TAIL%NUM_EMBERS     = NEMBERS_REAL
+      |                                                        ^
+Warning: ‘nembers_real’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:61:21:
+
+   61 |          NEMBERS_REAL, P, SARDOY_PARAMETERS(1:4)
+      |                     ^
+note: ‘nembers_real’ was declared here
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_suppression.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_spotting_superseded.f90
+../../source/elmfire_spotting_superseded.f90:258:53:
+
+  258 |       IF (USE_EMBER_COUNT_BINS) EMBER_COUNT(IX,IY) = EMBER_COUNT(IX,IY) + 1
+      |                                                     1
+Warning: Possible change of value in conversion from INTEGER(4) to INTEGER(2) at (1) [-Wconversion]
+../../source/elmfire_spotting_superseded.f90:243:39:
+
+  243 |       IF (ABS(UWIND(1)) .LT. 1E-6 .AND. ABS(UWIND(2)) .LT. 1E-6) T=9E9
+      |                                       ^
+Warning: ‘uwind[1]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting_superseded.f90:243:39: Warning: ‘uwind[0]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting_superseded.f90:247:33:
+
+  247 |       DIST     = DIST + WS20 * DT
+      |                                 ^
+Warning: ‘ws20’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting_superseded.f90:243:39:
+
+  243 |       IF (ABS(UWIND(1)) .LT. 1E-6 .AND. ABS(UWIND(2)) .LT. 1E-6) T=9E9
+      |                                       ^
+Warning: ‘uwind0[1]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting_superseded.f90:243:39: Warning: ‘uwind0[0]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_calibration.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_level_set.f90
+../../source/elmfire_level_set.f90:95:19:
+
+   95 |    totalDuration = SIMULATION_TSTOP
+      |                   1
+Warning: Possible change of value in conversion from REAL(4) to INTEGER(4) at (1) [-Wconversion]
+../../source/elmfire_level_set.f90:97:19:
+
+   97 |    totalDuration = WS%NBANDS * DT_METEOROLOGY
+      |                   1
+Warning: Possible change of value in conversion from REAL(4) to INTEGER(4) at (1) [-Wconversion]
+../../source/elmfire_level_set.f90:1484:21:
+
+ 1484 |       ELAPSED_TIME = REAL(COUNT_END - COUNT_START, 8) / REAL(CLOCK_COUNT_RATE, 8)
+      |                     1
+Warning: Possible change of value in conversion from REAL(8) to REAL(4) at (1) [-Wconversion]
+../../source/elmfire_level_set.f90:1333:95:
+
+ 1333 |       IF (ENABLE_EXTENDED_ATTACK .AND. T - T_LAST_EXTENDED_ATTACK .GT. DT_EXTENDED_ATTACK .AND. LIST_BURNED%NUM_NODES .GT. 0) THEN
+      |                                                                                               ^
+Warning: ‘t_last_extended_attack’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire.f90
+../../source/elmfire.f90:846:73:
+
+  846 |                                  FLAME_LENGTH_BIN_COUNT%I2(IX,IY,IBIN) = FLAME_LENGTH_BIN_COUNT%I2(IX,IY,IBIN) + 1
+      |                                                                         1
+Warning: Possible change of value in conversion from INTEGER(4) to INTEGER(2) at (1) [-Wconversion]
+../../source/elmfire.f90:882:63:
+
+  882 |                               EMBER_BIN_COUNT%I2(IX,IY,IBIN) = EMBER_BIN_COUNT%I2(IX,IY,IBIN) + 1
+      |                                                               1
+Warning: Possible change of value in conversion from INTEGER(4) to INTEGER(2) at (1) [-Wconversion]
+mpifort -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none -o elmfire_gprof elmfire_vars.o sort.o elmfire_subs.o elmfire_init.o elmfire_namelists.o elmfire_spread_rate.o  elmfire_ignition.o elmfire_io.o elmfire_spotting.o elmfire_suppression.o elmfire_spotting_superseded.o elmfire_calibration.o elmfire_level_set.o elmfire.o
+Making elmfire_gnu_mpi_block_linux
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_vars.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/sort.for
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_subs.f90
+../../source/elmfire_subs.f90:1776:24:
+
+ 1776 |    ANALYSIS_CELLSIZE  = abs(dx)
+      |                        1
+Warning: Possible change of value in conversion from REAL(8) to REAL(4) at (1) [-Wconversion]
+../../source/elmfire_subs.f90:1777:24:
+
+ 1777 |    ANALYSIS_XLLCORNER = x0
+      |                        1
+Warning: Possible change of value in conversion from REAL(8) to REAL(4) at (1) [-Wconversion]
+../../source/elmfire_subs.f90:1778:24:
+
+ 1778 |    ANALYSIS_YLLCORNER = y0 + dy * dble(nrows)
+      |                        1
+Warning: Possible change of value in conversion from REAL(8) to REAL(4) at (1) [-Wconversion]
+../../source/elmfire_subs.f90:753:25:
+
+  753 | WDNOW = WDNOW * 180. / PI
+      |                         ^
+Warning: ‘wdnow’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_subs.f90:651:28:
+
+  651 |    WDNOW = WDNOW * 180. / PI
+      |                            ^
+Warning: ‘wdnow’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_subs.f90:255:54:
+
+  255 | RASTER%BANDROWBYTES  = (RASTER%NBITS/8) * RASTER%NCOLS
+      |                                                      ^
+Warning: ‘nbits’ may be used uninitialized [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_init.f90
+../../source/elmfire_init.f90:825:16:
+
+  825 | INTEGER :: IBAND, IROW, ICOL
+      |                ^
+Warning: ‘iband’ may be used uninitialized [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_namelists.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_spread_rate.f90
+../../source/elmfire_spread_rate.f90:364:15:
+
+  364 |          RSO = C%CRITICAL_FLIN /(300*C%SFC)
+      |               1
+Warning: Possible change of value in conversion from REAL(4) to INTEGER(4) at (1) [-Wconversion]
+../../source/elmfire_spread_rate.f90:213:12:
+
+  213 |    aspect = mod(ASP%R4(C%IX,C%IY,1),360.0)
+      |            1
+Warning: Possible change of value in conversion from REAL(4) to INTEGER(4) at (1) [-Wconversion]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_ignition.f90
+../../source/elmfire_ignition.f90:152:65:
+
+  152 |                RCOUNT_NOERC_SUM = RCOUNT_NOERC_SUM + RCOUNT_NOERC
+      |                                                                 ^
+Warning: ‘rcount_noerc’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_io.f90
+../../source/elmfire_io.f90:2719:34:
+
+ 2719 |          FILE_TYPE = CURRENT_VALUE
+      |                                  1
+Warning: CHARACTER expression will be truncated in assignment (64/1024) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2723:35:
+
+ 2723 |          INTERLEAVE = CURRENT_VALUE
+      |                                   1
+Warning: CHARACTER expression will be truncated in assignment (3/1024) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2727:33:
+
+ 2727 |          MAP_INFO = CURRENT_VALUE
+      |                                 1
+Warning: CHARACTER expression will be truncated in assignment (256/1024) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2054:79:
+
+ 2054 | IF (IT .GE.       0 .AND. IT .LT.       10) CTSEC = '000000' // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/13) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2055:79:
+
+ 2055 | IF (IT .GE.      10 .AND. IT .LT.      100) CTSEC = '00000'  // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/12) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2056:79:
+
+ 2056 | IF (IT .GE.     100 .AND. IT .LT.     1000) CTSEC = '0000'   // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/11) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2057:79:
+
+ 2057 | IF (IT .GE.    1000 .AND. IT .LT.    10000) CTSEC = '000'    // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/10) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2058:79:
+
+ 2058 | IF (IT .GE.   10000 .AND. IT .LT.   100000) CTSEC = '00'     // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/9) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2059:79:
+
+ 2059 | IF (IT .GE.  100000 .AND. IT .LT.  1000000) CTSEC = '0'      // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/8) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1994:79:
+
+ 1994 | IF (IT .GE.       0 .AND. IT .LT.       10) CTSEC = '000000' // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/13) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1995:79:
+
+ 1995 | IF (IT .GE.      10 .AND. IT .LT.      100) CTSEC = '00000'  // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/12) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1996:79:
+
+ 1996 | IF (IT .GE.     100 .AND. IT .LT.     1000) CTSEC = '0000'   // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/11) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1997:79:
+
+ 1997 | IF (IT .GE.    1000 .AND. IT .LT.    10000) CTSEC = '000'    // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/10) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1998:79:
+
+ 1998 | IF (IT .GE.   10000 .AND. IT .LT.   100000) CTSEC = '00'     // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/9) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1999:79:
+
+ 1999 | IF (IT .GE.  100000 .AND. IT .LT.  1000000) CTSEC = '0'      // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/8) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1361:42:
+
+ 1361 |             RASTER%PIXELTYPE='UNSIGNEDINT'
+      |                                          1
+Warning: CHARACTER expression will be truncated in assignment (10/11) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1730:25:
+
+ 1730 |       RASTER%I2(:,:,:) = RASTER%NODATA_VALUE
+      |                         1
+Warning: Possible change of value in conversion from REAL(4) to INTEGER(2) at (1) [-Wconversion]
+../../source/elmfire_io.f90:733:83:
+
+  733 |       IF (IRANK_WORLD .EQ. PARALLEL_IO_RANK(32)) BLDG_FUEL_MODEL%I2      (:,:,:) = BLDG_FUEL_MODEL_CONSTANT
+      |                                                                                   1
+Warning: Possible change of value in conversion from INTEGER(4) to INTEGER(2) at (1) [-Wconversion]
+../../source/elmfire_io.f90:506:83:
+
+  506 |       IF (IRANK_WORLD .EQ. PARALLEL_IO_RANK(32)) BLDG_FUEL_MODEL%I2      (:,:,:) = BLDG_FUEL_MODEL_CONSTANT
+      |                                                                                   1
+Warning: Possible change of value in conversion from INTEGER(4) to INTEGER(2) at (1) [-Wconversion]
+../../source/elmfire_io.f90:1780:54:
+
+ 1780 | INTEGER :: IOS, IBAND, ITILE, JTILE, IBAND_OUT, NBANDS
+      |                                                      ^
+Warning: ‘nbands’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_spotting.f90
+../../source/elmfire_spotting.f90:722:38:
+
+  722 |    X(1:2)   = X(1:2) + UWIND(1:2) * DT
+      |                                      ^
+Warning: ‘uwind[1]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:580:34:
+
+  580 | REAL, DIMENSION(3) :: X, X0, UWIND, OFFSET
+      |                                  ^
+note: ‘uwind[1]’ was declared here
+../../source/elmfire_spotting.f90:722:38:
+
+  722 |    X(1:2)   = X(1:2) + UWIND(1:2) * DT
+      |                                      ^
+Warning: ‘uwind[0]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:580:34:
+
+  580 | REAL, DIMENSION(3) :: X, X0, UWIND, OFFSET
+      |                                  ^
+note: ‘uwind[0]’ was declared here
+../../source/elmfire_spotting.f90:457:41:
+
+  457 |       X(1:2)   = X(1:2) + UWIND(1:2) * DT
+      |                                         ^
+Warning: ‘uwind[1]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:309:34:
+
+  309 | REAL, DIMENSION(3) :: X, X0, UWIND, OFFSET
+      |                                  ^
+note: ‘uwind[1]’ was declared here
+../../source/elmfire_spotting.f90:457:41:
+
+  457 |       X(1:2)   = X(1:2) + UWIND(1:2) * DT
+      |                                         ^
+Warning: ‘uwind[0]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:309:34:
+
+  309 | REAL, DIMENSION(3) :: X, X0, UWIND, OFFSET
+      |                                  ^
+note: ‘uwind[0]’ was declared here
+../../source/elmfire_spotting.f90:342:71:
+
+  342 |       HIGH = SARDOY_PDFINV(X_MAX+CELLSIZE_ELM*0.5, MU_DIST, SIGMA_DIST)
+      |                                                                       ^
+Warning: ‘x_max’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:308:77:
+
+  308 | REAL :: R0, IGNPROB, WD1TO, WD2TO, WDTO, WS20, T, TSTOP, DT, HIGH, LOW, X_MAX, P_IGNITION, LNORM_QUANTILE, QUANTILE
+      |                                                                             ^
+note: ‘x_max’ was declared here
+../../source/elmfire_spotting.f90:110:56:
+
+  110 |    LIST_EMBER_TRACKER%TAIL%NUM_EMBERS     = NEMBERS_REAL
+      |                                                        ^
+Warning: ‘nembers_real’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:61:21:
+
+   61 |          NEMBERS_REAL, P, SARDOY_PARAMETERS(1:4)
+      |                     ^
+note: ‘nembers_real’ was declared here
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_suppression.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_spotting_superseded.f90
+../../source/elmfire_spotting_superseded.f90:258:53:
+
+  258 |       IF (USE_EMBER_COUNT_BINS) EMBER_COUNT(IX,IY) = EMBER_COUNT(IX,IY) + 1
+      |                                                     1
+Warning: Possible change of value in conversion from INTEGER(4) to INTEGER(2) at (1) [-Wconversion]
+../../source/elmfire_spotting_superseded.f90:243:39:
+
+  243 |       IF (ABS(UWIND(1)) .LT. 1E-6 .AND. ABS(UWIND(2)) .LT. 1E-6) T=9E9
+      |                                       ^
+Warning: ‘uwind[1]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting_superseded.f90:243:39: Warning: ‘uwind[0]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting_superseded.f90:247:33:
+
+  247 |       DIST     = DIST + WS20 * DT
+      |                                 ^
+Warning: ‘ws20’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting_superseded.f90:243:39:
+
+  243 |       IF (ABS(UWIND(1)) .LT. 1E-6 .AND. ABS(UWIND(2)) .LT. 1E-6) T=9E9
+      |                                       ^
+Warning: ‘uwind0[1]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting_superseded.f90:243:39: Warning: ‘uwind0[0]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_calibration.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_level_set.f90
+../../source/elmfire_level_set.f90:95:19:
+
+   95 |    totalDuration = SIMULATION_TSTOP
+      |                   1
+Warning: Possible change of value in conversion from REAL(4) to INTEGER(4) at (1) [-Wconversion]
+../../source/elmfire_level_set.f90:97:19:
+
+   97 |    totalDuration = WS%NBANDS * DT_METEOROLOGY
+      |                   1
+Warning: Possible change of value in conversion from REAL(4) to INTEGER(4) at (1) [-Wconversion]
+../../source/elmfire_level_set.f90:1484:21:
+
+ 1484 |       ELAPSED_TIME = REAL(COUNT_END - COUNT_START, 8) / REAL(CLOCK_COUNT_RATE, 8)
+      |                     1
+Warning: Possible change of value in conversion from REAL(8) to REAL(4) at (1) [-Wconversion]
+../../source/elmfire_level_set.f90:1333:95:
+
+ 1333 |       IF (ENABLE_EXTENDED_ATTACK .AND. T - T_LAST_EXTENDED_ATTACK .GT. DT_EXTENDED_ATTACK .AND. LIST_BURNED%NUM_NODES .GT. 0) THEN
+      |                                                                                               ^
+Warning: ‘t_last_extended_attack’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire.f90
+../../source/elmfire.f90:846:73:
+
+  846 |                                  FLAME_LENGTH_BIN_COUNT%I2(IX,IY,IBIN) = FLAME_LENGTH_BIN_COUNT%I2(IX,IY,IBIN) + 1
+      |                                                                         1
+Warning: Possible change of value in conversion from INTEGER(4) to INTEGER(2) at (1) [-Wconversion]
+../../source/elmfire.f90:882:63:
+
+  882 |                               EMBER_BIN_COUNT%I2(IX,IY,IBIN) = EMBER_BIN_COUNT%I2(IX,IY,IBIN) + 1
+      |                                                               1
+Warning: Possible change of value in conversion from INTEGER(4) to INTEGER(2) at (1) [-Wconversion]
+mpifort -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none -o elmfire_block elmfire_vars.o sort.o elmfire_subs.o elmfire_init.o elmfire_namelists.o elmfire_spread_rate.o  elmfire_ignition.o elmfire_io.o elmfire_spotting.o elmfire_suppression.o elmfire_spotting_superseded.o elmfire_calibration.o elmfire_level_set.o elmfire.o
+Making elmfire_gnu_mpi_perf_linux
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native ../../source/elmfire_vars.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native ../../source/sort.for
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native ../../source/elmfire_subs.f90
+../../source/elmfire_subs.f90:1776:24:
+
+ 1776 |    ANALYSIS_CELLSIZE  = abs(dx)
+      |                        1
+Warning: Possible change of value in conversion from REAL(8) to REAL(4) at (1) [-Wconversion]
+../../source/elmfire_subs.f90:1777:24:
+
+ 1777 |    ANALYSIS_XLLCORNER = x0
+      |                        1
+Warning: Possible change of value in conversion from REAL(8) to REAL(4) at (1) [-Wconversion]
+../../source/elmfire_subs.f90:1778:24:
+
+ 1778 |    ANALYSIS_YLLCORNER = y0 + dy * dble(nrows)
+      |                        1
+Warning: Possible change of value in conversion from REAL(8) to REAL(4) at (1) [-Wconversion]
+../../source/elmfire_subs.f90:753:25:
+
+  753 | WDNOW = WDNOW * 180. / PI
+      |                         ^
+Warning: ‘wdnow’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_subs.f90:651:28:
+
+  651 |    WDNOW = WDNOW * 180. / PI
+      |                            ^
+Warning: ‘wdnow’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_subs.f90:255:54:
+
+  255 | RASTER%BANDROWBYTES  = (RASTER%NBITS/8) * RASTER%NCOLS
+      |                                                      ^
+Warning: ‘nbits’ may be used uninitialized [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native ../../source/elmfire_init.f90
+../../source/elmfire_init.f90:825:16:
+
+  825 | INTEGER :: IBAND, IROW, ICOL
+      |                ^
+Warning: ‘iband’ may be used uninitialized [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native ../../source/elmfire_namelists.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native ../../source/elmfire_spread_rate.f90
+../../source/elmfire_spread_rate.f90:364:15:
+
+  364 |          RSO = C%CRITICAL_FLIN /(300*C%SFC)
+      |               1
+Warning: Possible change of value in conversion from REAL(4) to INTEGER(4) at (1) [-Wconversion]
+../../source/elmfire_spread_rate.f90:213:12:
+
+  213 |    aspect = mod(ASP%R4(C%IX,C%IY,1),360.0)
+      |            1
+Warning: Possible change of value in conversion from REAL(4) to INTEGER(4) at (1) [-Wconversion]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native ../../source/elmfire_ignition.f90
+../../source/elmfire_ignition.f90:152:65:
+
+  152 |                RCOUNT_NOERC_SUM = RCOUNT_NOERC_SUM + RCOUNT_NOERC
+      |                                                                 ^
+Warning: ‘rcount_noerc’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native ../../source/elmfire_io.f90
+../../source/elmfire_io.f90:2719:34:
+
+ 2719 |          FILE_TYPE = CURRENT_VALUE
+      |                                  1
+Warning: CHARACTER expression will be truncated in assignment (64/1024) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2723:35:
+
+ 2723 |          INTERLEAVE = CURRENT_VALUE
+      |                                   1
+Warning: CHARACTER expression will be truncated in assignment (3/1024) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2727:33:
+
+ 2727 |          MAP_INFO = CURRENT_VALUE
+      |                                 1
+Warning: CHARACTER expression will be truncated in assignment (256/1024) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2054:79:
+
+ 2054 | IF (IT .GE.       0 .AND. IT .LT.       10) CTSEC = '000000' // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/13) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2055:79:
+
+ 2055 | IF (IT .GE.      10 .AND. IT .LT.      100) CTSEC = '00000'  // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/12) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2056:79:
+
+ 2056 | IF (IT .GE.     100 .AND. IT .LT.     1000) CTSEC = '0000'   // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/11) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2057:79:
+
+ 2057 | IF (IT .GE.    1000 .AND. IT .LT.    10000) CTSEC = '000'    // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/10) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2058:79:
+
+ 2058 | IF (IT .GE.   10000 .AND. IT .LT.   100000) CTSEC = '00'     // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/9) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2059:79:
+
+ 2059 | IF (IT .GE.  100000 .AND. IT .LT.  1000000) CTSEC = '0'      // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/8) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1994:79:
+
+ 1994 | IF (IT .GE.       0 .AND. IT .LT.       10) CTSEC = '000000' // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/13) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1995:79:
+
+ 1995 | IF (IT .GE.      10 .AND. IT .LT.      100) CTSEC = '00000'  // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/12) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1996:79:
+
+ 1996 | IF (IT .GE.     100 .AND. IT .LT.     1000) CTSEC = '0000'   // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/11) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1997:79:
+
+ 1997 | IF (IT .GE.    1000 .AND. IT .LT.    10000) CTSEC = '000'    // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/10) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1998:79:
+
+ 1998 | IF (IT .GE.   10000 .AND. IT .LT.   100000) CTSEC = '00'     // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/9) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1999:79:
+
+ 1999 | IF (IT .GE.  100000 .AND. IT .LT.  1000000) CTSEC = '0'      // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/8) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1361:42:
+
+ 1361 |             RASTER%PIXELTYPE='UNSIGNEDINT'
+      |                                          1
+Warning: CHARACTER expression will be truncated in assignment (10/11) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1730:25:
+
+ 1730 |       RASTER%I2(:,:,:) = RASTER%NODATA_VALUE
+      |                         1
+Warning: Possible change of value in conversion from REAL(4) to INTEGER(2) at (1) [-Wconversion]
+../../source/elmfire_io.f90:733:83:
+
+  733 |       IF (IRANK_WORLD .EQ. PARALLEL_IO_RANK(32)) BLDG_FUEL_MODEL%I2      (:,:,:) = BLDG_FUEL_MODEL_CONSTANT
+      |                                                                                   1
+Warning: Possible change of value in conversion from INTEGER(4) to INTEGER(2) at (1) [-Wconversion]
+../../source/elmfire_io.f90:506:83:
+
+  506 |       IF (IRANK_WORLD .EQ. PARALLEL_IO_RANK(32)) BLDG_FUEL_MODEL%I2      (:,:,:) = BLDG_FUEL_MODEL_CONSTANT
+      |                                                                                   1
+Warning: Possible change of value in conversion from INTEGER(4) to INTEGER(2) at (1) [-Wconversion]
+../../source/elmfire_io.f90:1780:54:
+
+ 1780 | INTEGER :: IOS, IBAND, ITILE, JTILE, IBAND_OUT, NBANDS
+      |                                                      ^
+Warning: ‘nbands’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native ../../source/elmfire_spotting.f90
+../../source/elmfire_spotting.f90:722:38:
+
+  722 |    X(1:2)   = X(1:2) + UWIND(1:2) * DT
+      |                                      ^
+Warning: ‘uwind[1]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:580:34:
+
+  580 | REAL, DIMENSION(3) :: X, X0, UWIND, OFFSET
+      |                                  ^
+note: ‘uwind[1]’ was declared here
+../../source/elmfire_spotting.f90:722:38:
+
+  722 |    X(1:2)   = X(1:2) + UWIND(1:2) * DT
+      |                                      ^
+Warning: ‘uwind[0]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:580:34:
+
+  580 | REAL, DIMENSION(3) :: X, X0, UWIND, OFFSET
+      |                                  ^
+note: ‘uwind[0]’ was declared here
+../../source/elmfire_spotting.f90:457:41:
+
+  457 |       X(1:2)   = X(1:2) + UWIND(1:2) * DT
+      |                                         ^
+Warning: ‘uwind[1]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:309:34:
+
+  309 | REAL, DIMENSION(3) :: X, X0, UWIND, OFFSET
+      |                                  ^
+note: ‘uwind[1]’ was declared here
+../../source/elmfire_spotting.f90:457:41:
+
+  457 |       X(1:2)   = X(1:2) + UWIND(1:2) * DT
+      |                                         ^
+Warning: ‘uwind[0]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:309:34:
+
+  309 | REAL, DIMENSION(3) :: X, X0, UWIND, OFFSET
+      |                                  ^
+note: ‘uwind[0]’ was declared here
+../../source/elmfire_spotting.f90:342:71:
+
+  342 |       HIGH = SARDOY_PDFINV(X_MAX+CELLSIZE_ELM*0.5, MU_DIST, SIGMA_DIST)
+      |                                                                       ^
+Warning: ‘x_max’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:308:77:
+
+  308 | REAL :: R0, IGNPROB, WD1TO, WD2TO, WDTO, WS20, T, TSTOP, DT, HIGH, LOW, X_MAX, P_IGNITION, LNORM_QUANTILE, QUANTILE
+      |                                                                             ^
+note: ‘x_max’ was declared here
+../../source/elmfire_spotting.f90:110:56:
+
+  110 |    LIST_EMBER_TRACKER%TAIL%NUM_EMBERS     = NEMBERS_REAL
+      |                                                        ^
+Warning: ‘nembers_real’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:61:21:
+
+   61 |          NEMBERS_REAL, P, SARDOY_PARAMETERS(1:4)
+      |                     ^
+note: ‘nembers_real’ was declared here
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native ../../source/elmfire_suppression.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native ../../source/elmfire_spotting_superseded.f90
+../../source/elmfire_spotting_superseded.f90:258:53:
+
+  258 |       IF (USE_EMBER_COUNT_BINS) EMBER_COUNT(IX,IY) = EMBER_COUNT(IX,IY) + 1
+      |                                                     1
+Warning: Possible change of value in conversion from INTEGER(4) to INTEGER(2) at (1) [-Wconversion]
+../../source/elmfire_spotting_superseded.f90:243:39:
+
+  243 |       IF (ABS(UWIND(1)) .LT. 1E-6 .AND. ABS(UWIND(2)) .LT. 1E-6) T=9E9
+      |                                       ^
+Warning: ‘uwind[1]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting_superseded.f90:243:39: Warning: ‘uwind[0]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting_superseded.f90:247:33:
+
+  247 |       DIST     = DIST + WS20 * DT
+      |                                 ^
+Warning: ‘ws20’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting_superseded.f90:243:39:
+
+  243 |       IF (ABS(UWIND(1)) .LT. 1E-6 .AND. ABS(UWIND(2)) .LT. 1E-6) T=9E9
+      |                                       ^
+Warning: ‘uwind0[1]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting_superseded.f90:243:39: Warning: ‘uwind0[0]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native ../../source/elmfire_calibration.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native ../../source/elmfire_level_set.f90
+../../source/elmfire_level_set.f90:95:19:
+
+   95 |    totalDuration = SIMULATION_TSTOP
+      |                   1
+Warning: Possible change of value in conversion from REAL(4) to INTEGER(4) at (1) [-Wconversion]
+../../source/elmfire_level_set.f90:97:19:
+
+   97 |    totalDuration = WS%NBANDS * DT_METEOROLOGY
+      |                   1
+Warning: Possible change of value in conversion from REAL(4) to INTEGER(4) at (1) [-Wconversion]
+../../source/elmfire_level_set.f90:1484:21:
+
+ 1484 |       ELAPSED_TIME = REAL(COUNT_END - COUNT_START, 8) / REAL(CLOCK_COUNT_RATE, 8)
+      |                     1
+Warning: Possible change of value in conversion from REAL(8) to REAL(4) at (1) [-Wconversion]
+../../source/elmfire_level_set.f90:1333:95:
+
+ 1333 |       IF (ENABLE_EXTENDED_ATTACK .AND. T - T_LAST_EXTENDED_ATTACK .GT. DT_EXTENDED_ATTACK .AND. LIST_BURNED%NUM_NODES .GT. 0) THEN
+      |                                                                                               ^
+Warning: ‘t_last_extended_attack’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native ../../source/elmfire.f90
+../../source/elmfire.f90:846:73:
+
+  846 |                                  FLAME_LENGTH_BIN_COUNT%I2(IX,IY,IBIN) = FLAME_LENGTH_BIN_COUNT%I2(IX,IY,IBIN) + 1
+      |                                                                         1
+Warning: Possible change of value in conversion from INTEGER(4) to INTEGER(2) at (1) [-Wconversion]
+../../source/elmfire.f90:882:63:
+
+  882 |                               EMBER_BIN_COUNT%I2(IX,IY,IBIN) = EMBER_BIN_COUNT%I2(IX,IY,IBIN) + 1
+      |                                                               1
+Warning: Possible change of value in conversion from INTEGER(4) to INTEGER(2) at (1) [-Wconversion]
+mpifort -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -o elmfire_perf elmfire_vars.o sort.o elmfire_subs.o elmfire_init.o elmfire_namelists.o elmfire_spread_rate.o  elmfire_ignition.o elmfire_io.o elmfire_spotting.o elmfire_suppression.o elmfire_spotting_superseded.o elmfire_calibration.o elmfire_level_set.o elmfire.o
+Making elmfire_gnu_mpi_gprof_linux
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_vars.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/sort.for
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_subs.f90
+../../source/elmfire_subs.f90:1776:24:
+
+ 1776 |    ANALYSIS_CELLSIZE  = abs(dx)
+      |                        1
+Warning: Possible change of value in conversion from REAL(8) to REAL(4) at (1) [-Wconversion]
+../../source/elmfire_subs.f90:1777:24:
+
+ 1777 |    ANALYSIS_XLLCORNER = x0
+      |                        1
+Warning: Possible change of value in conversion from REAL(8) to REAL(4) at (1) [-Wconversion]
+../../source/elmfire_subs.f90:1778:24:
+
+ 1778 |    ANALYSIS_YLLCORNER = y0 + dy * dble(nrows)
+      |                        1
+Warning: Possible change of value in conversion from REAL(8) to REAL(4) at (1) [-Wconversion]
+../../source/elmfire_subs.f90:753:25:
+
+  753 | WDNOW = WDNOW * 180. / PI
+      |                         ^
+Warning: ‘wdnow’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_subs.f90:651:28:
+
+  651 |    WDNOW = WDNOW * 180. / PI
+      |                            ^
+Warning: ‘wdnow’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_subs.f90:255:54:
+
+  255 | RASTER%BANDROWBYTES  = (RASTER%NBITS/8) * RASTER%NCOLS
+      |                                                      ^
+Warning: ‘nbits’ may be used uninitialized [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_init.f90
+../../source/elmfire_init.f90:825:16:
+
+  825 | INTEGER :: IBAND, IROW, ICOL
+      |                ^
+Warning: ‘iband’ may be used uninitialized [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_namelists.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_spread_rate.f90
+../../source/elmfire_spread_rate.f90:364:15:
+
+  364 |          RSO = C%CRITICAL_FLIN /(300*C%SFC)
+      |               1
+Warning: Possible change of value in conversion from REAL(4) to INTEGER(4) at (1) [-Wconversion]
+../../source/elmfire_spread_rate.f90:213:12:
+
+  213 |    aspect = mod(ASP%R4(C%IX,C%IY,1),360.0)
+      |            1
+Warning: Possible change of value in conversion from REAL(4) to INTEGER(4) at (1) [-Wconversion]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_ignition.f90
+../../source/elmfire_ignition.f90:152:65:
+
+  152 |                RCOUNT_NOERC_SUM = RCOUNT_NOERC_SUM + RCOUNT_NOERC
+      |                                                                 ^
+Warning: ‘rcount_noerc’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_io.f90
+../../source/elmfire_io.f90:2719:34:
+
+ 2719 |          FILE_TYPE = CURRENT_VALUE
+      |                                  1
+Warning: CHARACTER expression will be truncated in assignment (64/1024) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2723:35:
+
+ 2723 |          INTERLEAVE = CURRENT_VALUE
+      |                                   1
+Warning: CHARACTER expression will be truncated in assignment (3/1024) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2727:33:
+
+ 2727 |          MAP_INFO = CURRENT_VALUE
+      |                                 1
+Warning: CHARACTER expression will be truncated in assignment (256/1024) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2054:79:
+
+ 2054 | IF (IT .GE.       0 .AND. IT .LT.       10) CTSEC = '000000' // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/13) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2055:79:
+
+ 2055 | IF (IT .GE.      10 .AND. IT .LT.      100) CTSEC = '00000'  // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/12) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2056:79:
+
+ 2056 | IF (IT .GE.     100 .AND. IT .LT.     1000) CTSEC = '0000'   // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/11) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2057:79:
+
+ 2057 | IF (IT .GE.    1000 .AND. IT .LT.    10000) CTSEC = '000'    // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/10) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2058:79:
+
+ 2058 | IF (IT .GE.   10000 .AND. IT .LT.   100000) CTSEC = '00'     // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/9) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2059:79:
+
+ 2059 | IF (IT .GE.  100000 .AND. IT .LT.  1000000) CTSEC = '0'      // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/8) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1994:79:
+
+ 1994 | IF (IT .GE.       0 .AND. IT .LT.       10) CTSEC = '000000' // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/13) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1995:79:
+
+ 1995 | IF (IT .GE.      10 .AND. IT .LT.      100) CTSEC = '00000'  // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/12) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1996:79:
+
+ 1996 | IF (IT .GE.     100 .AND. IT .LT.     1000) CTSEC = '0000'   // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/11) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1997:79:
+
+ 1997 | IF (IT .GE.    1000 .AND. IT .LT.    10000) CTSEC = '000'    // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/10) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1998:79:
+
+ 1998 | IF (IT .GE.   10000 .AND. IT .LT.   100000) CTSEC = '00'     // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/9) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1999:79:
+
+ 1999 | IF (IT .GE.  100000 .AND. IT .LT.  1000000) CTSEC = '0'      // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/8) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1361:42:
+
+ 1361 |             RASTER%PIXELTYPE='UNSIGNEDINT'
+      |                                          1
+Warning: CHARACTER expression will be truncated in assignment (10/11) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1730:25:
+
+ 1730 |       RASTER%I2(:,:,:) = RASTER%NODATA_VALUE
+      |                         1
+Warning: Possible change of value in conversion from REAL(4) to INTEGER(2) at (1) [-Wconversion]
+../../source/elmfire_io.f90:733:83:
+
+  733 |       IF (IRANK_WORLD .EQ. PARALLEL_IO_RANK(32)) BLDG_FUEL_MODEL%I2      (:,:,:) = BLDG_FUEL_MODEL_CONSTANT
+      |                                                                                   1
+Warning: Possible change of value in conversion from INTEGER(4) to INTEGER(2) at (1) [-Wconversion]
+../../source/elmfire_io.f90:506:83:
+
+  506 |       IF (IRANK_WORLD .EQ. PARALLEL_IO_RANK(32)) BLDG_FUEL_MODEL%I2      (:,:,:) = BLDG_FUEL_MODEL_CONSTANT
+      |                                                                                   1
+Warning: Possible change of value in conversion from INTEGER(4) to INTEGER(2) at (1) [-Wconversion]
+../../source/elmfire_io.f90:1780:54:
+
+ 1780 | INTEGER :: IOS, IBAND, ITILE, JTILE, IBAND_OUT, NBANDS
+      |                                                      ^
+Warning: ‘nbands’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_spotting.f90
+../../source/elmfire_spotting.f90:722:38:
+
+  722 |    X(1:2)   = X(1:2) + UWIND(1:2) * DT
+      |                                      ^
+Warning: ‘uwind[1]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:580:34:
+
+  580 | REAL, DIMENSION(3) :: X, X0, UWIND, OFFSET
+      |                                  ^
+note: ‘uwind[1]’ was declared here
+../../source/elmfire_spotting.f90:722:38:
+
+  722 |    X(1:2)   = X(1:2) + UWIND(1:2) * DT
+      |                                      ^
+Warning: ‘uwind[0]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:580:34:
+
+  580 | REAL, DIMENSION(3) :: X, X0, UWIND, OFFSET
+      |                                  ^
+note: ‘uwind[0]’ was declared here
+../../source/elmfire_spotting.f90:457:41:
+
+  457 |       X(1:2)   = X(1:2) + UWIND(1:2) * DT
+      |                                         ^
+Warning: ‘uwind[1]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:309:34:
+
+  309 | REAL, DIMENSION(3) :: X, X0, UWIND, OFFSET
+      |                                  ^
+note: ‘uwind[1]’ was declared here
+../../source/elmfire_spotting.f90:457:41:
+
+  457 |       X(1:2)   = X(1:2) + UWIND(1:2) * DT
+      |                                         ^
+Warning: ‘uwind[0]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:309:34:
+
+  309 | REAL, DIMENSION(3) :: X, X0, UWIND, OFFSET
+      |                                  ^
+note: ‘uwind[0]’ was declared here
+../../source/elmfire_spotting.f90:342:71:
+
+  342 |       HIGH = SARDOY_PDFINV(X_MAX+CELLSIZE_ELM*0.5, MU_DIST, SIGMA_DIST)
+      |                                                                       ^
+Warning: ‘x_max’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:308:77:
+
+  308 | REAL :: R0, IGNPROB, WD1TO, WD2TO, WDTO, WS20, T, TSTOP, DT, HIGH, LOW, X_MAX, P_IGNITION, LNORM_QUANTILE, QUANTILE
+      |                                                                             ^
+note: ‘x_max’ was declared here
+../../source/elmfire_spotting.f90:110:56:
+
+  110 |    LIST_EMBER_TRACKER%TAIL%NUM_EMBERS     = NEMBERS_REAL
+      |                                                        ^
+Warning: ‘nembers_real’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:61:21:
+
+   61 |          NEMBERS_REAL, P, SARDOY_PARAMETERS(1:4)
+      |                     ^
+note: ‘nembers_real’ was declared here
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_suppression.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_spotting_superseded.f90
+../../source/elmfire_spotting_superseded.f90:258:53:
+
+  258 |       IF (USE_EMBER_COUNT_BINS) EMBER_COUNT(IX,IY) = EMBER_COUNT(IX,IY) + 1
+      |                                                     1
+Warning: Possible change of value in conversion from INTEGER(4) to INTEGER(2) at (1) [-Wconversion]
+../../source/elmfire_spotting_superseded.f90:243:39:
+
+  243 |       IF (ABS(UWIND(1)) .LT. 1E-6 .AND. ABS(UWIND(2)) .LT. 1E-6) T=9E9
+      |                                       ^
+Warning: ‘uwind[1]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting_superseded.f90:243:39: Warning: ‘uwind[0]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting_superseded.f90:247:33:
+
+  247 |       DIST     = DIST + WS20 * DT
+      |                                 ^
+Warning: ‘ws20’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting_superseded.f90:243:39:
+
+  243 |       IF (ABS(UWIND(1)) .LT. 1E-6 .AND. ABS(UWIND(2)) .LT. 1E-6) T=9E9
+      |                                       ^
+Warning: ‘uwind0[1]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting_superseded.f90:243:39: Warning: ‘uwind0[0]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_calibration.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_level_set.f90
+../../source/elmfire_level_set.f90:95:19:
+
+   95 |    totalDuration = SIMULATION_TSTOP
+      |                   1
+Warning: Possible change of value in conversion from REAL(4) to INTEGER(4) at (1) [-Wconversion]
+../../source/elmfire_level_set.f90:97:19:
+
+   97 |    totalDuration = WS%NBANDS * DT_METEOROLOGY
+      |                   1
+Warning: Possible change of value in conversion from REAL(4) to INTEGER(4) at (1) [-Wconversion]
+../../source/elmfire_level_set.f90:1484:21:
+
+ 1484 |       ELAPSED_TIME = REAL(COUNT_END - COUNT_START, 8) / REAL(CLOCK_COUNT_RATE, 8)
+      |                     1
+Warning: Possible change of value in conversion from REAL(8) to REAL(4) at (1) [-Wconversion]
+../../source/elmfire_level_set.f90:1333:95:
+
+ 1333 |       IF (ENABLE_EXTENDED_ATTACK .AND. T - T_LAST_EXTENDED_ATTACK .GT. DT_EXTENDED_ATTACK .AND. LIST_BURNED%NUM_NODES .GT. 0) THEN
+      |                                                                                               ^
+Warning: ‘t_last_extended_attack’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire.f90
+../../source/elmfire.f90:846:73:
+
+  846 |                                  FLAME_LENGTH_BIN_COUNT%I2(IX,IY,IBIN) = FLAME_LENGTH_BIN_COUNT%I2(IX,IY,IBIN) + 1
+      |                                                                         1
+Warning: Possible change of value in conversion from INTEGER(4) to INTEGER(2) at (1) [-Wconversion]
+../../source/elmfire.f90:882:63:
+
+  882 |                               EMBER_BIN_COUNT%I2(IX,IY,IBIN) = EMBER_BIN_COUNT%I2(IX,IY,IBIN) + 1
+      |                                                               1
+Warning: Possible change of value in conversion from INTEGER(4) to INTEGER(2) at (1) [-Wconversion]
+mpifort -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none -o elmfire_gprof elmfire_vars.o sort.o elmfire_subs.o elmfire_init.o elmfire_namelists.o elmfire_spread_rate.o  elmfire_ignition.o elmfire_io.o elmfire_spotting.o elmfire_suppression.o elmfire_spotting_superseded.o elmfire_calibration.o elmfire_level_set.o elmfire.o
+Making elmfire_gnu_mpi_block_linux
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_vars.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/sort.for
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_subs.f90
+../../source/elmfire_subs.f90:1776:24:
+
+ 1776 |    ANALYSIS_CELLSIZE  = abs(dx)
+      |                        1
+Warning: Possible change of value in conversion from REAL(8) to REAL(4) at (1) [-Wconversion]
+../../source/elmfire_subs.f90:1777:24:
+
+ 1777 |    ANALYSIS_XLLCORNER = x0
+      |                        1
+Warning: Possible change of value in conversion from REAL(8) to REAL(4) at (1) [-Wconversion]
+../../source/elmfire_subs.f90:1778:24:
+
+ 1778 |    ANALYSIS_YLLCORNER = y0 + dy * dble(nrows)
+      |                        1
+Warning: Possible change of value in conversion from REAL(8) to REAL(4) at (1) [-Wconversion]
+../../source/elmfire_subs.f90:753:25:
+
+  753 | WDNOW = WDNOW * 180. / PI
+      |                         ^
+Warning: ‘wdnow’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_subs.f90:651:28:
+
+  651 |    WDNOW = WDNOW * 180. / PI
+      |                            ^
+Warning: ‘wdnow’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_subs.f90:255:54:
+
+  255 | RASTER%BANDROWBYTES  = (RASTER%NBITS/8) * RASTER%NCOLS
+      |                                                      ^
+Warning: ‘nbits’ may be used uninitialized [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_init.f90
+../../source/elmfire_init.f90:825:16:
+
+  825 | INTEGER :: IBAND, IROW, ICOL
+      |                ^
+Warning: ‘iband’ may be used uninitialized [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_namelists.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_spread_rate.f90
+../../source/elmfire_spread_rate.f90:364:15:
+
+  364 |          RSO = C%CRITICAL_FLIN /(300*C%SFC)
+      |               1
+Warning: Possible change of value in conversion from REAL(4) to INTEGER(4) at (1) [-Wconversion]
+../../source/elmfire_spread_rate.f90:213:12:
+
+  213 |    aspect = mod(ASP%R4(C%IX,C%IY,1),360.0)
+      |            1
+Warning: Possible change of value in conversion from REAL(4) to INTEGER(4) at (1) [-Wconversion]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_ignition.f90
+../../source/elmfire_ignition.f90:152:65:
+
+  152 |                RCOUNT_NOERC_SUM = RCOUNT_NOERC_SUM + RCOUNT_NOERC
+      |                                                                 ^
+Warning: ‘rcount_noerc’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_io.f90
+../../source/elmfire_io.f90:2719:34:
+
+ 2719 |          FILE_TYPE = CURRENT_VALUE
+      |                                  1
+Warning: CHARACTER expression will be truncated in assignment (64/1024) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2723:35:
+
+ 2723 |          INTERLEAVE = CURRENT_VALUE
+      |                                   1
+Warning: CHARACTER expression will be truncated in assignment (3/1024) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2727:33:
+
+ 2727 |          MAP_INFO = CURRENT_VALUE
+      |                                 1
+Warning: CHARACTER expression will be truncated in assignment (256/1024) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2054:79:
+
+ 2054 | IF (IT .GE.       0 .AND. IT .LT.       10) CTSEC = '000000' // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/13) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2055:79:
+
+ 2055 | IF (IT .GE.      10 .AND. IT .LT.      100) CTSEC = '00000'  // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/12) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2056:79:
+
+ 2056 | IF (IT .GE.     100 .AND. IT .LT.     1000) CTSEC = '0000'   // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/11) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2057:79:
+
+ 2057 | IF (IT .GE.    1000 .AND. IT .LT.    10000) CTSEC = '000'    // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/10) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2058:79:
+
+ 2058 | IF (IT .GE.   10000 .AND. IT .LT.   100000) CTSEC = '00'     // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/9) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2059:79:
+
+ 2059 | IF (IT .GE.  100000 .AND. IT .LT.  1000000) CTSEC = '0'      // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/8) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1994:79:
+
+ 1994 | IF (IT .GE.       0 .AND. IT .LT.       10) CTSEC = '000000' // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/13) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1995:79:
+
+ 1995 | IF (IT .GE.      10 .AND. IT .LT.      100) CTSEC = '00000'  // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/12) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1996:79:
+
+ 1996 | IF (IT .GE.     100 .AND. IT .LT.     1000) CTSEC = '0000'   // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/11) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1997:79:
+
+ 1997 | IF (IT .GE.    1000 .AND. IT .LT.    10000) CTSEC = '000'    // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/10) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1998:79:
+
+ 1998 | IF (IT .GE.   10000 .AND. IT .LT.   100000) CTSEC = '00'     // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/9) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1999:79:
+
+ 1999 | IF (IT .GE.  100000 .AND. IT .LT.  1000000) CTSEC = '0'      // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/8) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1361:42:
+
+ 1361 |             RASTER%PIXELTYPE='UNSIGNEDINT'
+      |                                          1
+Warning: CHARACTER expression will be truncated in assignment (10/11) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1730:25:
+
+ 1730 |       RASTER%I2(:,:,:) = RASTER%NODATA_VALUE
+      |                         1
+Warning: Possible change of value in conversion from REAL(4) to INTEGER(2) at (1) [-Wconversion]
+../../source/elmfire_io.f90:733:83:
+
+  733 |       IF (IRANK_WORLD .EQ. PARALLEL_IO_RANK(32)) BLDG_FUEL_MODEL%I2      (:,:,:) = BLDG_FUEL_MODEL_CONSTANT
+      |                                                                                   1
+Warning: Possible change of value in conversion from INTEGER(4) to INTEGER(2) at (1) [-Wconversion]
+../../source/elmfire_io.f90:506:83:
+
+  506 |       IF (IRANK_WORLD .EQ. PARALLEL_IO_RANK(32)) BLDG_FUEL_MODEL%I2      (:,:,:) = BLDG_FUEL_MODEL_CONSTANT
+      |                                                                                   1
+Warning: Possible change of value in conversion from INTEGER(4) to INTEGER(2) at (1) [-Wconversion]
+../../source/elmfire_io.f90:1780:54:
+
+ 1780 | INTEGER :: IOS, IBAND, ITILE, JTILE, IBAND_OUT, NBANDS
+      |                                                      ^
+Warning: ‘nbands’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_spotting.f90
+../../source/elmfire_spotting.f90:722:38:
+
+  722 |    X(1:2)   = X(1:2) + UWIND(1:2) * DT
+      |                                      ^
+Warning: ‘uwind[1]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:580:34:
+
+  580 | REAL, DIMENSION(3) :: X, X0, UWIND, OFFSET
+      |                                  ^
+note: ‘uwind[1]’ was declared here
+../../source/elmfire_spotting.f90:722:38:
+
+  722 |    X(1:2)   = X(1:2) + UWIND(1:2) * DT
+      |                                      ^
+Warning: ‘uwind[0]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:580:34:
+
+  580 | REAL, DIMENSION(3) :: X, X0, UWIND, OFFSET
+      |                                  ^
+note: ‘uwind[0]’ was declared here
+../../source/elmfire_spotting.f90:457:41:
+
+  457 |       X(1:2)   = X(1:2) + UWIND(1:2) * DT
+      |                                         ^
+Warning: ‘uwind[1]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:309:34:
+
+  309 | REAL, DIMENSION(3) :: X, X0, UWIND, OFFSET
+      |                                  ^
+note: ‘uwind[1]’ was declared here
+../../source/elmfire_spotting.f90:457:41:
+
+  457 |       X(1:2)   = X(1:2) + UWIND(1:2) * DT
+      |                                         ^
+Warning: ‘uwind[0]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:309:34:
+
+  309 | REAL, DIMENSION(3) :: X, X0, UWIND, OFFSET
+      |                                  ^
+note: ‘uwind[0]’ was declared here
+../../source/elmfire_spotting.f90:342:71:
+
+  342 |       HIGH = SARDOY_PDFINV(X_MAX+CELLSIZE_ELM*0.5, MU_DIST, SIGMA_DIST)
+      |                                                                       ^
+Warning: ‘x_max’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:308:77:
+
+  308 | REAL :: R0, IGNPROB, WD1TO, WD2TO, WDTO, WS20, T, TSTOP, DT, HIGH, LOW, X_MAX, P_IGNITION, LNORM_QUANTILE, QUANTILE
+      |                                                                             ^
+note: ‘x_max’ was declared here
+../../source/elmfire_spotting.f90:110:56:
+
+  110 |    LIST_EMBER_TRACKER%TAIL%NUM_EMBERS     = NEMBERS_REAL
+      |                                                        ^
+Warning: ‘nembers_real’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:61:21:
+
+   61 |          NEMBERS_REAL, P, SARDOY_PARAMETERS(1:4)
+      |                     ^
+note: ‘nembers_real’ was declared here
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_suppression.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_spotting_superseded.f90
+../../source/elmfire_spotting_superseded.f90:258:53:
+
+  258 |       IF (USE_EMBER_COUNT_BINS) EMBER_COUNT(IX,IY) = EMBER_COUNT(IX,IY) + 1
+      |                                                     1
+Warning: Possible change of value in conversion from INTEGER(4) to INTEGER(2) at (1) [-Wconversion]
+../../source/elmfire_spotting_superseded.f90:243:39:
+
+  243 |       IF (ABS(UWIND(1)) .LT. 1E-6 .AND. ABS(UWIND(2)) .LT. 1E-6) T=9E9
+      |                                       ^
+Warning: ‘uwind[1]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting_superseded.f90:243:39: Warning: ‘uwind[0]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting_superseded.f90:247:33:
+
+  247 |       DIST     = DIST + WS20 * DT
+      |                                 ^
+Warning: ‘ws20’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting_superseded.f90:243:39:
+
+  243 |       IF (ABS(UWIND(1)) .LT. 1E-6 .AND. ABS(UWIND(2)) .LT. 1E-6) T=9E9
+      |                                       ^
+Warning: ‘uwind0[1]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting_superseded.f90:243:39: Warning: ‘uwind0[0]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_calibration.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire_level_set.f90
+../../source/elmfire_level_set.f90:95:19:
+
+   95 |    totalDuration = SIMULATION_TSTOP
+      |                   1
+Warning: Possible change of value in conversion from REAL(4) to INTEGER(4) at (1) [-Wconversion]
+../../source/elmfire_level_set.f90:97:19:
+
+   97 |    totalDuration = WS%NBANDS * DT_METEOROLOGY
+      |                   1
+Warning: Possible change of value in conversion from REAL(4) to INTEGER(4) at (1) [-Wconversion]
+../../source/elmfire_level_set.f90:1484:21:
+
+ 1484 |       ELAPSED_TIME = REAL(COUNT_END - COUNT_START, 8) / REAL(CLOCK_COUNT_RATE, 8)
+      |                     1
+Warning: Possible change of value in conversion from REAL(8) to REAL(4) at (1) [-Wconversion]
+../../source/elmfire_level_set.f90:1333:95:
+
+ 1333 |       IF (ENABLE_EXTENDED_ATTACK .AND. T - T_LAST_EXTENDED_ATTACK .GT. DT_EXTENDED_ATTACK .AND. LIST_BURNED%NUM_NODES .GT. 0) THEN
+      |                                                                                               ^
+Warning: ‘t_last_extended_attack’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none ../../source/elmfire.f90
+../../source/elmfire.f90:846:73:
+
+  846 |                                  FLAME_LENGTH_BIN_COUNT%I2(IX,IY,IBIN) = FLAME_LENGTH_BIN_COUNT%I2(IX,IY,IBIN) + 1
+      |                                                                         1
+Warning: Possible change of value in conversion from INTEGER(4) to INTEGER(2) at (1) [-Wconversion]
+../../source/elmfire.f90:882:63:
+
+  882 |                               EMBER_BIN_COUNT%I2(IX,IY,IBIN) = EMBER_BIN_COUNT%I2(IX,IY,IBIN) + 1
+      |                                                               1
+Warning: Possible change of value in conversion from INTEGER(4) to INTEGER(2) at (1) [-Wconversion]
+mpifort -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -pg -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -ffpe-summary=none -o elmfire_block elmfire_vars.o sort.o elmfire_subs.o elmfire_init.o elmfire_namelists.o elmfire_spread_rate.o  elmfire_ignition.o elmfire_io.o elmfire_spotting.o elmfire_suppression.o elmfire_spotting_superseded.o elmfire_calibration.o elmfire_level_set.o elmfire.o
+Making elmfire_gnu_mpi_perf_linux
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native ../../source/elmfire_vars.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native ../../source/sort.for
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native ../../source/elmfire_subs.f90
+../../source/elmfire_subs.f90:1776:24:
+
+ 1776 |    ANALYSIS_CELLSIZE  = abs(dx)
+      |                        1
+Warning: Possible change of value in conversion from REAL(8) to REAL(4) at (1) [-Wconversion]
+../../source/elmfire_subs.f90:1777:24:
+
+ 1777 |    ANALYSIS_XLLCORNER = x0
+      |                        1
+Warning: Possible change of value in conversion from REAL(8) to REAL(4) at (1) [-Wconversion]
+../../source/elmfire_subs.f90:1778:24:
+
+ 1778 |    ANALYSIS_YLLCORNER = y0 + dy * dble(nrows)
+      |                        1
+Warning: Possible change of value in conversion from REAL(8) to REAL(4) at (1) [-Wconversion]
+../../source/elmfire_subs.f90:753:25:
+
+  753 | WDNOW = WDNOW * 180. / PI
+      |                         ^
+Warning: ‘wdnow’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_subs.f90:651:28:
+
+  651 |    WDNOW = WDNOW * 180. / PI
+      |                            ^
+Warning: ‘wdnow’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_subs.f90:255:54:
+
+  255 | RASTER%BANDROWBYTES  = (RASTER%NBITS/8) * RASTER%NCOLS
+      |                                                      ^
+Warning: ‘nbits’ may be used uninitialized [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native ../../source/elmfire_init.f90
+../../source/elmfire_init.f90:825:16:
+
+  825 | INTEGER :: IBAND, IROW, ICOL
+      |                ^
+Warning: ‘iband’ may be used uninitialized [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native ../../source/elmfire_namelists.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native ../../source/elmfire_spread_rate.f90
+../../source/elmfire_spread_rate.f90:364:15:
+
+  364 |          RSO = C%CRITICAL_FLIN /(300*C%SFC)
+      |               1
+Warning: Possible change of value in conversion from REAL(4) to INTEGER(4) at (1) [-Wconversion]
+../../source/elmfire_spread_rate.f90:213:12:
+
+  213 |    aspect = mod(ASP%R4(C%IX,C%IY,1),360.0)
+      |            1
+Warning: Possible change of value in conversion from REAL(4) to INTEGER(4) at (1) [-Wconversion]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native ../../source/elmfire_ignition.f90
+../../source/elmfire_ignition.f90:152:65:
+
+  152 |                RCOUNT_NOERC_SUM = RCOUNT_NOERC_SUM + RCOUNT_NOERC
+      |                                                                 ^
+Warning: ‘rcount_noerc’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native ../../source/elmfire_io.f90
+../../source/elmfire_io.f90:2719:34:
+
+ 2719 |          FILE_TYPE = CURRENT_VALUE
+      |                                  1
+Warning: CHARACTER expression will be truncated in assignment (64/1024) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2723:35:
+
+ 2723 |          INTERLEAVE = CURRENT_VALUE
+      |                                   1
+Warning: CHARACTER expression will be truncated in assignment (3/1024) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2727:33:
+
+ 2727 |          MAP_INFO = CURRENT_VALUE
+      |                                 1
+Warning: CHARACTER expression will be truncated in assignment (256/1024) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2054:79:
+
+ 2054 | IF (IT .GE.       0 .AND. IT .LT.       10) CTSEC = '000000' // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/13) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2055:79:
+
+ 2055 | IF (IT .GE.      10 .AND. IT .LT.      100) CTSEC = '00000'  // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/12) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2056:79:
+
+ 2056 | IF (IT .GE.     100 .AND. IT .LT.     1000) CTSEC = '0000'   // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/11) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2057:79:
+
+ 2057 | IF (IT .GE.    1000 .AND. IT .LT.    10000) CTSEC = '000'    // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/10) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2058:79:
+
+ 2058 | IF (IT .GE.   10000 .AND. IT .LT.   100000) CTSEC = '00'     // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/9) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:2059:79:
+
+ 2059 | IF (IT .GE.  100000 .AND. IT .LT.  1000000) CTSEC = '0'      // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/8) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1994:79:
+
+ 1994 | IF (IT .GE.       0 .AND. IT .LT.       10) CTSEC = '000000' // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/13) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1995:79:
+
+ 1995 | IF (IT .GE.      10 .AND. IT .LT.      100) CTSEC = '00000'  // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/12) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1996:79:
+
+ 1996 | IF (IT .GE.     100 .AND. IT .LT.     1000) CTSEC = '0000'   // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/11) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1997:79:
+
+ 1997 | IF (IT .GE.    1000 .AND. IT .LT.    10000) CTSEC = '000'    // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/10) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1998:79:
+
+ 1998 | IF (IT .GE.   10000 .AND. IT .LT.   100000) CTSEC = '00'     // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/9) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1999:79:
+
+ 1999 | IF (IT .GE.  100000 .AND. IT .LT.  1000000) CTSEC = '0'      // ADJUSTL(CTSEC)
+      |                                                                               1
+Warning: CHARACTER expression will be truncated in assignment (7/8) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1361:42:
+
+ 1361 |             RASTER%PIXELTYPE='UNSIGNEDINT'
+      |                                          1
+Warning: CHARACTER expression will be truncated in assignment (10/11) at (1) [-Wcharacter-truncation]
+../../source/elmfire_io.f90:1730:25:
+
+ 1730 |       RASTER%I2(:,:,:) = RASTER%NODATA_VALUE
+      |                         1
+Warning: Possible change of value in conversion from REAL(4) to INTEGER(2) at (1) [-Wconversion]
+../../source/elmfire_io.f90:733:83:
+
+  733 |       IF (IRANK_WORLD .EQ. PARALLEL_IO_RANK(32)) BLDG_FUEL_MODEL%I2      (:,:,:) = BLDG_FUEL_MODEL_CONSTANT
+      |                                                                                   1
+Warning: Possible change of value in conversion from INTEGER(4) to INTEGER(2) at (1) [-Wconversion]
+../../source/elmfire_io.f90:506:83:
+
+  506 |       IF (IRANK_WORLD .EQ. PARALLEL_IO_RANK(32)) BLDG_FUEL_MODEL%I2      (:,:,:) = BLDG_FUEL_MODEL_CONSTANT
+      |                                                                                   1
+Warning: Possible change of value in conversion from INTEGER(4) to INTEGER(2) at (1) [-Wconversion]
+../../source/elmfire_io.f90:1780:54:
+
+ 1780 | INTEGER :: IOS, IBAND, ITILE, JTILE, IBAND_OUT, NBANDS
+      |                                                      ^
+Warning: ‘nbands’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native ../../source/elmfire_spotting.f90
+../../source/elmfire_spotting.f90:722:38:
+
+  722 |    X(1:2)   = X(1:2) + UWIND(1:2) * DT
+      |                                      ^
+Warning: ‘uwind[1]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:580:34:
+
+  580 | REAL, DIMENSION(3) :: X, X0, UWIND, OFFSET
+      |                                  ^
+note: ‘uwind[1]’ was declared here
+../../source/elmfire_spotting.f90:722:38:
+
+  722 |    X(1:2)   = X(1:2) + UWIND(1:2) * DT
+      |                                      ^
+Warning: ‘uwind[0]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:580:34:
+
+  580 | REAL, DIMENSION(3) :: X, X0, UWIND, OFFSET
+      |                                  ^
+note: ‘uwind[0]’ was declared here
+../../source/elmfire_spotting.f90:457:41:
+
+  457 |       X(1:2)   = X(1:2) + UWIND(1:2) * DT
+      |                                         ^
+Warning: ‘uwind[1]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:309:34:
+
+  309 | REAL, DIMENSION(3) :: X, X0, UWIND, OFFSET
+      |                                  ^
+note: ‘uwind[1]’ was declared here
+../../source/elmfire_spotting.f90:457:41:
+
+  457 |       X(1:2)   = X(1:2) + UWIND(1:2) * DT
+      |                                         ^
+Warning: ‘uwind[0]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:309:34:
+
+  309 | REAL, DIMENSION(3) :: X, X0, UWIND, OFFSET
+      |                                  ^
+note: ‘uwind[0]’ was declared here
+../../source/elmfire_spotting.f90:342:71:
+
+  342 |       HIGH = SARDOY_PDFINV(X_MAX+CELLSIZE_ELM*0.5, MU_DIST, SIGMA_DIST)
+      |                                                                       ^
+Warning: ‘x_max’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:308:77:
+
+  308 | REAL :: R0, IGNPROB, WD1TO, WD2TO, WDTO, WS20, T, TSTOP, DT, HIGH, LOW, X_MAX, P_IGNITION, LNORM_QUANTILE, QUANTILE
+      |                                                                             ^
+note: ‘x_max’ was declared here
+../../source/elmfire_spotting.f90:110:56:
+
+  110 |    LIST_EMBER_TRACKER%TAIL%NUM_EMBERS     = NEMBERS_REAL
+      |                                                        ^
+Warning: ‘nembers_real’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting.f90:61:21:
+
+   61 |          NEMBERS_REAL, P, SARDOY_PARAMETERS(1:4)
+      |                     ^
+note: ‘nembers_real’ was declared here
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native ../../source/elmfire_suppression.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native ../../source/elmfire_spotting_superseded.f90
+../../source/elmfire_spotting_superseded.f90:258:53:
+
+  258 |       IF (USE_EMBER_COUNT_BINS) EMBER_COUNT(IX,IY) = EMBER_COUNT(IX,IY) + 1
+      |                                                     1
+Warning: Possible change of value in conversion from INTEGER(4) to INTEGER(2) at (1) [-Wconversion]
+../../source/elmfire_spotting_superseded.f90:243:39:
+
+  243 |       IF (ABS(UWIND(1)) .LT. 1E-6 .AND. ABS(UWIND(2)) .LT. 1E-6) T=9E9
+      |                                       ^
+Warning: ‘uwind[1]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting_superseded.f90:243:39: Warning: ‘uwind[0]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting_superseded.f90:247:33:
+
+  247 |       DIST     = DIST + WS20 * DT
+      |                                 ^
+Warning: ‘ws20’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting_superseded.f90:243:39:
+
+  243 |       IF (ABS(UWIND(1)) .LT. 1E-6 .AND. ABS(UWIND(2)) .LT. 1E-6) T=9E9
+      |                                       ^
+Warning: ‘uwind0[1]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+../../source/elmfire_spotting_superseded.f90:243:39: Warning: ‘uwind0[0]’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native ../../source/elmfire_calibration.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native ../../source/elmfire_level_set.f90
+../../source/elmfire_level_set.f90:95:19:
+
+   95 |    totalDuration = SIMULATION_TSTOP
+      |                   1
+Warning: Possible change of value in conversion from REAL(4) to INTEGER(4) at (1) [-Wconversion]
+../../source/elmfire_level_set.f90:97:19:
+
+   97 |    totalDuration = WS%NBANDS * DT_METEOROLOGY
+      |                   1
+Warning: Possible change of value in conversion from REAL(4) to INTEGER(4) at (1) [-Wconversion]
+../../source/elmfire_level_set.f90:1484:21:
+
+ 1484 |       ELAPSED_TIME = REAL(COUNT_END - COUNT_START, 8) / REAL(CLOCK_COUNT_RATE, 8)
+      |                     1
+Warning: Possible change of value in conversion from REAL(8) to REAL(4) at (1) [-Wconversion]
+../../source/elmfire_level_set.f90:1333:95:
+
+ 1333 |       IF (ENABLE_EXTENDED_ATTACK .AND. T - T_LAST_EXTENDED_ATTACK .GT. DT_EXTENDED_ATTACK .AND. LIST_BURNED%NUM_NODES .GT. 0) THEN
+      |                                                                                               ^
+Warning: ‘t_last_extended_attack’ may be used uninitialized in this function [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native ../../source/elmfire.f90
+../../source/elmfire.f90:846:73:
+
+  846 |                                  FLAME_LENGTH_BIN_COUNT%I2(IX,IY,IBIN) = FLAME_LENGTH_BIN_COUNT%I2(IX,IY,IBIN) + 1
+      |                                                                         1
+Warning: Possible change of value in conversion from INTEGER(4) to INTEGER(2) at (1) [-Wconversion]
+../../source/elmfire.f90:882:63:
+
+  882 |                               EMBER_BIN_COUNT%I2(IX,IY,IBIN) = EMBER_BIN_COUNT%I2(IX,IY,IBIN) + 1
+      |                                                               1
+Warning: Possible change of value in conversion from INTEGER(4) to INTEGER(2) at (1) [-Wconversion]
+mpifort -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O2 -g -Wall -frecord-marker=4 -ffree-line-length-none -cpp -march=native -o elmfire_perf elmfire_vars.o sort.o elmfire_subs.o elmfire_init.o elmfire_namelists.o elmfire_spread_rate.o  elmfire_ignition.o elmfire_io.o elmfire_spotting.o elmfire_suppression.o elmfire_spotting_superseded.o elmfire_calibration.o elmfire_level_set.o elmfire.o
+Making elmfire_gnu_mpi_debug_linux
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O0 -g -Wall -fcheck=all -fbounds-check -fbacktrace -fdump-core -ffpe-trap=invalid,zero,overflow -frecord-marker=4 -ffree-line-length-none -cpp -Wno-character-truncation -Wno-conversion -finit-real=snan -finit-integer=-99999999 ../../source/elmfire_vars.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O0 -g -Wall -fcheck=all -fbounds-check -fbacktrace -fdump-core -ffpe-trap=invalid,zero,overflow -frecord-marker=4 -ffree-line-length-none -cpp -Wno-character-truncation -Wno-conversion -finit-real=snan -finit-integer=-99999999 ../../source/sort.for
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O0 -g -Wall -fcheck=all -fbounds-check -fbacktrace -fdump-core -ffpe-trap=invalid,zero,overflow -frecord-marker=4 -ffree-line-length-none -cpp -Wno-character-truncation -Wno-conversion -finit-real=snan -finit-integer=-99999999 ../../source/elmfire_subs.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O0 -g -Wall -fcheck=all -fbounds-check -fbacktrace -fdump-core -ffpe-trap=invalid,zero,overflow -frecord-marker=4 -ffree-line-length-none -cpp -Wno-character-truncation -Wno-conversion -finit-real=snan -finit-integer=-99999999 ../../source/elmfire_init.f90
+../../source/elmfire_init.f90:1352:65:
+
+ 1352 | FNINPUT = TRIM(WEATHER_DIRECTORY) // TRIM(DAILY_WEATHER_FILENAME)
+      |                                                                 ^
+Warning: ‘.fninput’ may be used uninitialized [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O0 -g -Wall -fcheck=all -fbounds-check -fbacktrace -fdump-core -ffpe-trap=invalid,zero,overflow -frecord-marker=4 -ffree-line-length-none -cpp -Wno-character-truncation -Wno-conversion -finit-real=snan -finit-integer=-99999999 ../../source/elmfire_namelists.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O0 -g -Wall -fcheck=all -fbounds-check -fbacktrace -fdump-core -ffpe-trap=invalid,zero,overflow -frecord-marker=4 -ffree-line-length-none -cpp -Wno-character-truncation -Wno-conversion -finit-real=snan -finit-integer=-99999999 ../../source/elmfire_spread_rate.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O0 -g -Wall -fcheck=all -fbounds-check -fbacktrace -fdump-core -ffpe-trap=invalid,zero,overflow -frecord-marker=4 -ffree-line-length-none -cpp -Wno-character-truncation -Wno-conversion -finit-real=snan -finit-integer=-99999999 ../../source/elmfire_ignition.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O0 -g -Wall -fcheck=all -fbounds-check -fbacktrace -fdump-core -ffpe-trap=invalid,zero,overflow -frecord-marker=4 -ffree-line-length-none -cpp -Wno-character-truncation -Wno-conversion -finit-real=snan -finit-integer=-99999999 ../../source/elmfire_io.f90
+../../source/elmfire_io.f90:2670:20:
+
+ 2670 | MULTILINE_VALUE = ''
+      |                    ^
+Warning: ‘.multiline_value’ may be used uninitialized [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O0 -g -Wall -fcheck=all -fbounds-check -fbacktrace -fdump-core -ffpe-trap=invalid,zero,overflow -frecord-marker=4 -ffree-line-length-none -cpp -Wno-character-truncation -Wno-conversion -finit-real=snan -finit-integer=-99999999 ../../source/elmfire_spotting.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O0 -g -Wall -fcheck=all -fbounds-check -fbacktrace -fdump-core -ffpe-trap=invalid,zero,overflow -frecord-marker=4 -ffree-line-length-none -cpp -Wno-character-truncation -Wno-conversion -finit-real=snan -finit-integer=-99999999 ../../source/elmfire_suppression.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O0 -g -Wall -fcheck=all -fbounds-check -fbacktrace -fdump-core -ffpe-trap=invalid,zero,overflow -frecord-marker=4 -ffree-line-length-none -cpp -Wno-character-truncation -Wno-conversion -finit-real=snan -finit-integer=-99999999 ../../source/elmfire_spotting_superseded.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O0 -g -Wall -fcheck=all -fbounds-check -fbacktrace -fdump-core -ffpe-trap=invalid,zero,overflow -frecord-marker=4 -ffree-line-length-none -cpp -Wno-character-truncation -Wno-conversion -finit-real=snan -finit-integer=-99999999 ../../source/elmfire_calibration.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O0 -g -Wall -fcheck=all -fbounds-check -fbacktrace -fdump-core -ffpe-trap=invalid,zero,overflow -frecord-marker=4 -ffree-line-length-none -cpp -Wno-character-truncation -Wno-conversion -finit-real=snan -finit-integer=-99999999 ../../source/elmfire_level_set.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O0 -g -Wall -fcheck=all -fbounds-check -fbacktrace -fdump-core -ffpe-trap=invalid,zero,overflow -frecord-marker=4 -ffree-line-length-none -cpp -Wno-character-truncation -Wno-conversion -finit-real=snan -finit-integer=-99999999 ../../source/elmfire.f90
+mpifort -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O0 -g -Wall -fcheck=all -fbounds-check -fbacktrace -fdump-core -ffpe-trap=invalid,zero,overflow -frecord-marker=4 -ffree-line-length-none -cpp -Wno-character-truncation -Wno-conversion -finit-real=snan -finit-integer=-99999999 -o elmfire_debug elmfire_vars.o sort.o elmfire_subs.o elmfire_init.o elmfire_namelists.o elmfire_spread_rate.o  elmfire_ignition.o elmfire_io.o elmfire_spotting.o elmfire_suppression.o elmfire_spotting_superseded.o elmfire_calibration.o elmfire_level_set.o elmfire.o
+Making elmfire_post
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O3 -unroll -frecord-marker=4 -ffree-line-length-none -cpp -march=native -fopenmp -ffpe-summary=none ../../source/elmfire_vars.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O3 -unroll -frecord-marker=4 -ffree-line-length-none -cpp -march=native -fopenmp -ffpe-summary=none ../../source/sort.for
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O3 -unroll -frecord-marker=4 -ffree-line-length-none -cpp -march=native -fopenmp -ffpe-summary=none ../../source/elmfire_subs.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O3 -unroll -frecord-marker=4 -ffree-line-length-none -cpp -march=native -fopenmp -ffpe-summary=none ../../source/elmfire_init.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O3 -unroll -frecord-marker=4 -ffree-line-length-none -cpp -march=native -fopenmp -ffpe-summary=none ../../source/elmfire_io.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O3 -unroll -frecord-marker=4 -ffree-line-length-none -cpp -march=native -fopenmp -ffpe-summary=none ../../source/elmfire_post.f90
+mpifort -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O3 -unroll -frecord-marker=4 -ffree-line-length-none -cpp -march=native -fopenmp -ffpe-summary=none -o elmfire_post elmfire_vars.o sort.o elmfire_subs.o elmfire_init.o elmfire_io.o elmfire_post.o
+Making elmfire_post_gnu_debug_linux
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O0 -g -Wall -fcheck=all -fbacktrace -fdump-core -ffpe-trap=zero,overflow -frecord-marker=4 -ffree-line-length-none -cpp -Wno-character-truncation -Wno-conversion -fopenmp ../../source/elmfire_vars.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O0 -g -Wall -fcheck=all -fbacktrace -fdump-core -ffpe-trap=zero,overflow -frecord-marker=4 -ffree-line-length-none -cpp -Wno-character-truncation -Wno-conversion -fopenmp ../../source/sort.for
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O0 -g -Wall -fcheck=all -fbacktrace -fdump-core -ffpe-trap=zero,overflow -frecord-marker=4 -ffree-line-length-none -cpp -Wno-character-truncation -Wno-conversion -fopenmp ../../source/elmfire_subs.f90
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O0 -g -Wall -fcheck=all -fbacktrace -fdump-core -ffpe-trap=zero,overflow -frecord-marker=4 -ffree-line-length-none -cpp -Wno-character-truncation -Wno-conversion -fopenmp ../../source/elmfire_init.f90
+../../source/elmfire_init.f90:1352:65:
+
+ 1352 | FNINPUT = TRIM(WEATHER_DIRECTORY) // TRIM(DAILY_WEATHER_FILENAME)
+      |                                                                 ^
+Warning: ‘.fninput’ may be used uninitialized [-Wmaybe-uninitialized]
+../../source/elmfire_init.f90:832:44:
+
+  832 |          IF (ASP%R4(ICOL,IROW,1) .GT. 360.) ASP%R4(ICOL,IROW,IBAND) = ASP%R4(ICOL,IROW,IBAND) - 360.
+      |                                            ^
+Warning: ‘iband’ may be used uninitialized [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O0 -g -Wall -fcheck=all -fbacktrace -fdump-core -ffpe-trap=zero,overflow -frecord-marker=4 -ffree-line-length-none -cpp -Wno-character-truncation -Wno-conversion -fopenmp ../../source/elmfire_io.f90
+../../source/elmfire_io.f90:2670:20:
+
+ 2670 | MULTILINE_VALUE = ''
+      |                    ^
+Warning: ‘.multiline_value’ may be used uninitialized [-Wmaybe-uninitialized]
+mpifort -c -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O0 -g -Wall -fcheck=all -fbacktrace -fdump-core -ffpe-trap=zero,overflow -frecord-marker=4 -ffree-line-length-none -cpp -Wno-character-truncation -Wno-conversion -fopenmp ../../source/elmfire_post.f90
+mpifort -D_SMOKE -D_WUI -D_UMDSPOTTING -D_SUPPRESSION -O0 -g -Wall -fcheck=all -fbacktrace -fdump-core -ffpe-trap=zero,overflow -frecord-marker=4 -ffree-line-length-none -cpp -Wno-character-truncation -Wno-conversion -fopenmp -o elmfire_post_debug elmfire_vars.o sort.o elmfire_subs.o elmfire_init.o elmfire_io.o elmfire_post.o
+Cleaning up
