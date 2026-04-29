@@ -1,8 +1,8 @@
 # Changelog
 
-We constantly update and upgrade ELMFIRE based on user feedback and new cases / requirements. 
+We constantly update and upgrade ELMFIRE based on user feedback and new cases / requirements.
 
-We want to expand the list of errors that can be caught early in the simulation. 
+We want to expand the list of errors that can be caught early in the simulation.
 
 Please create issues with your errors, requests or observations so they can be worked on for the next release.
 
@@ -39,3 +39,38 @@ Please create issues with your errors, requests or observations so they can be w
 
 - The smoke submodel of ELMFIRE has been reworked to make integration with HYSPLIT smoother. A simplified emission calculation model is used based on bulk flaming and smoldering wood emission values. The new parameters to be set are PM_EMISSION_FACTOR_FLAMING, PM_EMISSION_FACTOR_SMOLDERING, DRY_WOOD_CALORIFIC_VALUE, FLAMING_TIME, SMOLDERING_TIME. All have standard values that can be modified if needed. DUMP_EMITIMES has been added in the &OUTPUTS namelist to also create the emitimes.txt file required by HYSPLIT.
 - Changed the default values of CURRENT_YEAR, HOUR_OF_YEAR, SUNRISE_HOUR, SUNSET_HOUR to -1, so an error occurs if these variables are needed for diurnal adjustment but are not set. SUNRISE_HOUR and SUNSET_HOUR are calculated automatically anyway but changing their values in the input files overwrites the automatic calculation.
+
+## ELMFIRE-memopt.0427
+
+### Bug Fixes
+
+- Fixed WU-E accumulated heat-flux outputs so `DUMP_TOTAL_DFC_RECEIVED` and `DUMP_TOTAL_RAD_RECEIVED` write gridded totals for all receiving cells, rather than only values stored on tagged nodes.
+- Fixed WU-E heat-flux time integration to use the active level-set timestep `DT`, instead of the user-specified `SIMULATION_DT`, so accumulated heat remains consistent with CFL-limited timesteps.
+- Added safer WU-E building fuel model assignment for newly appended linked-list nodes, including fallback handling for missing building fuel model values.
+- Fixed WU-E ignition initialization for random and scheduled ignitions so `PHIP`, `TIME_OF_ARRIVAL`, and `SURFACE_FIRE` are set before WUI tagging and structure HRR evaluation.
+- Fixed WU-E transient HRR diagnostic flag usage to use `DUMP_HRR_TRANSIENT`.
+- Guarded threshold interface-model state reads so `INTERFACE_MODEL_TYPE = 2` does not access WU-E arrays unless building spread model type 2 is active.
+- Prevented WU-E structure nodes from being removed by the stale-node timeout before their design HRR curve has ended.
+- Added single-node handling to linked-list deletion to keep list head/tail pointers valid after deleting the final node.
+
+### Added
+
+- Added WU-E transient output switches: `DUMP_TRANSIENT_DFC` for direct flame contact heat flux, `DUMP_TRANSIENT_RAD` for radiant heat flux, `DUMP_HRR_TRANSIENT` for transient HRRPUA, and `DUMP_FUEL_CONSUMPTION` for remaining fuel-load diagnostics.
+- Added `BANDTHICKNESS_WUI` to the `&WUI` namelist to limit the neighborhood used for WU-E tagging and heat-flux updates. The default is 5 cells. This should be revised in the future with resolution-independent criterions (e.g. 100 meter).
+- Added `CRITICL_HF_WUI` to the `&WUI` namelist as a critical heat-flux threshold for sustaining structure burning. The default is 0.
+- Added WU-E state arrays for gridded transient and accumulated fields: `HRR_TRANSIENT_MAP`, `TOTAL_DFC_WUI`, `TOTAL_RADIATION_WUI`, `TRANSIENT_DFC_WUI`, `TRANSIENT_RADIATION_WUI`, `FUEL_LOAD_REMAIN`, and `ELLIPSE_PROPERTY_MAP`.
+- Added gridded interface-model state arrays, `TEST_INTERFACE_WUI` and `WTU_SPREAD_WUI`, to carry threshold interface effects from WU-E heat-flux calculation back into linked-list node updates.
+- Added `LIST_WUI_BURNING` plus `TAG_WUI` and `UNTAG_CELLS_WUI` to track WUI cells that need transient HRR and heat-flux updates.
+
+### Changed
+
+- Refactored the WU-E model so transient heat-flux calculation is handled by `CALC_WUI_HEATFLUX`, separate from `UMD_UCB_BLDG_SPREAD`.
+- Moved WU-E heat-flux field updates out of `UX_AND_UY_ELLIPTICAL`; ROS calculation now reads the gridded transient heat-flux fields.
+- Restored the threshold interface-model pathway for `INTERFACE_MODEL_TYPE = 2` by mapping vegetation-to-interface effects onto gridded WUI flags before node velocity and RK2 updates.
+- Updated WU-E heat-flux calculation to use receiving-cell building fuel model properties for direct flame contact and radiation coefficients.
+- Updated WU-E heat-flux normalization to use `HRR_ELLIPSE_ADJ` (in the &WUI namelist, previously in the &SIMULATOR namelist) when scaling the effective flame ellipse area.
+- Simplified vegetative WU-E source preparation by using head-fire `FLIN_DMS_SURFACE` to estimate source HRRPUA, avoiding unnecessary normal-vector and ellipse-velocity updates for diagnostic/source-only vegetative cells. This is to substitute the constant 250 kW/m2 for vegetative cells in the previous versions. (Another option would be introducing a new wui vegetation class in the building fuel models).
+- Replaced the previous WU-E dynamic node-pointer array with linked-list based WUI tracking and gridded state arrays.
+- Updated WU-E transient HRR handling so structure and nearby vegetative WUI cells can update `HRR_TRANSIENT_MAP`.
+- Limited WU-E transient and accumulated output rasters to building spread model type 2.
+- Preserved isolated tagged pixels when the building spread model is enabled so isolated burning structures are not prematurely removed from the tagged list.
