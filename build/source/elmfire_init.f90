@@ -201,20 +201,60 @@ if (MODE .ne. 1) then
 
 endif
 
-do I = 0, size(X_IGN)-1
-   if (X_IGN(I) .gt. 0) then
-      if (X_IGN(I) .lt. ASP%XLLCORNER .or. Y_IGN(I) .lt. ASP%YLLCORNER .or. X_IGN(I) .gt. ASP%XLLCORNER + ASP%NCOLS * ASP%CELLSIZE .or. Y_IGN(I) .lt. ASP%YLLCORNER - ASP%NROWS * ASP%CELLSIZE) then ! note that y increases upwards in the northern hemisphere, might need to change this later. 
-         WRITE(*,*) "[ERROR] Ignition point ", I, " is outside the bounds of the raster."
-         GOOD_INPUTS = .FALSE.
-      endif
-      ix_ign = ICOL_FROM_X(X_IGN(I), ASP%XLLCORNER, ASP%CELLSIZE)
-      iy_ign = IROW_FROM_Y(Y_IGN(I), ASP%YLLCORNER, ASP%CELLSIZE)
-      if (ISNONBURNABLE(ix_ign, iy_ign)) then
-         WRITE(*,*) "[ERROR] Ignition point ", I, " is on a non-burnable cell."
-         GOOD_INPUTS = .FALSE.
-      endif
-   endif      
-enddo
+if (ENABLE_SPOTTING) then
+   if (GENERATION_MODEL .ne. 'UNIFORM' .and. GENERATION_MODEL .ne. 'PER-AREA' .and. GENERATION_MODEL .ne. 'PER-MW') then
+      WRITE(*,*) "[ERROR] Ember GENERATION_MODEL not supported. Valid options: 'UNIFORM', 'PER-AREA', 'PER-MW'."
+      GOOD_INPUTS = .FALSE.
+   endif
+   if (TRANSPORT_MODEL .ne. 'UNIFORM' .and. TRANSPORT_MODEL .ne. 'LOGNORMAL' .and. TRANSPORT_MODEL .ne. 'SARDOY') then
+      WRITE(*,*) "[ERROR] Ember TRANSPORT_MODEL not supported. Valid options: 'UNIFORM', 'LOGNORMAL', 'SARDOY'."
+      GOOD_INPUTS = .FALSE.
+   endif
+   if (ACCUMULATION_MODEL .ne. 'LAGRANGIAN' .and. ACCUMULATION_MODEL .ne. 'EULERIAN') then
+      WRITE(*,*) "[ERROR] Ember ACCUMULATION_MODEL not supported. Valid options: 'LAGRANGIAN', 'EULERIAN'."
+      GOOD_INPUTS = .FALSE.
+   endif
+   if (IGNITION_MODEL .ne. 'DIRECT' .and. IGNITION_MODEL .ne. 'SIMPLE' .and. IGNITION_MODEL .ne. 'PHYSICAL') then
+      WRITE(*,*) "[ERROR] Ember IGNITION_MODEL not supported. Valid options: 'DIRECT', 'SIMPLE', 'PHYSICAL'."
+      GOOD_INPUTS = .FALSE.
+   endif
+endif
+
+if (MODE .ne. 2) then
+   if (count(T_LINE_IGN .ne. -1.0) .eq. 0 .and. count(T_IGN .ne. -1.0) .eq. 0) then
+      WRITE(*,*) "[ERROR] No ignition point/time specified."
+      GOOD_INPUTS = .FALSE.
+   else
+      do I = 1 , count(T_LINE_IGN .ne. -1.0)
+         if (T_LINE_IGN(I) .ne. -1.0) THEN
+            if (X_LINE_IGN(I) .lt. ASP%XLLCORNER .or. &
+               Y_LINE_IGN(I) .lt. ASP%YLLCORNER .or. &
+               X_LINE_IGN(I) .gt. ASP%XLLCORNER + ASP%NCOLS * ASP%CELLSIZE .or. &
+               Y_LINE_IGN(I) .lt. ASP%YLLCORNER - ASP%NROWS * ASP%CELLSIZE) then ! note that y increases upwards in the northern hemisphere, might need to change this later. 
+               WRITE(*,*) "[ERROR] Ignition point ", I, " is outside the bounds of the raster."
+               GOOD_INPUTS = .FALSE.
+            endif
+         endif
+      enddo
+      do I = 0, size(X_IGN)-1
+         if (T_IGN(I) .ge. 0) then
+            if (X_IGN(I) .lt. ASP%XLLCORNER .or. &
+               Y_IGN(I) .lt. ASP%YLLCORNER .or. &
+               X_IGN(I) .gt. ASP%XLLCORNER + ASP%NCOLS * ASP%CELLSIZE .or. &
+               Y_IGN(I) .lt. ASP%YLLCORNER - ASP%NROWS * ASP%CELLSIZE) then ! note that y increases upwards in the northern hemisphere, might need to change this later. 
+               WRITE(*,*) "[ERROR] Ignition point ", I, " is outside the bounds of the raster."
+               GOOD_INPUTS = .FALSE.
+            endif
+            ix_ign = ICOL_FROM_X(X_IGN(I), ASP%XLLCORNER, ASP%CELLSIZE)
+            iy_ign = IROW_FROM_Y(Y_IGN(I), ASP%YLLCORNER, ASP%CELLSIZE)
+            if (ISNONBURNABLE(ix_ign, iy_ign)) then
+               WRITE(*,*) "[ERROR] Ignition point ", I, " is on a non-burnable cell."
+               GOOD_INPUTS = .FALSE.
+            endif
+         endif      
+      enddo
+   endif
+endif
 
 IF (USE_BLDG_SPREAD_MODEL) THEN
    IF (.NOT. USE_CONSTANT_BLDG_SPREAD_MODEL_PARAMS) THEN

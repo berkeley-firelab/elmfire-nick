@@ -369,5 +369,47 @@ END SUBROUTINE DETERMINE_NUM_CASES_TOTAL_CSV
 ! *****************************************************************************
 
 ! *****************************************************************************
+SUBROUTINE LINE_IGN_TO_POINT_IGN
+! *****************************************************************************
+   integer :: i, x, y, stepx, stepy
+
+   if (count(X_LINE_IGN .ge. 0) .gt. 0) then
+      NUM_IGNITIONS = 0
+      do i = 1 , count(X_LINE_IGN .ge. 0) - 1
+
+         if (X_LINE_IGN(i+1) - X_LINE_IGN(i) .ge. 0) then
+            stepx = int(DEM%CELLSIZE)
+         else
+            stepx = -1 * int(DEM%CELLSIZE)
+         endif
+
+         if (Y_LINE_IGN(i+1) - Y_LINE_IGN(i) .ge. 0) then
+            stepy = int(DEM%CELLSIZE)
+         else
+            stepy = -1 * int(DEM%CELLSIZE)
+         endif
+
+         do x = 0 , int(X_LINE_IGN(i+1) - X_LINE_IGN(i)), stepx
+            do y = 0 , int(Y_LINE_IGN(i+1) - Y_LINE_IGN(i)), stepy
+               NUM_IGNITIONS = NUM_IGNITIONS + 1
+               X_IGN(NUM_IGNITIONS) = X_LINE_IGN(i) + x
+               Y_IGN(NUM_IGNITIONS) = Y_LINE_IGN(i) + y
+               T_IGN(NUM_IGNITIONS) = T_LINE_IGN(i)
+            enddo
+         enddo
+      enddo
+   else
+      if (NUM_IGNITIONS .gt. 0) then
+         NUM_IGNITIONS = NUM_IGNITIONS ! I am thinking about removing this variable from the namelist and automatically calculating it based on the inputs, but it might be worth keeping to get the user to remember to actually input the ignition points. 
+      else
+         NUM_IGNITIONS = count(T_IGN .ge. 0)
+      endif
+   endif
+
+! *****************************************************************************
+end subroutine LINE_IGN_TO_POINT_IGN
+! *****************************************************************************
+
+! *****************************************************************************
 END MODULE ELMFIRE_IGNITION
 ! *****************************************************************************

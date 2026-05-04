@@ -232,7 +232,7 @@ DO WHILE (T .le. totalDuration)
          SURFACE_FIRE   => ANALYSIS_SURFACE_FIRE%I2(:,:,1); SURFACE_FIRE(:,:) = 0.
 
          IF (DUMP_EMBER_FLUX_TRANSIENT) EMBER_FLUX_TRANSIENT%R4(:,:,1) = 0
-         IF (DUMP_EMBER_FLUX .OR. (ENABLE_SPOTTING .AND. USE_UMD_SPOTTING_MODEL .AND. USE_EULERIAN_SPOTTING)) THEN
+         IF (DUMP_EMBER_FLUX .OR. (ENABLE_SPOTTING .AND. USE_UMD_SPOTTING_MODEL .AND. trim(ACCUMULATION_MODEL) .eq. 'EULERIAN')) THEN
             EMBER_FLUX%R4(:,:,1) = 0
          ENDIF
 
@@ -1145,14 +1145,14 @@ DO WHILE (T .le. totalDuration)
       ENDDO
 
       IF (USE_UMD_SPOTTING_MODEL) THEN
-         IF (USE_EULERIAN_SPOTTING) THEN
+         IF (trim(ACCUMULATION_MODEL) .eq. 'EULERIAN') THEN
          ! Main call to ember trajectory integration and ignition determination
             ICOL = ICOL_ANALYSIS_F2C(IX)
             IROW = IROW_ANALYSIS_F2C(IY)
             WS20 = WS20_LO(ICOL,IROW) * (1. - F_METEOROLOGY) + F_METEOROLOGY * WS20_HI(ICOL,IROW)
             
             CALL EULERIAN_SPOTTING_MAIN(NX, NY, ANALYSIS_CELLSIZE, T, DT, WS20, BAND_L)
-         ELSE
+         ELSE IF (trim(ACCUMULATION_MODEL) .eq. 'LAGRANGIAN') THEN
             DO I = 1, NUM_TRACKED_EMBERS
                IF (.NOT. SPOTTING_STATS(I)%POSITIVE_IGNITION ) CYCLE
                IF (SPOTTING_STATS(I)%ALREADY_IGNITED         ) CYCLE
@@ -1286,7 +1286,7 @@ DO WHILE (T .le. totalDuration)
             DT = DT_METEOROLOGY
             IDUMPCOUNT = NDUMPS + 1
          ELSE
-            IF(USE_EULERIAN_SPOTTING .AND. LIST_EMBER_TRACKER%NUM_NODES .LT. 1) THEN
+            IF(trim(ACCUMULATION_MODEL) .eq. 'EULERIAN' .AND. LIST_EMBER_TRACKER%NUM_NODES .LT. 1) THEN
                print *, "[", ICASE, "]"," STOPPING: LESS THAN 2 NODES TAGGED FOR FIRE SPREAD"
                SIMULATION_TSTOP_HOURS = T / 3600.
                STATS_SIMULATION_TSTOP_HOURS(ICASE) = SIMULATION_TSTOP_HOURS
@@ -1522,7 +1522,7 @@ DO WHILE (T .le. totalDuration)
       NTIMESTEPS = ITIMESTEP
       CALL MAIN_DUMP_ROUTINE(IDUMPCOUNT, NDUMPS, ICASE, T, ACRES)
 
-      IF (DUMP_SPOTTING_OUTPUTS .and. .not. USE_EULERIAN_SPOTTING) THEN
+      IF (DUMP_SPOTTING_OUTPUTS .and. trim(ACCUMULATION_MODEL) .eq. 'LAGRANGIAN') THEN
          FN = TRIM(OUTPUTS_DIRECTORY) // 'spotting_stats_' // SEVEN_ICASE // '.csv'
          INQUIRE(UNIT=712,OPENED=LOPEN)
          IF (.NOT. LOPEN) THEN
@@ -2551,15 +2551,14 @@ DO
    IF(USE_EMBER_CONSUMPTION) CALL EMBER_CONSUMPTION(IX, IY, T_ELMFIRE, DT_ELMFIRE)
 
    IF(PHIP(IX,IY) .GE. 0 .AND. SURFACE_FIRE(IX,IY) .LE. 0) THEN
-      IF (USE_EMBER_IGNITION_MODEL) THEN
+      IF (trim(IGNITION_MODEL) .eq. 'SIMPLE' .or. trim(IGNITION_MODEL) .eq. 'PHYSICAL') THEN
          ! Ignite the target according to the physics-based model
          CALL EMBER_IGNITION(C,T_ELMFIRE, DT_ELMFIRE, WS20)
          IF (.NOT. C%FULL_DEV_IGNITION) THEN
             C => C%NEXT
             CYCLE
          ENDIF
-
-      ELSE
+      ELSE IF (trim(IGNITION_MODEL) .eq. 'DIRECT') THEN
          ! Ignite the target immediately if any firebrand landed
          IF (EMBER_TIGN(IX,IY) .GT. T_ELMFIRE+DT_ELMFIRE .OR. EMBER_TIGN(IX,IY) .LT. 0) THEN
             C => C%NEXT
