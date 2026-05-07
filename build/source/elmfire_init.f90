@@ -183,15 +183,15 @@ endif
 ! fire potential mode
 if (MODE .ne. 1) then
    if (METEOROLOGY_BAND_START .lt. 0) then
-      WRITE(*,*) "[ERROR] METEOROLOGY_BAND_START must be specified if fire potential mode (MODE = 1 or 3) is used."
+      WRITE(*,*) "[ERROR] METEOROLOGY_BAND_START must be specified if fire potential mode (MODE = 2 or 3) is used."
       GOOD_INPUTS = .FALSE.
    endif 
    if (METEOROLOGY_BAND_STOP .lt. 0) then
-      WRITE(*,*) "[ERROR] METEOROLOGY_BAND_STOP must be specified if fire potential mode (MODE = 1 or 3) is used."
+      WRITE(*,*) "[ERROR] METEOROLOGY_BAND_STOP must be specified if fire potential mode (MODE = 2 or 3) is used."
       GOOD_INPUTS = .FALSE.
    endif 
    if (METEOROLOGY_BAND_SKIP_INTERVAL .lt. 0) then
-      WRITE(*,*) "[ERROR] METEOROLOGY_BAND_SKIP_INTERVAL must be specified if fire potential mode (MODE = 1 or 3) is used."
+      WRITE(*,*) "[ERROR] METEOROLOGY_BAND_SKIP_INTERVAL must be specified if fire potential mode (MODE = 2 or 3) is used."
       GOOD_INPUTS = .FALSE.
    endif 
    if (2 * EDGEBUFFER .gt. 0.8 * ASP%NROWS * ASP%CELLSIZE .or. 2 * EDGEBUFFER .gt. 0.8 * ASP%NCOLS * ASP%CELLSIZE) then

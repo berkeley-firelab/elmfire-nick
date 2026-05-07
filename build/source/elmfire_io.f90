@@ -1028,7 +1028,7 @@ CHARACTER(7) :: ISSAMPLES
 CHARACTER(9) :: ISDATATYPE
 CHARACTER(24) :: ISNODATA
 CHARACTER(400), ALLOCATABLE, DIMENSION(:) :: LINES
-INTEGER :: I, IOS, ISTAT, ITYPE, NLINES
+INTEGER :: I, IOS, IPOS, ISTAT, ITYPE, NLINES
 LOGICAL :: XML_EXISTS
 
 IF (VRT_INSTEAD_OF_TIF) THEN
@@ -1127,11 +1127,14 @@ DO I = 1, NLINES
    ENDIF
 
    IF (ISNODATA == 'NoDataValue') THEN
-      READ(LINENOW(18:38),*) TEMPSTR
-!      TEMPSTR = STRIP_NON_NUMBERS(TEMPSTR)
-      if (tempstr(1:1) /= '-') then !fix issue with positive NODATA values
-         tempstr = tempstr(1:20) ! alternative: shorten through assignment
-      endif
+      IPOS = INDEX(LINENOW, '>')
+      IF (IPOS > 0) THEN
+         READ(LINENOW(IPOS+1:IPOS+25),*) TEMPSTR
+      ELSE
+         READ(LINENOW(18:38),*) TEMPSTR
+      ENDIF
+      IPOS = INDEX(TEMPSTR, '<')
+      IF (IPOS > 1) TEMPSTR = TEMPSTR(1:IPOS-1)
       READ(TEMPSTR,*) RASTER%NODATA_VALUE
       CONTINUE
    ENDIF
