@@ -21,15 +21,17 @@ Please create issues with your errors, requests or observations so they can be w
 
 ### Removed
 
-- Removed various spotting input switches, which were replaced with new clearer input settings. Removed `USE_EULERIAN_SPOTTING`, `USE_PHYSICAL_EMBER_NUMBER`, `USE_EMBER_IGNITION_MODEL`, `USE_SIMPLE_IGNITION_MODEL`.
+- Removed various spotting input switches, which were replaced with new clearer input settings. Removed `USE_EULERIAN_SPOTTING`, `USE_PHYSICAL_EMBER_NUMBER`, `USE_EMBER_IGNITION_MODEL`, `USE_SIMPLE_IGNITION_MODEL`, and active use of `USE_UMD_SPOTTING_MODEL`.
+- Removed the active-model dependency on `USE_UMD_SPOTTING_MODEL` for allocating and updating `SPOTTING_STATS`.
+- Removed the 7-by-7 burned-cell exclusion from the new Lagrangian direct-ignition spotting path. The legacy spotting path preserves its original neighborhood exclusion.
 
-### Superceded
+### Superseded
 
-- Spotting parameters `USE_UMD_SPOTTING_MODEL` and `SPOTTING_DISTRIBUTION_TYPE` are not in active use anymore but are still used with `USE_SPOTTING_SUPERCEDED`.
+- Legacy spotting remains available with `USE_SUPERSEDED_SPOTTING = .TRUE.` and uses the legacy `SPOTTING_DISTRIBUTION_TYPE` setting.
 
 ### Added
 
-- Made the input parameters for the various spotting models more direct. Spotting is broken down to its individual components through the new switches `GENERATION_MODEL` (['UNIFORM', 'PER-AREA', 'PER-MW']), `TRANSPORT_MODEL` (['UNIFORM', 'LOGNORMAL', 'SARDOY']), `ACCUMULATION_MODEL` (['LAGRANGIAN', 'EULERIAN']), and `IGNITION_MODEL` (['DIRECT', 'SIMPLE', 'PHYSICAL']). Details on how to use each (and which combinations are valid or invalid) can be found in the guide. 
+- Made the input parameters for the various spotting models more direct. Spotting is broken down to its individual components through the new switches `GENERATION_MODEL` (['RANDOM', 'PER-AREA', 'PER-MW']), `SPOTTING_DISTANCE_MODEL` (['UNIFORM', 'LOGNORMAL', 'EMPIRICAL']), `ACCUMULATION_MODEL` (['LAGRANGIAN', 'EULERIAN']), and `IGNITION_MODEL` (['DIRECT', 'SIMPLE', 'PHYSICAL']). Details on how to use each (and which combinations are valid or invalid) can be found in the guide. 
 - Added line ignitions. Specify start and end points through `X_LINE_IGN(:)`, `Y_LINE_IGN(:)`, `T_LINE_IGN(:)`. `T_LINE_IGN(1)` will apply to all points between `X_LINE_IGN(1)`, `Y_LINE_IGN(1)` and `X_LINE_IGN(2)`, `Y_LINE_IGN(2)`, etc.. `NUM_IGNITIONS` does not need to be specified when line ignition is used. 
 - Added WU-E transient output switches: `DUMP_TRANSIENT_DFC` for direct flame contact heat flux, `DUMP_TRANSIENT_RAD` for radiant heat flux, `DUMP_HRR_TRANSIENT` for transient HRRPUA, and `DUMP_FUEL_CONSUMPTION` for remaining fuel-load diagnostics.
 - Added `BANDTHICKNESS_WUI` to the `&WUI` namelist to limit the neighborhood used for WU-E tagging and heat-flux updates. The default is 5 cells. This should be revised in the future with resolution-independent criterions (e.g. 100 meter).
@@ -37,6 +39,7 @@ Please create issues with your errors, requests or observations so they can be w
 - Added WU-E state arrays for gridded transient and accumulated fields: `HRR_TRANSIENT_MAP`, `TOTAL_DFC_WUI`, `TOTAL_RADIATION_WUI`, `TRANSIENT_DFC_WUI`, `TRANSIENT_RADIATION_WUI`, `FUEL_LOAD_REMAIN`, and `ELLIPSE_PROPERTY_MAP`.
 - Added gridded interface-model state arrays, `TEST_INTERFACE_WUI` and `WTU_SPREAD_WUI`, to carry threshold interface effects from WU-E heat-flux calculation back into linked-list node updates.
 - Added `LIST_WUI_BURNING` plus `TAG_WUI` and `UNTAG_CELLS_WUI` to track WUI cells that need transient HRR and heat-flux updates.
+- Added support for transient ember-flux output through `DUMP_EMBER_FLUX_TRANSIENT` in the Lagrangian accumulation path, consistent with the Eulerian path.
 
 ### Changed
 
@@ -50,6 +53,8 @@ Please create issues with your errors, requests or observations so they can be w
 - Updated WU-E transient HRR handling so structure and nearby vegetative WUI cells can update `HRR_TRANSIENT_MAP`.
 - Limited WU-E transient and accumulated output rasters to building spread model type 2.
 - Preserved isolated tagged pixels when the building spread model is enabled so isolated burning structures are not prematurely removed from the tagged list.
+- Changed names of functions `SARDOY_PDF_PARAMETERS` to `EMPIRICAL_PDF_PARAMETERS`, `SARDOY_PDFINV` to `LOGNORM_CDF`, and `SARDOY_CDF` to `LOGNORM_CDF_DEFINITE` to clarify their roles.
+- Changed the variable name `EMBER_TIGN` to `EMBER_TOA`, the time of arrival of the first ember.
 
 
 ## ELMFIRE-memopt.0331
