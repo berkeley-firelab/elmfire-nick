@@ -220,6 +220,10 @@ if (ENABLE_SPOTTING) then
          WRITE(*,*) "[ERROR] Ember IGNITION_MODEL not supported. Valid options: 'DIRECT', 'SIMPLE', 'PHYSICAL'."
          GOOD_INPUTS = .FALSE.
       endif
+      if (ACCUMULATION_MODEL .ne. 'EULERIAN' .and. SPOTTING_DISTANCE_MODEL .ne. 'UNIFORM') then
+         WRITE(*,*) "[ERROR] SPOTTING_DISTANCE_MODEL='UNIFORM' not supported with ACCUMULATION_MODEL='EULERIAN'. Please set SPOTTING_DISTANCE_MODEL to 'LOGNORMAL' or 'EMPIRICAL' if using the Eulerian accumulation model."
+         GOOD_INPUTS = .FALSE.
+      endif
    ENDIF
 ENDIF
 
