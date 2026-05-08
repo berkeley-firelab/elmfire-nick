@@ -56,14 +56,16 @@ PIGN                                      = 100.0 !Percent
 PIGN_MAX                                  = 100.0
 PIGN_MIN                                  = 100.0
 TAU_EMBERGEN                              = 10.0
-USE_UMD_SPOTTING_MODEL                    = .TRUE.
+USE_SUPERSEDED_SPOTTING                   = .FALSE.
 P_EPS                                     = 0.001 
 USE_PHYSICAL_SPOTTING_DURATION            = .FALSE.
-USE_PHYSICAL_EMBER_NUMBER                 = .FALSE.
+GENERATION_MODEL                          = 'RANDOM' 
+SPOTTING_DISTANCE_MODEL                   = 'UNIFORM' 
+ACCUMULATION_MODEL                        = 'LAGRANGIAN' 
+IGNITION_MODEL                            = 'DIRECT' 
 EMBER_SAMPLING_FACTOR                     = 50.0
 GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MAX  = 100.0
 GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MIN  = 100.0
-USE_SUPERSEDED_SPOTTING                   = .FALSE.
 /
 
 &MISCELLANEOUS
