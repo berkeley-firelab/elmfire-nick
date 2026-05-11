@@ -202,6 +202,15 @@ if (MODE .ne. 1) then
 
 endif
 
+if (ENABLE_SMOKE_OUTPUTS) then
+   if (CURRENT_YEAR .lt. 0) then
+      write (*,*) "[ERROR] CURRENT_YEAR needs to be specified with ENABLE_SMOKE_OUTPUTS"
+   endif
+   if (HOUR_OF_YEAR .lt. 0) then
+      write (*,*) "[ERROR] HOUR_OF_YEAR needs to be specified with ENABLE_SMOKE_OUTPUTS"
+   endif
+endif
+
 if (ENABLE_SPOTTING) then
    IF (.NOT. USE_SUPERSEDED_SPOTTING) THEN
       if (GENERATION_MODEL .ne. 'RANDOM' .and. GENERATION_MODEL .ne. 'PER-AREA' .and. GENERATION_MODEL .ne. 'PER-MW') then
@@ -220,7 +229,7 @@ if (ENABLE_SPOTTING) then
          WRITE(*,*) "[ERROR] Ember IGNITION_MODEL not supported. Valid options: 'DIRECT', 'SIMPLE', 'PHYSICAL'."
          GOOD_INPUTS = .FALSE.
       endif
-      if (ACCUMULATION_MODEL .ne. 'EULERIAN' .and. SPOTTING_DISTANCE_MODEL .ne. 'UNIFORM') then
+      if (ACCUMULATION_MODEL .eq. 'EULERIAN' .and. SPOTTING_DISTANCE_MODEL .eq. 'UNIFORM') then
          WRITE(*,*) "[ERROR] SPOTTING_DISTANCE_MODEL='UNIFORM' not supported with ACCUMULATION_MODEL='EULERIAN'. Please set SPOTTING_DISTANCE_MODEL to 'LOGNORMAL' or 'EMPIRICAL' if using the Eulerian accumulation model."
          GOOD_INPUTS = .FALSE.
       endif
