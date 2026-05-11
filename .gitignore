@@ -15,6 +15,7 @@ BuildLog.*
 # ============================================================
 # GIS / binary rasters
 # ============================================================
+*.aux.xml
 *.bil
 *.hdr
 
@@ -46,7 +47,7 @@ control_files
 DEPRECATED
 fuel
 input_decks
-inputs
+/inputs
 misc
 outputs
 scratch
