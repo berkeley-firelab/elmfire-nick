@@ -243,11 +243,18 @@ if (MODE .ne. 2) then
    else
       do I = 1 , count(T_LINE_IGN .ne. -1.0)
          if (T_LINE_IGN(I) .ne. -1.0) THEN
-            if (X_LINE_IGN(I) .lt. ASP%XLLCORNER .or. &
-               Y_LINE_IGN(I) .lt. ASP%YLLCORNER .or. &
-               X_LINE_IGN(I) .gt. ASP%XLLCORNER + ASP%NCOLS * ASP%CELLSIZE .or. &
-               Y_LINE_IGN(I) .lt. ASP%YLLCORNER - ASP%NROWS * ASP%CELLSIZE) then ! note that y increases upwards in the northern hemisphere, might need to change this later. 
-               WRITE(*,*) "[ERROR] Ignition point ", I, " is outside the bounds of the raster."
+            if (X_LINE_IGN_START(I) .lt. ASP%XLLCORNER .or. &
+               Y_LINE_IGN_START(I) .lt. ASP%YLLCORNER .or. &
+               X_LINE_IGN_START(I) .gt. ASP%XLLCORNER + ASP%NCOLS * ASP%CELLSIZE .or. &
+               Y_LINE_IGN_START(I) .lt. ASP%YLLCORNER - ASP%NROWS * ASP%CELLSIZE) then ! note that y increases upwards in the northern hemisphere, might need to change this later. 
+               WRITE(*,*) "[ERROR] Starting Ignition point ", I, " is outside the bounds of the raster."
+               GOOD_INPUTS = .FALSE.
+            endif
+            if (X_LINE_IGN_END(I) .lt. ASP%XLLCORNER .or. &
+               Y_LINE_IGN_END(I) .lt. ASP%YLLCORNER .or. &
+               X_LINE_IGN_END(I) .gt. ASP%XLLCORNER + ASP%NCOLS * ASP%CELLSIZE .or. &
+               Y_LINE_IGN_END(I) .lt. ASP%YLLCORNER - ASP%NROWS * ASP%CELLSIZE) then ! note that y increases upwards in the northern hemisphere, might need to change this later. 
+               WRITE(*,*) "[ERROR] End Ignition point ", I, " is outside the bounds of the raster."
                GOOD_INPUTS = .FALSE.
             endif
          endif
