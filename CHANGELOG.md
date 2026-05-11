@@ -32,7 +32,7 @@ Please create issues with your errors, requests or observations so they can be w
 ### Added
 
 - Made the input parameters for the various spotting models more direct. Spotting is broken down to its individual components through the new switches `GENERATION_MODEL` (['RANDOM', 'PER-AREA', 'PER-MW']), `SPOTTING_DISTANCE_MODEL` (['UNIFORM', 'LOGNORMAL', 'EMPIRICAL']), `ACCUMULATION_MODEL` (['LAGRANGIAN', 'EULERIAN']), and `IGNITION_MODEL` (['DIRECT', 'SIMPLE', 'PHYSICAL']). Details on how to use each (and which combinations are valid or invalid) can be found in the guide. 
-- Added line ignitions. Specify start and end points through `X_LINE_IGN(:)`, `Y_LINE_IGN(:)`, `T_LINE_IGN(:)`. `T_LINE_IGN(1)` will apply to all points between `X_LINE_IGN(1)`, `Y_LINE_IGN(1)` and `X_LINE_IGN(2)`, `Y_LINE_IGN(2)`, etc.. `NUM_IGNITIONS` does not need to be specified when line ignition is used. 
+- Added line ignitions. Specify start and end points through `X_LINE_IGN(:)`, `Y_LINE_IGN(:)`, `T_LINE_IGN(:)`. `T_LINE_IGN(1)` will apply to all points between `X_LINE_IGN_START(1)`, `Y_LINE_IGN_START(1)` and `X_LINE_IGN_END(1)`, `Y_LINE_IGN_END(1)`, etc.. `NUM_IGNITIONS` does not need to be specified when line ignition is used. 
 - Added WU-E transient output switches: `DUMP_TRANSIENT_DFC` for direct flame contact heat flux, `DUMP_TRANSIENT_RAD` for radiant heat flux, `DUMP_HRR_TRANSIENT` for transient HRRPUA, and `DUMP_FUEL_CONSUMPTION` for remaining fuel-load diagnostics.
 - Added `BANDTHICKNESS_WUI` to the `&WUI` namelist to limit the neighborhood used for WU-E tagging and heat-flux updates. The default is 5 cells. This should be revised in the future with resolution-independent criterions (e.g. 100 meter).
 - Added `CRITICL_HF_WUI` to the `&WUI` namelist as a critical heat-flux threshold for sustaining structure burning. The default is 0.
@@ -55,6 +55,7 @@ Please create issues with your errors, requests or observations so they can be w
 - Preserved isolated tagged pixels when the building spread model is enabled so isolated burning structures are not prematurely removed from the tagged list.
 - Changed names of functions `SARDOY_PDF_PARAMETERS` to `EMPIRICAL_PDF_PARAMETERS`, `SARDOY_PDFINV` to `LOGNORM_CDF`, and `SARDOY_CDF` to `LOGNORM_CDF_DEFINITE` to clarify their roles.
 - Changed the variable name `EMBER_TIGN` to `EMBER_TOA`, the time of arrival of the first ember.
+- Changed the default value of `NUM_METEOROLOGY_TIMES` to -1. Not specifying a value in the input file will result in `NUM_METEOROLOGY_TIMES` equalling the number of bands in the windspeed file. 
 
 
 ## ELMFIRE-memopt.0331
