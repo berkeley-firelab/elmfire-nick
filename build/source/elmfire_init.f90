@@ -237,7 +237,7 @@ if (ENABLE_SPOTTING) then
 ENDIF
 
 if (MODE .ne. 2) then
-   if (count(T_LINE_IGN .ne. -1.0) .eq. 0 .and. count(T_IGN .ne. -1.0) .eq. 0) then
+   if (.not. CSV_FIXED_IGNITION_LOCATIONS .and. .not. RANDOM_IGNITIONS .and. count(T_LINE_IGN .ne. -1.0) .eq. 0 .and. count(T_IGN .ne. -1.0) .eq. 0) then
       WRITE(*,*) "[ERROR] No ignition point/time specified."
       GOOD_INPUTS = .FALSE.
    else
