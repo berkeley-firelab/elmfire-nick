@@ -1051,7 +1051,7 @@ ENDIF
 
 ! Convert to ENVI header BSQ format
 INQUIRE(FILE=FNXML,EXIST=XML_EXISTS)
-IF (.NOT. USE_EXISTING_BSQS .or. .not. XML_EXISTS) THEN
+IF (.NOT. USE_EXISTING_BSQS .and. .not. XML_EXISTS) THEN
    SHELLSTR = TRIM(PATH_TO_GDAL) // 'gdal_translate -of ENVI -co "INTERLEAVE=BSQ" ' // TRIM(FNTIF) // " " // TRIM(FNBSQ)
    WRITE(*,100) TRIM(SHELLSTR); CALL EXECUTE_COMMAND_LINE(TRIM(SHELLSTR))
 ENDIF
@@ -1426,7 +1426,7 @@ IF (IOS .GT. 0) THEN
    STOP
 ENDIF
 
-IF (DEBUG_LEVEL .GT. 100) WRITE(*,*) 'Reading bsq header'
+IF (DEBUG_LEVEL .GE. 30) WRITE(*,*) 'Reading bsq header'
 
 ! Read until we find the map info line instead of assuming line 12
 FOUND = .FALSE.
@@ -1600,7 +1600,7 @@ if (.not. RASTER%HEADERISSET) then
          WRITE(*,*) 'Problem opening bsq header ', TRIM(FNHDR)
       ENDIF
 
-      IF (DEBUG_LEVEL .GT. 100) WRITE(*,*) 'Reading bsq header'
+      IF (DEBUG_LEVEL .GE. 30) WRITE(*,*) 'Reading bsq header'
 
    ! Skip 11 lines
       DO I = 1, 11
@@ -2029,7 +2029,8 @@ USE IFPORT
 
 INTEGER, INTENT(INOUT) :: IDUMPCOUNT
 INTEGER, INTENT(IN) :: NDUMPS, ICASE
-REAL, INTENT(IN) :: T, ACRES
+REAL, INTENT(IN) :: ACRES
+REAL(8), intent(in) :: T
 INTEGER :: I, IT, IOS
 LOGICAL :: LOPEN
 
@@ -2621,7 +2622,7 @@ SUBROUTINE WRITE_STATION(C,IRANK,ICASE,T)
 ! *****************************************************************************
 
 INTEGER, INTENT(IN) :: IRANK, ICASE
-REAL, INTENT(IN) :: T
+REAL(8), INTENT(IN) :: T
 TYPE(NODE), INTENT(IN) :: C
 LOGICAL :: LOPEN
 INTEGER :: IOS
