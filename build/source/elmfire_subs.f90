@@ -158,11 +158,32 @@ SUBROUTINE PERTURB_RASTERS(R1)
 ! *****************************************************************************
 
 REAL, INTENT(IN), DIMENSION(:) :: R1
+REAL :: U1, U2, NORMAL_MEAN, NORMAL_SIGMA, NORMAL_SIGMA2
 
 INTEGER :: I
 
+!Format is X_actual = X_input + COEFFS_UNSCALED(I)
+
 DO I = 1, NUM_RASTERS_TO_PERTURB
-   COEFFS_UNSCALED(I) = PDF_LOWER_LIMIT(I) + R1(I) * (PDF_UPPER_LIMIT(I) - PDF_LOWER_LIMIT(I))
+   if (PDF_TYPE(I) .eq. 'UNIFORM') then
+      COEFFS_UNSCALED(I) = PDF_LOWER_LIMIT(I) + R1(I) * (PDF_UPPER_LIMIT(I) - PDF_LOWER_LIMIT(I))
+   else if (PDF_TYPE(I) .eq. 'GAUSSIAN') then
+      call random_number(U1)
+      call random_number(U2)
+      U1 = max(U1, tiny(U1))
+      COEFFS_UNSCALED(I) = PDF_MEAN(I) + PDF_SIGMA(I) * (sqrt(-2.0 * log(U1))*cos(2*PI*U2)) ! Box-Muller transform
+   else if (PDF_TYPE(I) .eq. 'LOGNORMAL') then
+      call random_number(U1)
+      call random_number(U2)
+      U1 = max(U1, tiny(U1))
+
+      NORMAL_SIGMA2 = log(1.0 + (PDF_SIGMA(I) / PDF_MEAN(I))**2)
+      NORMAL_SIGMA  = sqrt(NORMAL_SIGMA2)
+      NORMAL_MEAN   = log(PDF_MEAN(I)) - 0.5 * NORMAL_SIGMA2
+
+      COEFFS_UNSCALED(I) = exp(NORMAL_MEAN + NORMAL_SIGMA * (sqrt(-2.0 * log(U1))*cos(2*PI*U2))) - PDF_MEAN(I)
+   endif
+   print *, COEFFS_UNSCALED(I)
    SELECT CASE (TRIM(RASTER_TO_PERTURB(I)))
       CASE('ADJ')
          PERTURB_ADJ  = COEFFS_UNSCALED(I)
