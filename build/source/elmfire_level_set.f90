@@ -218,9 +218,14 @@ DO WHILE (T .le. totalDuration)
          ALLOCATE(EVERTAGGED_IX   (1:NX*NY))
          ALLOCATE(EVERTAGGED_IY   (1:NX*NY))
 
+         ! Allocate HRR_TRANSIENT_MAP if dumping of transient HRRPUA is enabled, or if WUI spread model is enabled (since it requires transient HRRPUA for all cells, not just burning cells)
+         IF (DUMP_HRR_TRANSIENT .OR. USE_BLDG_SPREAD_MODEL) THEN
+            ALLOCATE(HRR_TRANSIENT_MAP(1:NX,1:NY))
+            HRR_TRANSIENT_MAP(:,:) = 0.
+         ENDIF
+#ifdef _WUI
          ! Allocate additional arrays for WU-E calculation and outputs
          IF (USE_BLDG_SPREAD_MODEL) THEN
-         ALLOCATE(HRR_TRANSIENT_MAP      (1:NX,1:NY)); HRR_TRANSIENT_MAP(:,:) = 0
          IF (BLDG_SPREAD_MODEL_TYPE .EQ. 2) THEN
             ALLOCATE(TOTAL_DFC_WUI          (1:NX,1:NY)); TOTAL_DFC_WUI(:,:) = 0
             ALLOCATE(TOTAL_RADIATION_WUI    (1:NX,1:NY)); TOTAL_RADIATION_WUI(:,:) = 0
@@ -244,6 +249,7 @@ DO WHILE (T .le. totalDuration)
             ALLOCATE(ELLIPSE_PROPERTY_MAP(1:NX,1:NY))
          ENDIF
          ENDIF
+#endif
 
          IF (.NOT. USE_SUPERSEDED_SPOTTING .AND. trim(ACCUMULATION_MODEL).EQ. 'EULERIAN') THEN
             ALLOCATE(EMBER_TOA(1:NX,1:NY)); EMBER_TOA(:,:) = -1.
@@ -509,10 +515,12 @@ DO WHILE (T .le. totalDuration)
                   IF(BLDG_FUEL_MODEL%I2(IX,IY,1) .NE. NO_DATA) THEN
                      LIST_BURNED%TAIL%IBLDGFM =  BLDG_FUEL_MODEL%I2(IX,IY,1)
                   ELSE
-                     LIST_BURNED%TAIL%IBLDGFM =  1
+                     LIST_BURNED%TAIL%IBLDGFM =  NO_DATA
                   ENDIF
                   ! Tagged WUI cells, for use in the refactored WUI spread model
                   IF(BLDG_SPREAD_MODEL_TYPE .EQ. 2) CALL TAG_WUI(NX, NY, IX, IY, T)
+               ELSE
+                  LIST_BURNED%TAIL%IBLDGFM = NO_DATA
                ENDIF
 #endif
 
@@ -1071,22 +1079,20 @@ DO WHILE (T .le. totalDuration)
             LIST_BURNED%TAIL%WD20_NOW               = C%WD20_NOW
             LIST_BURNED%TAIL%LOCAL_EMBERGEN_DURATION= C%LOCAL_EMBERGEN_DURATION
 
-            ! Record transient HRRPUA for burned vegetative cells. WUI cells are updated in the WUI heat flux calculation.
-#ifdef _WUI
-            IF (C%IFBFM .NE. 91 .AND. DUMP_HRR_TRANSIENT) THEN
-               HRR_TRANSIENT_MAP(IX,IY) = C%HRRPUA
-            ENDIF
-#endif
+            LIST_BURNED%TAIL%VELOCITY_DMS_SURFACE = C%VELOCITY_DMS_SURFACE
+            LIST_BURNED%TAIL%HRRPUA = (C%FLIN_SURFACE + C%FLIN_CANOPY) / ASP%CELLSIZE
 
 #ifdef _WUI
             IF (USE_BLDG_SPREAD_MODEL) THEN
                IF(BLDG_FUEL_MODEL%I2(IX,IY,1) .NE. NO_DATA) THEN
                   LIST_BURNED%TAIL%IBLDGFM =  BLDG_FUEL_MODEL%I2(IX,IY,1)
                ELSE
-                  LIST_BURNED%TAIL%IBLDGFM =  1
+                  LIST_BURNED%TAIL%IBLDGFM =  NO_DATA
                ENDIF
                ! Tag WUI cells
                IF(BLDG_SPREAD_MODEL_TYPE .EQ. 2) CALL TAG_WUI(NX, NY, IX, IY, T) 
+            ELSE
+               LIST_BURNED%TAIL%IBLDGFM = NO_DATA
             ENDIF
 #endif
 
@@ -1501,6 +1507,35 @@ DO WHILE (T .le. totalDuration)
          ENDIF
       ENDIF ! ENABLE_SMOKE_OUTPUTS
 
+#endif
+
+#ifdef _WUI
+      ! Update the transient HRRPUA for all burning cells within the residence time dx/V_VMS_SURFACE, for complete transient HRRPUA field
+      IF (DUMP_HRR_TRANSIENT .AND. LIST_BURNED%NUM_NODES .GT. 0) THEN
+         C => LIST_BURNED%HEAD
+         DO I = 1, LIST_BURNED%NUM_NODES
+            CALL HRR_TRANSIENT(C, T)
+            C => C%NEXT
+         ENDDO
+      ENDIF
+#endif
+#ifndef _WUI
+      IF (DUMP_HRR_TRANSIENT .AND. LIST_BURNED%NUM_NODES .GT. 0) THEN
+         C => LIST_BURNED%HEAD
+         DO I = 1, LIST_BURNED%NUM_NODES
+            IX = C%IX
+            IY = C%IY
+            IF (PHIP(IX,IY) .LE. 0.) THEN
+               IF (C%IFBFM .NE. 91 .AND. &
+                   T - TIME_OF_ARRIVAL(IX,IY) .LT. ANALYSIS_CELLSIZE/MAX(1E-5, C%VELOCITY_DMS_SURFACE*0.00508)) THEN
+                  HRR_TRANSIENT_MAP(IX,IY) = C%HRRPUA
+               ELSE
+                  HRR_TRANSIENT_MAP(IX,IY) = 0.
+               ENDIF
+            ENDIF
+            C => C%NEXT
+         ENDDO
+      ENDIF
 #endif
 
       999 FORMAT(F9.2,',',A,',',F10.1,',',F10.1,',',E12.5,',',E12.5,',',E12.5)
