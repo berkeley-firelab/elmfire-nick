@@ -1896,7 +1896,13 @@ subroutine read_geotiff_meta_gdalinfo()
    tmpfile      = trim(SCRATCH) // '/' // '._gdalinfo_tmp_'//trim(istr)//'.txt'
    tmpfile_epsg = trim(SCRATCH) // '/' // '._gdalsrsinfo_tmp_'//trim(istr)//'.txt'
 
-   tempFilename = trim(ASP_FILENAME)
+   ! When a combined landscape file is used the individual layer filenames are
+   ! blank, so derive the analysis grid metadata from the landscape file instead.
+   if (USE_LANDSCAPE_FILE) then
+      tempFilename = trim(LANDSCAPE_FILENAME)
+   else
+      tempFilename = trim(ASP_FILENAME)
+   endif
    if (USE_TILED_IO) then
       tempFilename = trim(tempFilename) // '_1_1.bsq'
    else
