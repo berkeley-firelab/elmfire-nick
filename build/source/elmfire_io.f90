@@ -175,6 +175,8 @@ END SUBROUTINE SETUP_PARALLEL_IO
 ! *****************************************************************************
 SUBROUTINE UPDATE_WEATHER_SLICE(BANDSTART, BANDEND)
 ! *****************************************************************************
+! Loads weather bands BANDSTART..BANDEND (tiled or single-file path) and, when
+! the grid is rotated, applies declination correction to aspect and wind direction.
 
 INTEGER, intent(in):: BANDSTART, BANDEND
 
@@ -195,6 +197,9 @@ END SUBROUTINE UPDATE_WEATHER_SLICE
 ! *****************************************************************************
 SUBROUTINE READ_WEATHER_SLICE_TILED(BANDSTART, BANDEND)
 ! *****************************************************************************
+! Reads bands BANDSTART..BANDEND of each weather raster (WS,WD,M1,M10,M100,ERC,
+! MLH,MLW,MFOL) from split/tiled .bsq files into RASTER%R4 on their assigned IO
+! ranks, applies unit conversions/constant overrides, then broadcasts headers.
 INTEGER, intent(in) :: BANDSTART, BANDEND
 REAL :: CONSTANT_LH, CONSTANT_LW, CONSTANT_FMC
 INTEGER :: IERR
@@ -297,6 +302,9 @@ END SUBROUTINE READ_WEATHER_SLICE_TILED
 ! *****************************************************************************
 SUBROUTINE READ_WEATHER_SLICE(BANDSTART, BANDEND)
 ! *****************************************************************************
+! Reads bands BANDSTART..BANDEND of each weather raster (WS,WD,M1,M10,M100,ERC,
+! MLH,MLW,MFOL) from single .bsq files into RASTER%R4 on their assigned IO ranks,
+! applies unit conversions/constant overrides, then broadcasts headers.
 
 INTEGER, intent(in):: BANDSTART, BANDEND
 REAL :: CONSTANT_LH, CONSTANT_LW, CONSTANT_FMC
@@ -901,7 +909,7 @@ SELECT CASE (TRIM(RASTER%PIXELTYPE))
 
       INQUIRE (IOLENGTH=LRECL) RVALUES(:)
       OPEN(LUOUT,FILE=TRIM(FNBIL),ACCESS='DIRECT',STATUS='REPLACE',RECL=LRECL,IOSTAT=IOS) 
-      IF (IOS .GT. 0) THEN
+      IF (IOS .NE. 0) THEN
          WRITE(*,*) 'Problem opening output bil file ', TRIM(FNBIL)
          STOP
       ENDIF
@@ -955,7 +963,7 @@ SELECT CASE (TRIM(RASTER%PIXELTYPE))
 
       INQUIRE (IOLENGTH = LRECL) I2VALUES(:)
       OPEN(LUOUT,FILE=TRIM(FNBIL),ACCESS='DIRECT',STATUS='REPLACE',RECL=LRECL,IOSTAT=IOS) 
-      IF (IOS .GT. 0) THEN
+      IF (IOS .NE. 0) THEN
          WRITE(*,*) 'Problem opening output bil file ', TRIM(FNBIL)
          STOP
       ENDIF
@@ -1060,7 +1068,7 @@ ENDIF
 
 ! Open and parse BSQ XML:
 OPEN(LUINPUT,FILE=TRIM(FNXML),FORM='FORMATTED',STATUS='OLD',IOSTAT=IOS) 
-IF (IOS .GT. 0) THEN
+IF (IOS .NE. 0) THEN
    WRITE(*,*) 'Problem opening bsq xml header ', TRIM(FNXML)
    WRITE(*,*) 'IOS: ', IOS
    STOP
@@ -1158,6 +1166,8 @@ DEALLOCATE(LINES)
 CONTAINS
 
 CHARACTER(400) FUNCTION STRIP_NON_NUMBERS(STR)
+! Returns STR with every non-digit character replaced by a blank, leaving only
+! the numeric characters (used to extract numbers from XML metadata text).
 
    INTEGER :: I,J
    CHARACTER(400), INTENT(INOUT) :: STR
@@ -1325,7 +1335,7 @@ GOT_DATATYPE = .FALSE.
 GOT_NODATA   = .FALSE.
 
 OPEN(LUINPUT,FILE=TRIM(FNXML),FORM='FORMATTED',STATUS='OLD',IOSTAT=IOS)
-IF (IOS .GT. 0) THEN
+IF (IOS .NE. 0) THEN
    WRITE(*,*) 'Problem opening bsq xml header ', TRIM(FNXML)
    WRITE(*,*) 'IOS: ', IOS
    STOP
@@ -1423,7 +1433,7 @@ RASTER%NROWS = RASTER%NROWS * 3
 
 ! Open and parse BSQ header:
 OPEN(LUINPUT,FILE=TRIM(FNHDR),FORM='FORMATTED',STATUS='OLD',IOSTAT=IOS)
-IF (IOS .GT. 0) THEN
+IF (IOS .NE. 0) THEN
    WRITE(*,*) 'Problem opening bsq header ', TRIM(FNHDR)
    STOP
 ENDIF
@@ -1496,6 +1506,8 @@ RASTER%ULYMAP = RASTER%YLLCORNER + RASTER%NROWS * RASTER%CELLSIZE - 0.5 * RASTER
 CONTAINS
 
    SUBROUTINE GET_MDI_VALUE(LINE, KEY, VALUE, FOUND)
+      ! Extracts the text inside a <MDI key="KEY">...</MDI> element on LINE,
+      ! returning it in VALUE and setting FOUND .TRUE. if the key is present.
       CHARACTER(*), INTENT(IN)  :: LINE, KEY
       CHARACTER(*), INTENT(OUT) :: VALUE
       LOGICAL,      INTENT(OUT) :: FOUND
@@ -1520,6 +1532,8 @@ CONTAINS
    END SUBROUTINE GET_MDI_VALUE
 
    SUBROUTINE GET_XML_TAG_VALUE(LINE, TAG, VALUE, FOUND)
+      ! Extracts the text between <TAG> and </TAG> on LINE, returning it in
+      ! VALUE and setting FOUND .TRUE. if the tag is present.
       CHARACTER(*), INTENT(IN)  :: LINE, TAG
       CHARACTER(*), INTENT(OUT) :: VALUE
       LOGICAL,      INTENT(OUT) :: FOUND
@@ -1598,7 +1612,7 @@ if (.not. RASTER%HEADERISSET) then
 
    ! Now open and parse BSQ .hdr file:
       OPEN(LUINPUT,FILE=TRIM(FNHDR),FORM='FORMATTED',STATUS='OLD',IOSTAT=IOS) 
-      IF (IOS .GT. 0) THEN
+      IF (IOS .NE. 0) THEN
          WRITE(*,*) 'Problem opening bsq header ', TRIM(FNHDR)
       ENDIF
 
@@ -1692,7 +1706,7 @@ SELECT CASE(TRIM(RASTER%PIXELTYPE))
       INQUIRE (IOLENGTH=LRECL) RVALUES(:) 
 
       OPEN(LUINPUT, FILE=TRIM(FNBSQ), ACCESS='DIRECT', STATUS='OLD', RECL=LRECL, IOSTAT=IOS) 
-      IF (IOS .GT. 0) THEN
+      IF (IOS .NE. 0) THEN
          WRITE(*,*) 'Problem opening raster file ', TRIM(FNBSQ)
          STOP
       ENDIF
@@ -1737,7 +1751,7 @@ SELECT CASE(TRIM(RASTER%PIXELTYPE))
       INQUIRE (IOLENGTH=LRECL) I2VALUES(:) 
 
       OPEN(LUINPUT, FILE=TRIM(FNBSQ), ACCESS='DIRECT', STATUS='OLD', RECL=LRECL, IOSTAT=IOS) 
-      IF (IOS .GT. 0) THEN
+      IF (IOS .NE. 0) THEN
          WRITE(*,*) 'Problem opening raster file ', TRIM(FNBSQ)
          STOP
       ENDIF
@@ -1871,7 +1885,7 @@ DO JTILE = 1, 3
 
          OPEN(LUINPUT, FILE=TRIM(FNBSQ), ACCESS='DIRECT', FORM='UNFORMATTED', &
               STATUS='OLD', RECL=LRECL, IOSTAT=IOS)
-         IF (IOS .GT. 0) THEN
+         IF (IOS .NE. 0) THEN
             WRITE(*,*) 'Problem opening raster file ', TRIM(FNBSQ)
             STOP
          ENDIF
@@ -1910,7 +1924,7 @@ DO JTILE = 1, 3
 
          OPEN(LUINPUT, FILE=TRIM(FNBSQ), ACCESS='DIRECT', FORM='UNFORMATTED', &
               STATUS='OLD', RECL=LRECL, IOSTAT=IOS)
-         IF (IOS .GT. 0) THEN
+         IF (IOS .NE. 0) THEN
             WRITE(*,*) 'Problem opening raster file ', TRIM(FNBSQ)
             STOP
          ENDIF
@@ -2614,6 +2628,11 @@ IF (DUMP_EMBER_FLUX .AND. ACCUMULATE_EMBER_FLUX) THEN
    ENDIF
 ENDIF
 
+! Free the scratch raster buffers used above. RASTER_TYPE pointer components (%R4/%I2) are not
+! auto-deallocated when these local variables go out of scope, so release them explicitly.
+IF (ASSOCIATED(INTERMEDIATE_R4%R4)) DEALLOCATE(INTERMEDIATE_R4%R4)
+IF (ASSOCIATED(INTERMEDIATE_I2%I2)) DEALLOCATE(INTERMEDIATE_I2%I2)
+
 ! *****************************************************************************
 END SUBROUTINE POSTPROCESS
 ! *****************************************************************************
@@ -2651,6 +2670,9 @@ END SUBROUTINE WRITE_STATION
 ! *****************************************************************************
 SUBROUTINE PARSE_ENVI_HEADER(HDR_FILE_NAME, DESCRIPTION, SAMPLES, LINES, BANDS, HEADER_OFFSET, FILE_TYPE, DATA_TYPE, INTERLEAVE, BYTE_ORDER, BAND_NAMES, COORDINATE_SYSTEM, DATA_IGNORE_VALUE, DEFAULT_BANDS, PROJECTION_NAME, X_PIXEL_REFERENCE, Y_PIXEL_REFERENCE, EASTING, NORTHING, X_PIXEL_SIZE, Y_PIXEL_SIZE)
 ! *****************************************************************************
+! Opens and parses an ENVI .hdr text file (handling multi-line {...} values),
+! returning all header fields as output arguments and delegating the "map info"
+! line to PARSE_MAP_INFO for projection/pixel-size/origin values.
 IMPLICIT NONE
 CHARACTER(LEN=*), INTENT(IN) :: HDR_FILE_NAME 
 INTEGER, INTENT(OUT) :: SAMPLES, LINES, BANDS, HEADER_OFFSET, DATA_TYPE, BYTE_ORDER 
@@ -2782,6 +2804,9 @@ END SUBROUTINE PARSE_ENVI_HEADER
 ! *****************************************************************************
 SUBROUTINE PARSE_MAP_INFO(MAP_INFO, PROJECTION_NAME, X_PIXEL_REFERENCE, Y_PIXEL_REFERENCE, EASTING, NORTHING, X_PIXEL_SIZE, Y_PIXEL_SIZE, UTM_PROJECTION_ZONE, UTM_NORTH_SOUTH, DATUM, UNITS)
 ! *****************************************************************************
+! Splits the comma-separated ENVI "map info" string into its fields, returning
+! projection name, tie-point pixel reference, origin easting/northing, pixel
+! sizes, and (for UTM) zone/hemisphere plus datum and units.
 
 IMPLICIT NONE
 CHARACTER(LEN=*), INTENT(IN) :: MAP_INFO 
@@ -2790,15 +2815,13 @@ REAL, INTENT(OUT) :: EASTING, NORTHING, X_PIXEL_SIZE, Y_PIXEL_SIZE, X_PIXEL_REFE
 CHARACTER(5), INTENT(OUT) :: UTM_NORTH_SOUTH
 CHARACTER(64), INTENT(OUT) :: PROJECTION_NAME, DATUM, UNITS
 
-INTEGER :: COMMA_POS, NUM_VALUES, POS_START, POS_END, I, IOS
+INTEGER :: NUM_VALUES, POS_START, POS_END, I, IOS
 
 ! SET SOME DEFAULTS
 UTM_NORTH_SOUTH = "EMPTY"
 
-! PARSE OUT THE PROJECTION NAME FIRST
-COMMA_POS = INDEX(MAP_INFO, ',')
-
 ! DETERMINE THE NUM OF VALUES THAT ARE PRESENT
+NUM_VALUES = 0
 POS_START = 1
 DO
    POS_END = INDEX(MAP_INFO(POS_START:), ',')

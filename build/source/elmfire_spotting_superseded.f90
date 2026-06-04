@@ -13,6 +13,10 @@ CONTAINS
 SUBROUTINE SPOTTING_SUPERSEDED(IX0,IY0,WS20_NOW,FLIN,F_WIND,WS20_LO, WS20_HI, WD20_LO, WD20_HI, &
                     N_SPOT_FIRES, IX_SPOT_FIRE, IY_SPOT_FIRE, ICASE, IGNMULT)
 ! *****************************************************************************
+! Legacy (superseded) spotting entry point for a burning cell (IX0,IY0): computes the
+! lognormal spotting-distance parameters from the mean-spotting-distance model and
+! randomly picks an ember count, then calls EMBER_TRAJECTORY_SUPERSEDED to transport them
+! and append any new spot fires to IX_SPOT_FIRE / IY_SPOT_FIRE.
 
 IMPLICIT NONE
 
@@ -95,6 +99,10 @@ IY_SPOT_FIRE               , &
 ICASE                      , &
 IGNMULT )
 ! *****************************************************************************
+! Legacy (superseded) Lagrangian ember transport: advects NUM_EMBERS from X0_ELM by the
+! interpolated wind until each reaches its sampled spotting distance, then stochastically
+! tests ignition and appends successful, unburned-target locations to the spot-fire lists
+! (IX_SPOT_FIRE / IY_SPOT_FIRE), also tallying EMBER_FLUX / EMBER_COUNT.
 
 INTEGER, INTENT(IN) :: NX_ELM, NY_ELM, NUM_EMBERS, IRANK_WORLD, ICASE
 INTEGER :: N_SPOT_FIRES, IX_SPOT_FIRE(:), IY_SPOT_FIRE(:)

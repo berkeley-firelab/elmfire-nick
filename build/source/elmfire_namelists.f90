@@ -9,6 +9,9 @@ CONTAINS
 ! *****************************************************************************
 SUBROUTINE READ_MISC
 ! *****************************************************************************
+! Reads the &MISCELLANEOUS namelist group, setting defaults for fuel model and
+! GDAL paths and scratch/input directories, and appends path separators to the
+! directory paths.
 
 INTEGER :: IOS
 
@@ -46,6 +49,9 @@ END SUBROUTINE READ_MISC
 ! *****************************************************************************
 SUBROUTINE READ_SMOKE
 ! *****************************************************************************
+! Reads the &SMOKE namelist group and sets defaults for smoke/PM emission
+! outputs (emission factors, calorific value, flaming/smoldering times,
+! output interval and enable flag).
 
 INTEGER :: IOS
 
@@ -77,6 +83,9 @@ END SUBROUTINE READ_SMOKE
 ! *****************************************************************************
 SUBROUTINE READ_INPUTS
 ! *****************************************************************************
+! Reads the &INPUTS namelist group and sets defaults for all raster filenames,
+! input/weather directories and units/option flags; also opens and counts the
+! optional TIMED_LOCATIONS_CSV, populating TIMED_LOCATIONS_TRACKER.
 
 INTEGER :: I, IOS
 INTEGER(8) :: I8DUMMY
@@ -221,6 +230,9 @@ END SUBROUTINE READ_INPUTS
 ! *****************************************************************************
 SUBROUTINE READ_OUTPUTS
 ! *****************************************************************************
+! Reads the &OUTPUTS namelist group and sets defaults for all DUMP_*/output
+! options; compacts the TIME_AT_BURNED_ACRES list to its used entries and
+! appends a path separator to OUTPUTS_DIRECTORY.
 
 INTEGER :: I, IOS
 REAL, ALLOCATABLE, DIMENSION (:) :: TABA ! Time at burned acres
@@ -237,7 +249,7 @@ DUMP_TRANSIENT_ACREAGE, DUMP_VELOCITY, DUMP_WD20, DUMP_CFFDRS_DEBUG, DUMP_WS20, 
 FULL_BINARY_OUTPUTS, NUM_EMBER_COUNT_BINS, NUM_VIRTUAL_STATIONS, &
 FLAME_LENGTH_BIN_LO, FLAME_LENGTH_BIN_HI, MINIMUM_AREA_FOR_BINARY_OUTPUTS, &
 NUM_FLAME_LENGTH_BINS, OUTPUTS_DIRECTORY, USE_EMBER_COUNT_BINS, USE_FLAME_LENGTH_BINS, &
-DUMP_SPOTTING_OUTPUTS, RUN_ID, DUMP_TOTAL_DFC_RECEIVED, DUMP_TOTAL_RAD_RECEIVED, DUMP_TRANSIENT_DFC, DUMP_TRANSIENT_RAD, DUMP_FUEL_CONSUMPTION, &
+DUMP_SPOTTING_OUTPUTS, DUMP_EMBER_FLUX_TRANSIENT, DUMP_EMBER_IGNITION, RUN_ID, DUMP_TOTAL_DFC_RECEIVED, DUMP_TOTAL_RAD_RECEIVED, DUMP_TRANSIENT_DFC, DUMP_TRANSIENT_RAD, DUMP_FUEL_CONSUMPTION, &
 DUMP_HRR_TRANSIENT, TIME_AT_BURNED_ACRES, USE_FOUR_DIGITS_IN_IWX_BAND, VIRTUAL_STATION_X, VIRTUAL_STATION_Y
 
 IF (IRANK_WORLD .EQ. 0) WRITE(*,*) 'Reading &OUTPUTS namelist group'
@@ -336,6 +348,9 @@ END SUBROUTINE READ_OUTPUTS
 ! *****************************************************************************
 SUBROUTINE READ_TIME_CONTROL
 ! *****************************************************************************
+! Reads the &TIME_CONTROL namelist group and sets defaults for simulation
+! timing, time-step/CFL controls, meteorology interpolation intervals and
+! diurnal/burn-period parameters.
 
 INTEGER :: IOS
 
@@ -386,6 +401,10 @@ END SUBROUTINE READ_TIME_CONTROL
 ! *****************************************************************************
 SUBROUTINE READ_MONTE_CARLO
 ! *****************************************************************************
+! Reads the &MONTE_CARLO namelist group and sets defaults for ensemble,
+! ignition, ERC and raster-perturbation settings; validates perturbation
+! options, counts Monte Carlo variables/parameters, allocates COEFFS arrays and
+! sets the weather band start/stop/skip range.
 
 INTEGER :: IOS, IVARN
 
@@ -562,6 +581,9 @@ END SUBROUTINE READ_MONTE_CARLO
 ! *****************************************************************************
 SUBROUTINE READ_SIMULATOR
 ! *****************************************************************************
+! Reads the &SIMULATOR namelist group and sets defaults for run mode, crown
+! fire, ignition points/lines, wind fluctuations and runtime/feedback options;
+! maps the FEEDBACK_LEVEL string to a numeric DEBUG_LEVEL.
 
 INTEGER :: IOS
 
@@ -642,6 +664,9 @@ END SUBROUTINE READ_SIMULATOR
 ! *****************************************************************************
 SUBROUTINE READ_WUI
 ! *****************************************************************************
+! Reads the &WUI namelist group and sets defaults for the building (WUI) spread
+! model: building area/separation/fuel parameters, spread and interface model
+! types, hardening factor and band thickness.
 
 INTEGER :: IOS
 
@@ -679,6 +704,10 @@ END SUBROUTINE READ_WUI
 ! *****************************************************************************
 SUBROUTINE READ_SPOTTING
 ! *****************************************************************************
+! Reads the &SPOTTING namelist group and sets defaults for ember spotting
+! (generation/distance/accumulation/ignition models, spotting percentages,
+! ember counts and distances); sets NUM_PARAMETERS_SPOTTING and allocates
+! SPOTTING_STATS.
 
 INTEGER :: IOS
 
@@ -783,6 +812,9 @@ END SUBROUTINE READ_SPOTTING
 ! *****************************************************************************
 SUBROUTINE READ_SUPPRESSION
 ! *****************************************************************************
+! Reads the &SUPPRESSION namelist group and sets defaults for initial/extended
+! attack suppression and SDI (suppression difficulty index) containment
+! parameters.
 
 INTEGER :: IOS
 
@@ -817,6 +849,9 @@ END SUBROUTINE READ_SUPPRESSION
 ! *****************************************************************************
 SUBROUTINE READ_CALIBRATION
 ! *****************************************************************************
+! Opens the namelist input file and reads the &CALIBRATION namelist group,
+! setting defaults for per-pyrome adjustment factors, calibration constants and
+! duration PDF filenames/flags and the maximum fire duration.
 
 INTEGER :: IOS
 

@@ -166,6 +166,10 @@ END SUBROUTINE ROTHERMEL_SURFACE_SPREAD_RATE
 ! *****************************************************************************
 SUBROUTINE CFFDRS_SPREAD_RATE(L,DUMMY_NODE, BUI_c)
 ! *****************************************************************************
+! Applies the Canadian Forest Fire Behavior Prediction (CFFDRS/FBP) model to
+! compute surface rate of spread, fireline intensity, ISI, surface fuel
+! consumption, and length-to-width for each node in L (or a single DUMMY_NODE).
+! BUI_c is the daily Buildup Index used in the buildup-effect term.
 
 TYPE (DLL), INTENT(INOUT) :: L
 TYPE (NODE), POINTER, INTENT(INOUT) :: DUMMY_NODE
@@ -339,6 +343,10 @@ end subroutine CFFDRS_SPREAD_RATE
 ! *****************************************************************************
 subroutine UPDATE_LOCAL_SPREAD_PROPERTIES(L,DUMMY_NODE)
 ! *****************************************************************************
+! Finalizes crown-fire state and intensity for each node in L (or DUMMY_NODE)
+! using the already-computed surface velocity: computes crown fraction burned,
+! crown fuel consumption, total surface+canopy fireline intensity, flame
+! length, and HRRPUA. Handles both CFFDRS and Rothermel surface models.
 TYPE (DLL), INTENT(INOUT) :: L
 TYPE (NODE), POINTER, INTENT(INOUT) :: DUMMY_NODE
 
@@ -406,6 +414,9 @@ end subroutine UPDATE_LOCAL_SPREAD_PROPERTIES
 ! *****************************************************************************
 
 subroutine CROWN_CRITICAL_FLIN(C)
+! Computes (once, then caches) the critical surface fireline intensity required
+! for crown-fire initiation at node C, along with canopy heat-per-unit-area,
+! from canopy bulk density, canopy/base heights, and foliar moisture content.
 
 TYPE (NODE), POINTER, INTENT(INOUT) :: C
 REAL :: FMCTERM, CBH_EFF
@@ -613,7 +624,7 @@ INTEGER, PARAMETER :: NO_DATA = -9999
 REAL :: DFC_COEFF, RAD_COEFF, ANALYSIS_CELLSIZE_SQUARED, RANALYSIS_CELLSIZE, HALF_ANALYSIS_CELLSIZE, HRR_ADJUSTER, ELLIPSE_MINOR_SQUARED, & 
         RDEL_X, RDEL_Y, TARGET_R, TARGET_R_METERS, TARGET_THETA, WIND_THETA, TARGET_THETA_F, MAX_ELLIPSE_DIST, &
         ELLIPSE_DIST_THETA, DFC_CHECKER, DFC_FACTOR, DFC_HEAT_RECEIVED, RAD_LIMIT_THETA, RAD_CHECKER, DELTA_RAD, RAD_FACTOR, &
-        RAD_EFF_DIST, RAD_HEAT_RECEIVED, WTU_DIST_LIMIT, WTU_FLIN_LIMIT
+        RAD_EFF_DIST, RAD_HEAT_RECEIVED, WTU_DIST_LIMIT, WTU_FLIN_LIMIT, HRR_BURNING_NODE
 
 TYPE(UCB_ELLIPSE) :: ELLIPSE_PARAMETERS
 ! Interface submodel
@@ -636,8 +647,14 @@ ELLIPSE_MINOR_SQUARED = ELLIPSE_PARAMETERS%ELLIPSE_MINOR * ELLIPSE_PARAMETERS%EL
 
 IXTAGSTART = MAX(3,    IX_BURNING - BANDTHICKNESS_WUI) 
 IXTAGSTOP  = MIN(NX-2, IX_BURNING + BANDTHICKNESS_WUI)
-IYTAGSTART = MAX(3,    IY_BURNING - BANDTHICKNESS_WUI) 
+IYTAGSTART = MAX(3,    IY_BURNING - BANDTHICKNESS_WUI)
 IYTAGSTOP  = MIN(NY-2, IY_BURNING + BANDTHICKNESS_WUI)
+
+! These quantities depend only on the burning node / its ellipse, not on the target (IX,IY),
+! so hoist them out of the band loop below (they are otherwise recomputed for every target cell).
+WIND_THETA = PIO180 * (270. - BURNING_NODES%WD20_NOW) !in radians
+MAX_ELLIPSE_DIST = 0.3 * ELLIPSE_PARAMETERS%DIST_DOWNWIND * (ELLIPSE_PARAMETERS%ELLIPSE_MAJOR - ELLIPSE_PARAMETERS%ELLIPSE_ECCENTRICITY) / ELLIPSE_MINOR_SQUARED
+HRR_BURNING_NODE = HRR_TRANSIENT_MAP(IX_BURNING, IY_BURNING)
 
 ! Update the aggregated heat flux for each target (IX,IY) from all burning nodes at current time
 DO IY = IYTAGSTART, IYTAGSTOP
@@ -679,10 +696,7 @@ DO IX = IXTAGSTART, IXTAGSTOP
    RAD_COEFF = BUILDING_FUEL_MODEL_TABLE(IBLDGFM)%ABSORPTIVITY
 
    TARGET_THETA = ATAN2(RDEL_Y, RDEL_X) !in radians
-   WIND_THETA = PIO180 * (270. - BURNING_NODES%WD20_NOW) !in radians
    TARGET_THETA_F = TARGET_THETA - WIND_THETA !in radians
-
-   MAX_ELLIPSE_DIST = 0.3 * ELLIPSE_PARAMETERS%DIST_DOWNWIND * (ELLIPSE_PARAMETERS%ELLIPSE_MAJOR - ELLIPSE_PARAMETERS%ELLIPSE_ECCENTRICITY) / ELLIPSE_MINOR_SQUARED
 
    ! Direct Flame Contact
    ELLIPSE_DIST_THETA = MAX_ELLIPSE_DIST*ELLIPSE_MINOR_SQUARED / (ELLIPSE_PARAMETERS%ELLIPSE_MAJOR - ELLIPSE_PARAMETERS%ELLIPSE_ECCENTRICITY*COS(TARGET_THETA_F))
@@ -691,7 +705,7 @@ DO IX = IXTAGSTART, IXTAGSTOP
 
    DFC_FACTOR = AMAX1(0.0,AMIN1(1.0,DFC_CHECKER))
 
-   DFC_HEAT_RECEIVED = DFC_COEFF*DFC_FACTOR*HRR_TRANSIENT_MAP(IX_BURNING, IY_BURNING)*HRR_ADJUSTER  !DWI_M3
+   DFC_HEAT_RECEIVED = DFC_COEFF*DFC_FACTOR*HRR_BURNING_NODE*HRR_ADJUSTER  !DWI_M3
 
    ! Radiation
    RAD_LIMIT_THETA = ELLIPSE_DIST_THETA + BURNING_NODES%RAD_DIST
@@ -706,7 +720,7 @@ DO IX = IXTAGSTART, IXTAGSTOP
         RAD_EFF_DIST  = TARGET_R_METERS - ELLIPSE_DIST_THETA
    ENDIF
 
-   RAD_HEAT_RECEIVED = HRR_ADJUSTER*(0.3*DFC_COEFF*RAD_COEFF*RAD_FACTOR*HRR_TRANSIENT_MAP(IX_BURNING, IY_BURNING)*ANALYSIS_CELLSIZE_SQUARED)/(4*PI*RAD_EFF_DIST*RAD_EFF_DIST)  !DWI_M4
+   RAD_HEAT_RECEIVED = HRR_ADJUSTER*(0.3*DFC_COEFF*RAD_COEFF*RAD_FACTOR*HRR_BURNING_NODE*ANALYSIS_CELLSIZE_SQUARED)/(4*PI*RAD_EFF_DIST*RAD_EFF_DIST)  !DWI_M4
    
    TRANSIENT_DFC_WUI(IX,IY) = TRANSIENT_DFC_WUI(IX,IY) + DFC_HEAT_RECEIVED
    TRANSIENT_RADIATION_WUI(IX,IY) = TRANSIENT_RADIATION_WUI(IX,IY) + RAD_HEAT_RECEIVED
@@ -725,6 +739,10 @@ END SUBROUTINE CALC_WUI_HEATFLUX
 ! *****************************************************************************
 SUBROUTINE ELLIPSE_UCB(C)
 ! *****************************************************************************
+! Builds the UCB WUI fire-footprint ellipse for node C from wind speed and
+! building area/separation (Hamada-derived regressions, with HAZUS and high-wind
+! branches): computes downwind/upwind/sidewind distances and the resulting
+! ellipse major/minor/eccentricity, storing them in ELLIPSE_PROPERTY_MAP(IX,IY).
 
 USE ELMFIRE_VARS
 !ELLIPSE_PROPERTY_MAP
@@ -832,6 +850,10 @@ END SUBROUTINE ELLIPSE_UCB
 ! *****************************************************************************
 SUBROUTINE HRR_TRANSIENT(BURNING_NODES, T)
 ! *****************************************************************************
+! Evaluates the transient heat-release rate per unit area of a burning node at
+! time T from its time-of-arrival, following the building design-fire curve
+! (growth/full-development/decay) for FBFM91 cells or a residence-time pulse for
+! vegetative cells. Updates HRR_TRANSIENT, FLIN_SURFACE, and HRR_TRANSIENT_MAP.
 
 USE ELMFIRE_VARS
 ! HRR_TRANSIENT_MAP, BUILDING_FUEL_MODEL_TABLE
@@ -928,6 +950,9 @@ END SUBROUTINE CALC_FUEL_CONSUMPTION
 ! *****************************************************************************
 SUBROUTINE BURNED_FILTER(DYNAMIC_ARRAY, ZERO_FILTERED, INDEX_FILTERED, IX_LOW_BORDER, IY_LOW_BORDER, IX_HIGH_BORDER, IY_HIGH_BORDER)
 ! *****************************************************************************
+! Filters the (IX,IY) rows of DYNAMIC_ARRAY to those falling inside the given
+! bounding box, returning the kept coordinates in ZERO_FILTERED and their
+! original row indices in INDEX_FILTERED (both allocated here).
 
 REAL, ALLOCATABLE, INTENT(INOUT), DIMENSION(:,:) :: DYNAMIC_ARRAY, ZERO_FILTERED
 INTEGER :: I, TOTAL_ELEMENTS, IX_LOW_BORDER, IY_LOW_BORDER, IX_HIGH_BORDER, IY_HIGH_BORDER

@@ -1,6 +1,13 @@
 ! *****************************************************************************
 PROGRAM ELMFIRE
 ! *****************************************************************************
+! Main driver for the ELMFIRE wildfire spread model. Initializes MPI and shared
+! memory, reads namelists, fuel/topography and weather rasters, sets up random or
+! CSV-specified ignitions, then distributes Monte Carlo cases across ranks. For each
+! case it runs level-set fire propagation (with optional spotting/suppression) and
+! accumulates outputs (times-burned, flame-length and ember statistics) on rank 0.
+! MODE 2 instead computes and dumps per-weather-band head-fire potential rasters.
+! Finishes by postprocessing and shutting down.
 
 USE ELMFIRE_CALIBRATION
 USE ELMFIRE_IGNITION
@@ -743,6 +750,13 @@ IF (MODE .NE. 2) THEN
       
       IF (ENABLE_SPOTTING .AND. STOCHASTIC_SPOTTING) CALL SET_SPOTTING_PARAMETERS(COEFFS(:))
       IF (NUM_PARAMETERS_MISC .GT. 0) CALL SET_MISC_PARAMETERS(COEFFS(:))
+
+      ! Record this rank's own Monte Carlo coefficients. Worker ranks (IRANK_WORLD /= 0) send
+      ! COEFFS_UNSCALED to rank 0 via tag 226 below, but rank 0 never sends to itself and in serial
+      ! runs (NPROC == 1) no send/recv happens at all - so without this, the cases run by rank 0
+      ! (i.e. ALL cases when serial) stay zero in COEFFS_UNSCALED_BY_CASE and coeffs.csv is all zeros.
+      IF (IRANK_WORLD .EQ. 0 .AND. NUM_MONTE_CARLO_VARIABLES .GT. 0 .AND. .NOT. IS_VIRTUAL_RUN) &
+         COEFFS_UNSCALED_BY_CASE(ICASE,:) = COEFFS_UNSCALED(:)
 
       CALL ACCUMULATE_CPU_USAGE(15, IT1, IT2)
    

@@ -19,6 +19,10 @@ CONTAINS
 ! *****************************************************************************
 SUBROUTINE LEVEL_SET_PROPAGATION(IWX_BAND,ICASE,NTIMESTEPS, IS_VIRTUAL_RUN)
 ! *****************************************************************************
+! Top-level driver for one fire simulation case: marches the level-set field
+! PHIP forward in time over weather bands, igniting cells, computing spread
+! rate, advancing the front (RK2), handling spotting, suppression, WUI/smoke,
+! and writing outputs. Returns the number of timesteps taken in NTIMESTEPS.
 
 ! INTENT(IN) and INTENT(OUT) variables:
 INTEGER, INTENT(IN) :: IWX_BAND, ICASE
@@ -1836,6 +1840,8 @@ END SUBROUTINE LEVEL_SET_PROPAGATION
 ! *****************************************************************************
 REAL FUNCTION HALF_SUPERBEE(R)
 ! *****************************************************************************
+! Returns half the Superbee flux-limiter value for gradient ratio R, used by
+! the flux-limited upwind scheme when reconstructing face values of PHI.
 
 REAL, INTENT(IN) :: R
 
@@ -1848,6 +1854,9 @@ END FUNCTION HALF_SUPERBEE
 ! *****************************************************************************
 SUBROUTINE TAG_BAND(NX, NY, IXLOC, IYLOC, T)
 ! *****************************************************************************
+! Tags the burnable, not-yet-tagged cells in the BANDTHICKNESS-wide band around
+! (IXLOC,IYLOC), appending each to LIST_TAGGED and recording it in the
+! TAGGED/EVERTAGGED arrays so the front can advance into them.
 
 INTEGER, INTENT(IN) :: NX, NY, IXLOC, IYLOC
 REAL(8), INTENT(IN) :: T
@@ -1879,6 +1888,9 @@ END SUBROUTINE TAG_BAND
 ! *****************************************************************************
 SUBROUTINE UNTAG_CELLS(NX, NY, TOA, T, BURNED)
 ! *****************************************************************************
+! Prunes LIST_TAGGED by removing nodes no longer needed for front advancement:
+! cells tagged too long, isolated tagged pixels, fully-burned interior cells,
+! and suppressed cells. Clears their TAGGED flag and deletes them from the list.
 
 TYPE(NODE), POINTER :: C => NULL()
 
@@ -1987,6 +1999,9 @@ END SUBROUTINE UNTAG_CELLS
 ! *****************************************************************************
 SUBROUTINE CALC_NORMAL_VECTORS(ISTEP, HALFRCELLSIZE)
 ! *****************************************************************************
+! Computes the unit normal vector (NORMVECTORX/Y) of the level-set field at
+! every node in LIST_TAGGED via central differences of PHIP; on ISTEP 1 also
+! caches the current PHIP value as PHIP_OLD for the RK2 integration.
 
 INTEGER, INTENT(IN) :: ISTEP
 INTEGER :: I, IX, IY
@@ -2014,6 +2029,10 @@ END SUBROUTINE CALC_NORMAL_VECTORS
 ! *****************************************************************************
 SUBROUTINE UX_AND_UY_ELLIPTICAL(L, ACCELERATION_FACTOR, ISTEP, DT_ELMFIRE)
 ! *****************************************************************************
+! Computes the x/y front-propagation velocity components (UX,UY), spread
+! direction, and fireline intensity for each node in L from the elliptical
+! spread template: combines slope/wind phi factors, length-to-width ratio,
+! head/back speeds, crown-fire and WUI (Hamada/UCB) submodels.
 ! Parameter T_ELMFIRE added to update fireline intensity of structures over time
 REAL, INTENT(IN) :: ACCELERATION_FACTOR, DT_ELMFIRE
 TYPE(DLL), INTENT(INOUT) :: L
@@ -2239,6 +2258,9 @@ END SUBROUTINE UX_AND_UY_ELLIPTICAL
 ! *****************************************************************************
 SUBROUTINE RK2_INTEGRATE(DT,ISTEP)
 ! *****************************************************************************
+! Advances the level-set field PHIP over LIST_TAGGED by one 2nd-order Runge-Kutta
+! sub-step (predictor on ISTEP 1, corrector on ISTEP 2) using the limited
+! gradients and node velocities; clamps PHIP and forces ignition on WUI spread.
 
 REAL, INTENT(IN) :: DT
 INTEGER, INTENT(IN) :: ISTEP
@@ -2331,6 +2353,9 @@ ENDIF
 
 CONTAINS
    SUBROUTINE LIMIT_GRADIENTS(C)
+      ! Computes the flux-limited (Superbee) spatial derivatives DPHIDX_LIMITED and
+      ! DPHIDY_LIMITED at node C using upwind-biased stencils chosen by the sign of
+      ! UX/UY, then clamps them and guards against NaNs.
       TYPE(NODE), POINTER :: C
       REAL :: DELTAUP, DELTALOC, PHIEAST=1.0, PHIWEST=1.0, PHINORTH=1.0, PHISOUTH=1.0
 
@@ -2418,6 +2443,10 @@ END SUBROUTINE CFL_AND_FLUX_LIMITER
 ! *****************************************************************************
 SUBROUTINE TAG_WUI(NX, NY, IXLOC, IYLOC, T)
 ! *****************************************************************************
+! Adds cells to LIST_WUI_BURNING for the refactored WUI spread model: if
+! (IXLOC,IYLOC) is an urban (FBFM91) cell, tags its whole BANDTHICKNESS_WUI
+! neighborhood; if it is a burning vegetative cell, tags it (and nearby urban
+! cells) only when an urban cell lies within that band.
 
 INTEGER, INTENT(IN) :: NX, NY, IXLOC, IYLOC
 REAL(8), INTENT(IN) :: T
