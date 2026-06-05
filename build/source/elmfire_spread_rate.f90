@@ -178,7 +178,7 @@ REAL, intent(in) :: BUI_c
 INTEGER :: NUM_NODES, aspect, I, IX, IY
 TYPE(NODE), POINTER :: C
 REAL :: M, FF, SF, RSF, ISF_c, WSE, WSE1, WSE2, WSX, WSY, &
-         FW, RSI_c, BE, ROS, FFMC, CF, slope, RSF_1, RSF_2, ISI_s, windy
+         FW, RSI_c, BE, ROS, FFMC, CF, slope, RSF_1, RSF_2, ISI_s
 
 IF (ASSOCIATED (DUMMY_NODE) ) THEN
    NUM_NODES = 1
@@ -272,11 +272,7 @@ DO I = 1, NUM_NODES
    C%RAZ = acos(WSY/C%WSV)/PIO180
    if (WSX .lt. 0) C%RAZ = 360 - C%RAZ
 
-   if (C%WSV .le. 40) then
-      FW = exp(0.05039*C%WSV)
-   else
-      FW = 12*(1-exp(-0.0818*(C%WSV-28)))
-   endif
+   FW = CFFDRS_FW(C%WSV)
 
    C%ISI = 0.208 * FF * FW
    ! ----------------- RATE OF SPREAD -------------------
@@ -298,25 +294,10 @@ DO I = 1, NUM_NODES
    C%IR = 0! kW/m2, CANADIAN FBP HAS NO PROVISION FOR RESIDENCE TIME OR HEAT PER UNIT AREA.
 
    ! ----------------- SLOPE AND WIND MAGNITUDES  -------------------
-  ! recalculate slope only ROS, in direction of max spread
+   ! recalculate slope only ROS, in direction of max spread
+   ! (the earlier windy/ISI_s recompute was dead - overwritten before use)
 
-   !these dont actually work right now, so the part where this is used is handled downstream.
-
-   windy = C%WS20_NOW*1.61*1.15 !* COS( ((C%WD20_NOW) - C%RAZ) * PIO180 )
-   if (windy .le. 40) then
-      FW = exp(0.05039*windy)
-   else
-      FW = 12*(1-exp(-0.0818*(windy-28)))
-   endif
-   ISI_s = 0.208 * FF * FW
-   !ROS = RSI(C%IFBFM, ISI_s, CF)*BE
-
-   WSE = WSE !* COS( ((ASPECT + 180.0) - C%RAZ) * PIO180 )
-   if (WSE .le. 40) then
-      FW = exp(0.05039*WSE)
-   else
-      FW = 12*(1-exp(-0.0818*(WSE-28)))
-   endif
+   FW = CFFDRS_FW(WSE)
    ISI_s = 0.208 * FF * FW
    RSF = RSI(C%IFBFM, ISI_s, CF)*BE
    
@@ -981,6 +962,20 @@ INDEX_FILTERED = PACK((/(I, I=1,TOTAL_ELEMENTS)/), VALID_VALUES)
 
 ! *****************************************************************************
 END SUBROUTINE BURNED_FILTER
+! *****************************************************************************
+
+! *****************************************************************************
+PURE REAL FUNCTION CFFDRS_FW(WS)
+! *****************************************************************************
+! CFFDRS wind function FW (the ISI wind multiplier) as a function of wind speed WS.
+REAL, INTENT(IN) :: WS
+if (WS .le. 40) then
+   CFFDRS_FW = exp(0.05039*WS)
+else
+   CFFDRS_FW = 12*(1-exp(-0.0818*(WS-28)))
+endif
+! *****************************************************************************
+END FUNCTION CFFDRS_FW
 ! *****************************************************************************
 
 END MODULE

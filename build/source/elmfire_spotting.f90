@@ -206,40 +206,6 @@ EMPIRICAL_PDF_PARAMETERS(4) = SIGMA_CROSSWIND_LOCAL
 END FUNCTION EMPIRICAL_PDF_PARAMETERS
 ! *****************************************************************************
 
-! ! *****************************************************************************
-! FUNCTION EMBER_TO_EMIT_PER_CELL(WS, N0, CELLSIZE_ELM, AF, FMC, WN_FUEL, IFBFM, TAU_EMBERGEN, FLIN)
-! ! *****************************************************************************
-! ! Calculates spotting distance distribution based on Sardoy's model.
-! ! Takes as input local in speed and fireline intensity, reutrns MU and SIGMA
-! REAL, INTENT(IN) :: WS, N0, CELLSIZE_ELM, AF, FMC, WN_FUEL, TAU_EMBERGEN, FLIN
-! INTEGER*2, INTENT(IN) :: IFBFM
-! REAL, PARAMETER :: D_TRUNK        = 0.2 ! Trunk diameter, m
-! REAL, PARAMETER :: M_FIREBRAND    = 2.0e-4 ! firebrand mass, kg
-! REAL, PARAMETER :: G       = 9.81! Gravitional acceleration, m^2/s
-! REAL :: M_FUEL, U_WIND, N_EMBER, Y_FIREBRAND
-! REAL :: EMBER_TO_EMIT_PER_CELL
-
-! M_FUEL = CELLSIZE_ELM*CELLSIZE_ELM*WN_FUEL ! Available vegetation fuel mass in a cell, kg
-! U_WIND = WS*0.447 ! wind speed, m/s (This is 20-ft wind, to be verified)
-
-! IF (IFBFM .EQ. 91) THEN
-!     ! Lee and Davidson, 2010, ember from structure
-!     ! N_EMBER = 206.66*EXP(0.1876*U_WIND)*(CELLSIZE_ELM*CELLSIZE_ELM*AF)
-!     N_EMBER = FLIN * CELLSIZE_ELM * EMBER_GR_PER_MW_VEGE
-! ELSE
-!     ! Ju et al, 2023, ember from vegetation
-!     ! Y_FIREBRAND = 1.70*MAX(FMC,1E-6)**(-0.14)*(U_WIND/SQRT(G*D_TRUNK))**0.63+0.15
-!     ! N_EMBER = Y_FIREBRAND*M_FUEL/M_FIREBRAND
-!     N_EMBER = FLIN * CELLSIZE_ELM * EMBER_GR_PER_MW_BLDG
-! ENDIF
-
-! ! EMBER_TO_EMIT_PER_CELL = N_EMBER/MAX(N0*TAU_EMBERGEN,1E-6)
-! EMBER_TO_EMIT_PER_CELL = N_EMBER
-
-! ! *****************************************************************************
-! END FUNCTION EMBER_TO_EMIT_PER_CELL
-! ! *****************************************************************************
-
 ! *****************************************************************************
 FUNCTION EMBER_TO_EMIT_PER_CELL(CELLSIZE_ELM, IFBFM, FLIN, EMBER_GR_PER_MW_BLDG, EMBER_GR_PER_MW_VEGE)
 ! *****************************************************************************
@@ -829,10 +795,9 @@ REAL FUNCTION LOGNORM_CDF_DEFINITE(X_START, X_END, MU_DIST, SIGMA_DIST)
 ! giving the probability mass of a spotting distance falling within that interval.
 
 REAL, INTENT(IN) :: X_START, X_END,  MU_DIST, SIGMA_DIST
-REAL, PARAMETER :: SQRT_2 = 1.4142135623731
 
-LOGNORM_CDF_DEFINITE = 0.5*(1+ERF((LOG(MAX(X_END,1E-6))-MU_DIST)/SQRT_2/SIGMA_DIST)) - &
-             0.5*(1+ERF((LOG(MAX(X_START,1E-6))-MU_DIST)/SQRT_2/SIGMA_DIST))
+LOGNORM_CDF_DEFINITE = LOGNORM_CDF_CUM(X_END,   MU_DIST, SIGMA_DIST) - &
+                       LOGNORM_CDF_CUM(X_START, MU_DIST, SIGMA_DIST)
 
 ! *****************************************************************************
 END FUNCTION LOGNORM_CDF_DEFINITE

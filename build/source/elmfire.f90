@@ -26,7 +26,8 @@ IMPLICIT NONE
 INTEGER :: COLOR, I, IASP, IBAND, IBIN, ICASE, ICASE_RECV, ICOL, IERR=0, IOS, &
            IRANK_TO_RUN_METEOROLOGY_BAND(0:10000)=-1,  IWX_BAND, &
            IRANK_FROM, IROW, IT1, IT2, IX, IY, IWD20_TIMES10, M, N, &
-           NTIMESTEPS, TOTALCASESRUN, IWX_MEM_BAND, DONE_CASES, DONE_CASES_LOCAL
+           NTIMESTEPS, TOTALCASESRUN, IWX_MEM_BAND, DONE_CASES, DONE_CASES_LOCAL, &
+           IENS, N_ENS_MODE2
 
 INTEGER, ALLOCATABLE, DIMENSION(:) :: K
 
@@ -36,13 +37,15 @@ REAL :: APHIW, COSASPMPI, PHIMAG, PHIWX, PHIWY, PHIX, PHIY, SINASPMPI
 
 CHARACTER(3) :: THREE_IWX_BAND
 CHARACTER(4) :: FOUR_IWX_BAND
+CHARACTER(4) :: FOUR_IENS
+CHARACTER(20) :: ENS_TAG
 CHARACTER(60) :: VERSIONSTRING='ELMFIRE 2026.0522.memopt'
 CHARACTER(400) :: FN, MESSAGESTR
 
 TYPE (RASTER_TYPE), POINTER :: R
 
 TYPE(RASTER_TYPE) SPREAD_RATE_TO_DUMP, SPREAD_DIRECTION_TO_DUMP, FLAME_LENGTH_TO_DUMP, CROWN_FIRE_TO_DUMP, FLIN_TO_DUMP, &
-                  CRITICAL_FLIN_TO_DUMP, DEBUG_CFFDRS_TO_DUMP
+                  CRITICAL_FLIN_TO_DUMP, DEBUG_CFFDRS_TO_DUMP, REACTION_INTENSITY_TO_DUMP
 TYPE(DLL) :: LIST_FIRE_POTENTIAL
 TYPE(NODE), POINTER :: C, DUMMY_NODE => NULL()
 
@@ -217,24 +220,25 @@ IF (USE_TILED_IO) THEN
    ENDIF
 ELSE
    IF (IRANK_WORLD .EQ. PARALLEL_IO_RANK(1)) THEN
-      IF (USE_BSQ_XML_HEADER) THEN
-         CALL READ_BSQ_XML_HEADER (ASP, FUELS_AND_TOPOGRAPHY_DIRECTORY, ASP_FILENAME, .FALSE.)
+   ! The reference analysis grid is taken from the aspect raster's header. In
+   ! landscape-file mode the individual aspect file does not exist, so read the
+   ! header from the (same-grid) landscape file instead.
+      IF (USE_LANDSCAPE_FILE) THEN
+         IF (USE_BSQ_XML_HEADER) THEN
+            CALL READ_BSQ_XML_HEADER (ASP, FUELS_AND_TOPOGRAPHY_DIRECTORY, LANDSCAPE_FILENAME, .FALSE.)
+         ELSE
+            CALL READ_BSQ_HDR_HEADER (ASP, FUELS_AND_TOPOGRAPHY_DIRECTORY, LANDSCAPE_FILENAME, .FALSE.)
+         ENDIF
       ELSE
-         CALL READ_BSQ_HDR_HEADER (ASP, FUELS_AND_TOPOGRAPHY_DIRECTORY, ASP_FILENAME, .FALSE.)
-      ENDIF
-      IF (USE_BSQ_XML_HEADER) THEN
-         CALL READ_BSQ_XML_HEADER (ASP, FUELS_AND_TOPOGRAPHY_DIRECTORY, ASP_FILENAME, .FALSE.)
-      ELSE
-         CALL READ_BSQ_HDR_HEADER (ASP, FUELS_AND_TOPOGRAPHY_DIRECTORY, ASP_FILENAME, .FALSE.)
+         IF (USE_BSQ_XML_HEADER) THEN
+            CALL READ_BSQ_XML_HEADER (ASP, FUELS_AND_TOPOGRAPHY_DIRECTORY, ASP_FILENAME, .FALSE.)
+         ELSE
+            CALL READ_BSQ_HDR_HEADER (ASP, FUELS_AND_TOPOGRAPHY_DIRECTORY, ASP_FILENAME, .FALSE.)
+         ENDIF
       ENDIF
    ENDIF
 
    IF (IRANK_WORLD .EQ. PARALLEL_IO_RANK(2)) THEN
-      IF (USE_BSQ_XML_HEADER) THEN
-         CALL READ_BSQ_XML_HEADER (WS , WEATHER_DIRECTORY             , WS_FILENAME , .FALSE.)
-      ELSE
-         CALL READ_BSQ_HDR_HEADER (WS , WEATHER_DIRECTORY             , WS_FILENAME , .FALSE.)
-      ENDIF
       IF (USE_BSQ_XML_HEADER) THEN
          CALL READ_BSQ_XML_HEADER (WS , WEATHER_DIRECTORY             , WS_FILENAME , .FALSE.)
       ELSE
@@ -376,28 +380,6 @@ CALL ACCUMULATE_CPU_USAGE(7, IT1, IT2)
 
 !-----------------------------------------------------------------------------------------------------------------
 
-!CALL ALLOCATE_IGNITION_ARRAYS
-! 
-!IF (RANDOM_IGNITIONS .AND. MODE .NE. 2) THEN
-!   IF (IRANK_WORLD .EQ. 0) THEN
-!      WRITE(*,*) 'Calculating NUM_CASES_TOTAL'
-!      IF (CSV_FIXED_IGNITION_LOCATIONS) THEN
-!         CALL DETERMINE_NUM_CASES_TOTAL_CSV
-!      ELSE
-!         CALL DETERMINE_NUM_CASES_TOTAL
-!      ENDIF
-!   ENDIF
-!   IF (NPROC .GT. 1) THEN
-!      CALL MPI_BCAST(NUM_CASES_TOTAL,       1 , MPI_INTEGER, 0, MPI_COMM_WORLD, IERR)
-!      CALL MPI_BCAST(NUM_STARTING_WX_BANDS, 1 , MPI_INTEGER, 0, MPI_COMM_WORLD, IERR)
-!      CALL MPI_BCAST(NUM_CASES_PER_STARTING_WX_BAND(IWX_BAND_START:IWX_BAND_STOP), 1+(IWX_BAND_STOP-IWX_BAND_START) , MPI_INTEGER, 0, MPI_COMM_WORLD, IERR)
-!      IF (CSV_FIXED_IGNITION_LOCATIONS .AND. ONLY_READ_NEEDED_WX_BANDS) THEN
-!         IWX_BAND_OFFSET = IGN_IWX_BAND_LO - 1
-!         CALL MPI_BCAST(IGN_IWX_BAND_LO,       1 , MPI_INTEGER, 0, MPI_COMM_WORLD, IERR)
-!         CALL MPI_BCAST(IGN_IWX_BAND_HI,       1 , MPI_INTEGER, 0, MPI_COMM_WORLD, IERR)
-!      ENDIF
-!   ENDIF
-!ENDIF
 IF (MODE .NE. 2 .AND. NUM_MONTE_CARLO_VARIABLES .GT. 0) ALLOCATE(COEFFS_UNSCALED_BY_CASE(1:NUM_CASES_TOTAL,1:NUM_MONTE_CARLO_VARIABLES))
 
 CALL MPI_BARRIER(MPI_COMM_WORLD, IERR)
@@ -469,7 +451,8 @@ IF (MODE .NE. 1) THEN
    CALL ALLOCATE_EMPTY_RASTER(FLIN_TO_DUMP  , R%NCOLS, R%NROWS, 1, R%XLLCORNER, R%YLLCORNER, R%CELLSIZE, R%NODATA_VALUE, 'FLOAT     ')
    CALL ALLOCATE_EMPTY_RASTER(CRITICAL_FLIN_TO_DUMP  , R%NCOLS, R%NROWS, 1, R%XLLCORNER, R%YLLCORNER, R%CELLSIZE, R%NODATA_VALUE, 'FLOAT     ')
    CALL ALLOCATE_EMPTY_RASTER(DEBUG_CFFDRS_TO_DUMP  , R%NCOLS, R%NROWS, 1, R%XLLCORNER, R%YLLCORNER, R%CELLSIZE, R%NODATA_VALUE, 'FLOAT     ')
-   
+   CALL ALLOCATE_EMPTY_RASTER(REACTION_INTENSITY_TO_DUMP  , R%NCOLS, R%NROWS, 1, R%XLLCORNER, R%YLLCORNER, R%CELLSIZE, R%NODATA_VALUE, 'FLOAT     ')
+
    FLAME_LENGTH_TO_DUMP%R4(:,:,:) = FLAME_LENGTH_TO_DUMP%NODATA_VALUE
    SPREAD_RATE_TO_DUMP%R4(:,:,:)  = SPREAD_RATE_TO_DUMP%NODATA_VALUE
    SPREAD_DIRECTION_TO_DUMP%R4(:,:,:)  = SPREAD_DIRECTION_TO_DUMP%NODATA_VALUE
@@ -477,6 +460,8 @@ IF (MODE .NE. 1) THEN
    FLIN_TO_DUMP%R4(:,:,:)  = FLIN_TO_DUMP%NODATA_VALUE
    CRITICAL_FLIN_TO_DUMP%R4(:,:,:)  = CRITICAL_FLIN_TO_DUMP%NODATA_VALUE
    DEBUG_CFFDRS_TO_DUMP%R4(:,:,:) = DEBUG_CFFDRS_TO_DUMP%NODATA_VALUE
+   REACTION_INTENSITY_TO_DUMP%R4(:,:,:) = REACTION_INTENSITY_TO_DUMP%NODATA_VALUE
+   
    LIST_FIRE_POTENTIAL = NEW_DLL()
    IF (DEBUG_LEVEL .GE. 20) PRINT *, "Mode 2: Output rasters allocated"
 
@@ -517,167 +502,144 @@ IF (MODE .NE. 1) THEN
          WRITE(FOUR_IWX_BAND,  '(I4.4)') IWX_BAND + IWX_MEM_BAND -1
          WRITE(*,*) 'IWX_BAND: ', IWX_BAND + IWX_MEM_BAND -1
 
-         C => LIST_FIRE_POTENTIAL%HEAD
+         ! Monte Carlo ensemble for Mode 2. When Monte Carlo variables are configured we
+         ! run NUM_ENSEMBLE_MEMBERS realizations per weather band, drawing a fresh set of
+         ! perturbations (PERTURB_WS, PERTURB_M1, ...) for each. Each realization is written
+         ! out as its own raster set (no averaging) so the ensemble can be post-processed
+         ! externally; filenames get a '_mcNNNN' member tag. With no Monte Carlo variables
+         ! this collapses to a single realization with the original, untagged filenames.
+         N_ENS_MODE2 = 1
+         IF (NUM_MONTE_CARLO_VARIABLES .GT. 0) N_ENS_MODE2 = MAX(NUM_ENSEMBLE_MEMBERS, 1)
 
          IF (DEBUG_LEVEL .GE. 20) PRINT *, "TOTAL FIRE NODES: ", LIST_FIRE_POTENTIAL%NUM_NODES
-         DO I = 1, LIST_FIRE_POTENTIAL%NUM_NODES
-            IX               = C%IX
-            IY               = C%IY
-            ICOL             = ICOL_ANALYSIS_F2C(IX)
-            IROW             = IROW_ANALYSIS_F2C(IY)
-            C%M1             = M1%R4   (ICOL,IROW,IWX_BAND)
-            C%M10            = M10%R4  (ICOL,IROW,IWX_BAND)
-            C%M100           = M100%R4 (ICOL,IROW,IWX_BAND)
-            C%MLH            = MLH%R4  (ICOL,IROW,IWX_BAND)
-            C%MLW            = MLW%R4  (ICOL,IROW,IWX_BAND)
-            C%FMC            = MFOL%R4 (ICOL,IROW,IWX_BAND)
-            C%WS20_NOW       = WS%R4   (ICOL,IROW,IWX_BAND)
-            C%WD20_NOW       = WD%R4   (ICOL,IROW,IWX_BAND)
-            C%WSMF           = C%WS20_NOW * WAF%R4(IX,IY,1) * 5280./60.
-            C%PHIW_CROWN     = 0.
-            C%FLIN_SURFACE   = 0.
-            C%FLIN_CANOPY    = 0.
-            C%CRITICAL_FLIN  = 9E9
-            C%CROWN_FIRE     = 0
-            if (trim(SURFACE_SPREAD_MODEL) .eq. "CFFDRS") then 
-               C%C = 100*min(1.0,max(0.0,1.33-1.11*MLH%R4(IX,IY,1)))
-               C%PC = mod(C%IFBFM,100) / 100.0
-               C%PDF = C%PC
-            endif
-            C => C%NEXT
-         ENDDO
 
-         if (trim(SURFACE_SPREAD_MODEL) .eq. "ROTHERMEL") then
-            CALL ROTHERMEL_SURFACE_SPREAD_RATE(LIST_FIRE_POTENTIAL, DUMMY_NODE)
-         else if (trim(SURFACE_SPREAD_MODEL) .eq. "CFFDRS") then
-            CALL CFFDRS_SPREAD_RATE(LIST_FIRE_POTENTIAL, DUMMY_NODE, daily_bui(ceiling((12 + mod(HOUR_OF_YEAR, 24) + IWX_BAND + IWX_MEM_BAND - 2)/24.0)))
-         ENDIF
+         DO IENS = 1, N_ENS_MODE2
+            print *, 'Running Ensemble Case ', IENS, ' of ', N_ENS_MODE2
+            ! Member tag appended to output filenames. Empty for a single deterministic
+            ! realization so existing (non-Monte-Carlo) output names are unchanged.
+            IF (N_ENS_MODE2 .GT. 1) THEN
+               WRITE(FOUR_IENS,'(I4.4)') IENS
+               ENS_TAG = '_mc' // FOUR_IENS
+            ELSE
+               ENS_TAG = ''
+            ENDIF
 
-         C => LIST_FIRE_POTENTIAL%HEAD
-         DO I = 1, LIST_FIRE_POTENTIAL%NUM_NODES
-            C%VELOCITY =  C%VELOCITY_DMS_SURFACE
-            C%FLIN_SURFACE = C%FLIN_DMS_SURFACE
-            C => C%NEXT
-         enddo
+            ! Draw this member's perturbations. PERTURB_RASTERS sets the global PERTURB_*
+            ! offsets; ADJ/CBD/CBH perturbations are then applied inside the spread-rate
+            ! routines, while the weather/moisture offsets are applied at the node fill below.
+            IF (NUM_MONTE_CARLO_VARIABLES .GT. 0) CALL RANDOM_NUMBER(COEFFS(:))
+            IF (NUM_RASTERS_TO_PERTURB .GT. 0) CALL PERTURB_RASTERS(COEFFS(:))
 
-         CALL UPDATE_LOCAL_SPREAD_PROPERTIES(LIST_FIRE_POTENTIAL, DUMMY_NODE)
-         
-         C => LIST_FIRE_POTENTIAL%HEAD
-         DO I = 1, LIST_FIRE_POTENTIAL%NUM_NODES
-            IX = C%IX
-            IY = C%IY
-            if (FBFM%I2(IX,IY,1) .eq. FBFM%NODATA_VALUE) C%VELOCITY = FBFM%NODATA_VALUE
-            
-            FLIN_TO_DUMP%R4(IX,IY,1) = C%FLIN_SURFACE + C%FLIN_CANOPY
-            SPREAD_RATE_TO_DUMP%R4(IX,IY,1) = C%VELOCITY
-            CROWN_FIRE_TO_DUMP%R4(IX,IY,1) = REAL(C%CROWN_FIRE)
-            CRITICAL_FLIN_TO_DUMP%R4(Ix,IY,1) = C%CRITICAL_FLIN
-            FLAME_LENGTH_TO_DUMP%R4(IX,IY,1) = C%FLAME_LENGTH
-            DEBUG_CFFDRS_TO_DUMP%R4(IX,IY,1) = C%WSV
+            C => LIST_FIRE_POTENTIAL%HEAD
+            DO I = 1, LIST_FIRE_POTENTIAL%NUM_NODES
+               IX               = C%IX
+               IY               = C%IY
+               ICOL             = ICOL_ANALYSIS_F2C(IX)
+               IROW             = IROW_ANALYSIS_F2C(IY)
+               C%M1             = MAX(M1%R4   (ICOL,IROW,IWX_BAND) + PERTURB_M1  , 0.01)
+               C%M10            = MAX(M10%R4  (ICOL,IROW,IWX_BAND) + PERTURB_M10 , 0.01)
+               C%M100           = MAX(M100%R4 (ICOL,IROW,IWX_BAND) + PERTURB_M100, 0.01)
+               C%MLH            = MAX(MLH%R4  (ICOL,IROW,IWX_BAND) + PERTURB_MLH , 0.2)
+               C%MLW            = MAX(MLW%R4  (ICOL,IROW,IWX_BAND) + PERTURB_MLW , 0.4)
+               C%FMC            = MFOL%R4 (ICOL,IROW,IWX_BAND) + PERTURB_FMC
+               C%WS20_NOW       = MAX(WS%R4   (ICOL,IROW,IWX_BAND) + PERTURB_WS, 0.0)
+               C%WD20_NOW       = WD%R4   (ICOL,IROW,IWX_BAND) + PERTURB_WD
+               C%WSMF           = C%WS20_NOW * MAX((WAF%R4(IX,IY,1) + PERTURB_WAF), 0.) * 5280./60.
+               C%PHIW_CROWN     = 0.
+               C%FLIN_SURFACE   = 0.
+               C%FLIN_CANOPY    = 0.
+               C%CRITICAL_FLIN  = 9E9
+               C%CROWN_FIRE     = 0
+               if (trim(SURFACE_SPREAD_MODEL) .eq. "CFFDRS") then
+                  C%C = 100*min(1.0,max(0.0,1.33-1.11*MLH%R4(IX,IY,1)))
+                  C%PC = mod(C%IFBFM,100) / 100.0
+                  C%PDF = C%PC
+               endif
+               C => C%NEXT
+            ENDDO
 
             if (trim(SURFACE_SPREAD_MODEL) .eq. "ROTHERMEL") then
-               IASP = MIN(MAX(NINT(ASP%R4(C%IX,C%IY,1)),0),360)
-               SINASPMPI = SINASPM180(IASP)
-               COSASPMPI = COSASPM180(IASP) 
-               C%PHISX   = C%PHIS_SURFACE * SINASPMPI
-               C%PHISY   = C%PHIS_SURFACE * COSASPMPI
-
-               APHIW = MAX(C%PHIW_SURFACE, C%PHIW_CROWN)
-
-               IWD20_TIMES10 = INT(10. * C%WD20_NOW)
-               IF (IWD20_TIMES10 .GT. 3600) IWD20_TIMES10 = 3600
-               IF (IWD20_TIMES10 .LT.    0) IWD20_TIMES10 =    0
-
-               PHIWX = APHIW * SINWDMPI(IWD20_TIMES10)
-
-               PHIX  = C%PHISX + PHIWX
-
-               PHIWY = APHIW * COSWDMPI(IWD20_TIMES10)
-               PHIY  = C%PHISY + PHIWY
-
-               PHIMAG = MAX(SQRT(PHIX*PHIX+PHIY*PHIY),1E-20)
-
-               if (PHIMAG .gt. 1.0e-20) then
-                  SPREAD_DIRECTION_TO_DUMP%R4(IX,IY,1) = ATAN2(PHIX, PHIY) * 180.0 / ACOS(-1.0)
-                  if (SPREAD_DIRECTION_TO_DUMP%R4(IX,IY,1) .lt. 0.0) SPREAD_DIRECTION_TO_DUMP%R4(IX,IY,1) = SPREAD_DIRECTION_TO_DUMP%R4(IX,IY,1) + 360.0
-               else
-                  SPREAD_DIRECTION_TO_DUMP%R4(IX,IY,1) = 0.0
-               end if
+               CALL ROTHERMEL_SURFACE_SPREAD_RATE(LIST_FIRE_POTENTIAL, DUMMY_NODE)
             else if (trim(SURFACE_SPREAD_MODEL) .eq. "CFFDRS") then
-               SPREAD_DIRECTION_TO_DUMP%R4(IX,IY,1) = C%RAZ
-            endif
-
-            C => C%NEXT
-
-         enddo
-
-         IF (DUMP_FLAME_LENGTH) THEN
-            IF (USE_FOUR_DIGITS_IN_IWX_BAND) THEN
-               FN = 'head_fire_flame_length_' // FOUR_IWX_BAND
-            ELSE
-               FN = 'head_fire_flame_length_' // THREE_IWX_BAND
+               CALL CFFDRS_SPREAD_RATE(LIST_FIRE_POTENTIAL, DUMMY_NODE, daily_bui(ceiling((12 + mod(HOUR_OF_YEAR, 24) + IWX_BAND + IWX_MEM_BAND - 2)/24.0)))
             ENDIF
-            CALL WRITE_BIL_RASTER(FLAME_LENGTH_TO_DUMP,OUTPUTS_DIRECTORY,FN,CONVERT_TO_GEOTIFF,.TRUE.,IWX_BAND + IWX_MEM_BAND -1)
-         ENDIF
 
-         IF (DUMP_FLIN) THEN
-            IF (USE_FOUR_DIGITS_IN_IWX_BAND) THEN
-               FN = 'head_flin_' // FOUR_IWX_BAND
-            ELSE
-               FN = 'head_flin_' // THREE_IWX_BAND
-            ENDIF
-            CALL WRITE_BIL_RASTER(FLIN_TO_DUMP,OUTPUTS_DIRECTORY,FN,CONVERT_TO_GEOTIFF,.TRUE.,IWX_BAND + IWX_MEM_BAND -1)
-         ENDIF
+            C => LIST_FIRE_POTENTIAL%HEAD
+            DO I = 1, LIST_FIRE_POTENTIAL%NUM_NODES
+               C%VELOCITY =  C%VELOCITY_DMS_SURFACE
+               C%FLIN_SURFACE = C%FLIN_DMS_SURFACE
+               C => C%NEXT
+            enddo
 
-         IF (DUMP_SPREAD_RATE) THEN
-            IF (SPREAD_RATE_IN_M) THEN
+            CALL UPDATE_LOCAL_SPREAD_PROPERTIES(LIST_FIRE_POTENTIAL, DUMMY_NODE)
+
+            C => LIST_FIRE_POTENTIAL%HEAD
+            DO I = 1, LIST_FIRE_POTENTIAL%NUM_NODES
+               IX = C%IX
+               IY = C%IY
+               if (FBFM%I2(IX,IY,1) .eq. FBFM%NODATA_VALUE) C%VELOCITY = FBFM%NODATA_VALUE
+
+               FLIN_TO_DUMP%R4(IX,IY,1) = C%FLIN_SURFACE + C%FLIN_CANOPY
+               SPREAD_RATE_TO_DUMP%R4(IX,IY,1) = C%VELOCITY
+               CROWN_FIRE_TO_DUMP%R4(IX,IY,1) = REAL(C%CROWN_FIRE)
+               CRITICAL_FLIN_TO_DUMP%R4(Ix,IY,1) = C%CRITICAL_FLIN
+               FLAME_LENGTH_TO_DUMP%R4(IX,IY,1) = C%FLAME_LENGTH
+               DEBUG_CFFDRS_TO_DUMP%R4(IX,IY,1) = C%WSV
+               REACTION_INTENSITY_TO_DUMP%R4(IX,IY,1) = C%IR
+
+               if (trim(SURFACE_SPREAD_MODEL) .eq. "ROTHERMEL") then
+                  IASP = MIN(MAX(NINT(ASP%R4(C%IX,C%IY,1)),0),360)
+                  SINASPMPI = SINASPM180(IASP)
+                  COSASPMPI = COSASPM180(IASP)
+                  C%PHISX   = C%PHIS_SURFACE * SINASPMPI
+                  C%PHISY   = C%PHIS_SURFACE * COSASPMPI
+
+                  APHIW = MAX(C%PHIW_SURFACE, C%PHIW_CROWN)
+
+                  IWD20_TIMES10 = INT(10. * C%WD20_NOW)
+                  IF (IWD20_TIMES10 .GT. 3600) IWD20_TIMES10 = 3600
+                  IF (IWD20_TIMES10 .LT.    0) IWD20_TIMES10 =    0
+
+                  PHIWX = APHIW * SINWDMPI(IWD20_TIMES10)
+
+                  PHIX  = C%PHISX + PHIWX
+
+                  PHIWY = APHIW * COSWDMPI(IWD20_TIMES10)
+                  PHIY  = C%PHISY + PHIWY
+
+                  PHIMAG = MAX(SQRT(PHIX*PHIX+PHIY*PHIY),1E-20)
+
+                  if (PHIMAG .gt. 1.0e-20) then
+                     SPREAD_DIRECTION_TO_DUMP%R4(IX,IY,1) = ATAN2(PHIX, PHIY) * 180.0 / ACOS(-1.0)
+                     if (SPREAD_DIRECTION_TO_DUMP%R4(IX,IY,1) .lt. 0.0) SPREAD_DIRECTION_TO_DUMP%R4(IX,IY,1) = SPREAD_DIRECTION_TO_DUMP%R4(IX,IY,1) + 360.0
+                  else
+                     SPREAD_DIRECTION_TO_DUMP%R4(IX,IY,1) = 0.0
+                  end if
+               else if (trim(SURFACE_SPREAD_MODEL) .eq. "CFFDRS") then
+                  SPREAD_DIRECTION_TO_DUMP%R4(IX,IY,1) = C%RAZ
+               endif
+
+               C => C%NEXT
+
+            enddo
+
+            ! Per-member raster dumps. Filenames are <prefix><band-digits><ENS_TAG>;
+            ! DUMP_HEADFIRE_RASTER (contained below) builds the name and writes.
+            CALL DUMP_HEADFIRE_RASTER(DUMP_FLAME_LENGTH, FLAME_LENGTH_TO_DUMP,     'head_fire_flame_length_')
+            CALL DUMP_HEADFIRE_RASTER(DUMP_FLIN,         FLIN_TO_DUMP,             'head_flin_')
+
+            IF (DUMP_SPREAD_RATE .AND. SPREAD_RATE_IN_M) THEN
                WHERE (SPREAD_RATE_TO_DUMP%R4(:,:,1) /= SPREAD_RATE_TO_DUMP%NODATA_VALUE)
                   SPREAD_RATE_TO_DUMP%R4(:,:,1) = SPREAD_RATE_TO_DUMP%R4(:,:,1) * 0.3048
                END WHERE
             END IF
-            IF (USE_FOUR_DIGITS_IN_IWX_BAND) THEN
-               FN = 'head_fire_spread_rate_' // FOUR_IWX_BAND
-            ELSE
-               FN = 'head_fire_spread_rate_' // THREE_IWX_BAND
-            ENDIF
-            CALL WRITE_BIL_RASTER(SPREAD_RATE_TO_DUMP,OUTPUTS_DIRECTORY,FN,CONVERT_TO_GEOTIFF,.TRUE.,IWX_BAND + IWX_MEM_BAND -1)
-         ENDIF
-
-         IF (DUMP_CFFDRS_DEBUG) THEN
-            IF (USE_FOUR_DIGITS_IN_IWX_BAND) THEN
-               FN = 'cffdrs_debug_' // FOUR_IWX_BAND
-            ELSE
-               FN = 'cffdrs_debug_' // THREE_IWX_BAND
-            ENDIF
-            CALL WRITE_BIL_RASTER(DEBUG_CFFDRS_TO_DUMP,OUTPUTS_DIRECTORY,FN,CONVERT_TO_GEOTIFF,.TRUE.,IWX_BAND + IWX_MEM_BAND -1)
-         ENDIF
-
-         IF (DUMP_SPREAD_DIRECTION) THEN
-            IF (USE_FOUR_DIGITS_IN_IWX_BAND) THEN
-               FN = 'head_fire_spread_direction_' // FOUR_IWX_BAND
-            ELSE
-               FN = 'head_fire_spread_direction_' // THREE_IWX_BAND
-            ENDIF
-            CALL WRITE_BIL_RASTER(SPREAD_DIRECTION_TO_DUMP,OUTPUTS_DIRECTORY,FN,CONVERT_TO_GEOTIFF,.TRUE.,IWX_BAND + IWX_MEM_BAND -1)
-         ENDIF
-
-         IF (DUMP_CROWN_FIRE) THEN
-            IF (USE_FOUR_DIGITS_IN_IWX_BAND) THEN
-               FN = 'crown_fire_' // FOUR_IWX_BAND
-            ELSE
-               FN = 'crown_fire_' // THREE_IWX_BAND
-            ENDIF
-            CALL WRITE_BIL_RASTER(CROWN_FIRE_TO_DUMP,OUTPUTS_DIRECTORY,FN,CONVERT_TO_GEOTIFF,.TRUE.,IWX_BAND + IWX_MEM_BAND -1)
-         ENDIF
-
-         IF (DUMP_CRITICAL_FLIN) THEN
-            IF (USE_FOUR_DIGITS_IN_IWX_BAND) THEN
-               FN = 'critical_flin_' // FOUR_IWX_BAND
-            ELSE
-               FN = 'critical_flin_' // THREE_IWX_BAND
-            ENDIF
-            CALL WRITE_BIL_RASTER(CRITICAL_FLIN_TO_DUMP,OUTPUTS_DIRECTORY,FN,CONVERT_TO_GEOTIFF,.TRUE.,IWX_BAND + IWX_MEM_BAND -1)
-         ENDIF
+            CALL DUMP_HEADFIRE_RASTER(DUMP_SPREAD_RATE,      SPREAD_RATE_TO_DUMP,      'head_fire_spread_rate_')
+            CALL DUMP_HEADFIRE_RASTER(DUMP_CFFDRS_DEBUG,     DEBUG_CFFDRS_TO_DUMP,     'cffdrs_debug_')
+            CALL DUMP_HEADFIRE_RASTER(DUMP_SPREAD_DIRECTION, SPREAD_DIRECTION_TO_DUMP, 'head_fire_spread_direction_')
+            CALL DUMP_HEADFIRE_RASTER(DUMP_CROWN_FIRE,       CROWN_FIRE_TO_DUMP,       'crown_fire_')
+            CALL DUMP_HEADFIRE_RASTER(DUMP_CRITICAL_FLIN,    CRITICAL_FLIN_TO_DUMP,    'critical_flin_')
+            CALL DUMP_HEADFIRE_RASTER(DUMP_REACTION_INTENSITY, REACTION_INTENSITY_TO_DUMP, 'reaction_intensity_')
+         ENDDO ! IENS (Mode 2 ensemble member)
       ENDDO !IWX_BAND
    ENDDO !IWX_MEM_BAND
 
@@ -940,6 +902,33 @@ ENDIF !MODE .NE. 2
 CALL MPI_BARRIER(MPI_COMM_WORLD, IERR)
 
 CALL SHUTDOWN()
+
+CONTAINS
+
+! *****************************************************************************
+SUBROUTINE DUMP_HEADFIRE_RASTER(DOIT, RASTER, PREFIX)
+! *****************************************************************************
+! Mode-2 helper: if DOIT, build the output filename from PREFIX plus the
+! host-associated weather-band digits and ensemble-member tag (ENS_TAG), then
+! write RASTER. Collapses seven near-identical DUMP_* blocks into one call each.
+
+LOGICAL, INTENT(IN) :: DOIT
+TYPE(RASTER_TYPE), INTENT(INOUT) :: RASTER
+CHARACTER(*), INTENT(IN) :: PREFIX
+CHARACTER(400) :: FNL
+
+IF (.NOT. DOIT) RETURN
+
+IF (USE_FOUR_DIGITS_IN_IWX_BAND) THEN
+   FNL = TRIM(PREFIX) // FOUR_IWX_BAND // TRIM(ENS_TAG)
+ELSE
+   FNL = TRIM(PREFIX) // THREE_IWX_BAND // TRIM(ENS_TAG)
+ENDIF
+CALL WRITE_BIL_RASTER(RASTER, OUTPUTS_DIRECTORY, FNL, CONVERT_TO_GEOTIFF, .TRUE., IWX_BAND + IWX_MEM_BAND - 1)
+
+! *****************************************************************************
+END SUBROUTINE DUMP_HEADFIRE_RASTER
+! *****************************************************************************
 
 ! *****************************************************************************
 END PROGRAM ELMFIRE
