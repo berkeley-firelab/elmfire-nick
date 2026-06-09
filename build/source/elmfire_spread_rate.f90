@@ -932,42 +932,6 @@ END SUBROUTINE CALC_FUEL_CONSUMPTION
 #endif
 
 ! *****************************************************************************
-SUBROUTINE BURNED_FILTER(DYNAMIC_ARRAY, ZERO_FILTERED, INDEX_FILTERED, IX_LOW_BORDER, IY_LOW_BORDER, IX_HIGH_BORDER, IY_HIGH_BORDER)
-! *****************************************************************************
-! Filters the (IX,IY) rows of DYNAMIC_ARRAY to those falling inside the given
-! bounding box, returning the kept coordinates in ZERO_FILTERED and their
-! original row indices in INDEX_FILTERED (both allocated here).
-
-REAL, ALLOCATABLE, INTENT(INOUT), DIMENSION(:,:) :: DYNAMIC_ARRAY, ZERO_FILTERED
-INTEGER :: I, TOTAL_ELEMENTS, IX_LOW_BORDER, IY_LOW_BORDER, IX_HIGH_BORDER, IY_HIGH_BORDER
-LOGICAL, ALLOCATABLE :: VALID_VALUES(:)
-INTEGER, ALLOCATABLE, INTENT(OUT) :: INDEX_FILTERED(:)  ! Store indices
-
-
-TOTAL_ELEMENTS = SIZE(DYNAMIC_ARRAY, 1)
-
-    ! Create a logical mask for valid values
-ALLOCATE(VALID_VALUES(TOTAL_ELEMENTS))
-VALID_VALUES = (DYNAMIC_ARRAY(:, 1) >= IX_LOW_BORDER .AND. DYNAMIC_ARRAY(:, 1) <= IX_HIGH_BORDER .AND. &
-               DYNAMIC_ARRAY(:, 2) >= IY_LOW_BORDER .AND. DYNAMIC_ARRAY(:, 2) <= IY_HIGH_BORDER)
-
-    ! Allocate ZERO_FILTERED based on the number of valid values
-ALLOCATE(ZERO_FILTERED(COUNT(VALID_VALUES), 2))
-
-    ! Pack the valid IX and IY values directly into ZERO_FILTERED
-ZERO_FILTERED(:,1) = PACK(DYNAMIC_ARRAY(:,1), VALID_VALUES)
-ZERO_FILTERED(:,2) = PACK(DYNAMIC_ARRAY(:,2), VALID_VALUES)
-
-! Pack the indices of valid values
-INDEX_FILTERED = PACK((/(I, I=1,TOTAL_ELEMENTS)/), VALID_VALUES)
-
-!DEALLOCATE(VALID_VALUES)
-
-! *****************************************************************************
-END SUBROUTINE BURNED_FILTER
-! *****************************************************************************
-
-! *****************************************************************************
 PURE REAL FUNCTION CFFDRS_FW(WS)
 ! *****************************************************************************
 ! CFFDRS wind function FW (the ISI wind multiplier) as a function of wind speed WS.
