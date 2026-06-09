@@ -27,7 +27,11 @@ INTEGER :: COLOR, I, IASP, IBAND, IBIN, ICASE, ICASE_RECV, ICOL, IERR=0, IOS, &
            IRANK_TO_RUN_METEOROLOGY_BAND(0:10000)=-1,  IWX_BAND, &
            IRANK_FROM, IROW, IT1, IT2, IX, IY, IWD20_TIMES10, M, N, &
            NTIMESTEPS, TOTALCASESRUN, IWX_MEM_BAND, DONE_CASES, DONE_CASES_LOCAL, &
-           IENS, N_ENS_MODE2
+           DONE_CASES_PREV, IENS, N_ENS_MODE2, J, LU_COEFF, IWORK
+
+! Mode 2 Monte Carlo coefficient log (per weather band x ensemble member):
+REAL, ALLOCATABLE, DIMENSION(:,:,:) :: COEFFS_MODE2, COEFFS_MODE2_GLOBAL
+CHARACTER(2000) :: COEFF_HEADER
 
 INTEGER, ALLOCATABLE, DIMENSION(:) :: K
 
@@ -463,10 +467,15 @@ IF (MODE .NE. 1) THEN
    REACTION_INTENSITY_TO_DUMP%R4(:,:,:) = REACTION_INTENSITY_TO_DUMP%NODATA_VALUE
    
    LIST_FIRE_POTENTIAL = NEW_DLL()
-   IF (DEBUG_LEVEL .GE. 20) PRINT *, "Mode 2: Output rasters allocated"
+   IF (DEBUG_LEVEL .GE. 20 .AND. IRANK_WORLD .EQ. 0) PRINT *, "Mode 2: Output rasters allocated"
 
+   ! Every rank builds the full fire potential list (all burnable analysis cells): work is
+   ! distributed by Monte Carlo member, not by spatial point, and each member computes a
+   ! full-domain raster, so each rank needs the complete list. This pass is cheap relative
+   ! to the per-member spread computations. Progress is printed by rank 0 only so the
+   ! carriage-return progress line is not garbled by concurrent output from other ranks.
    DO IY = 1, ANALYSIS_NROWS
-      IF (DEBUG_LEVEL .GT. 20) THEN
+      IF (DEBUG_LEVEL .GT. 20 .AND. IRANK_WORLD .EQ. 0) THEN
          WRITE(*,'(A)', advance='no') char(13)   ! carriage return
             WRITE(*,'(A,I0,A,F5.1,A)', ADVANCE='NO')  &
             "Mode 2: Total fire potential points: ", LIST_FIRE_POTENTIAL%NUM_NODES,  &
@@ -483,24 +492,39 @@ IF (MODE .NE. 1) THEN
       ENDDO
    ENDDO
 
-   IF (DEBUG_LEVEL .GE. 20) PRINT *, "Mode 2: Fire potential list compiled"
+   IF (DEBUG_LEVEL .GE. 20 .AND. IRANK_WORLD .EQ. 0) PRINT *, "Mode 2: Fire potential list compiled"
 
-   I = -1
+   ! Storage for the Monte Carlo coefficients drawn per weather band and ensemble
+   ! member, so they can be written to coeffs.csv (Mode 2 does not run POSTPROCESS,
+   ! which writes coeffs.csv for the other modes). Indexed by (variable, member, band);
+   ! each band is computed by exactly one rank, so an MPI sum-reduce later collects them.
+   IF (NUM_MONTE_CARLO_VARIABLES .GT. 0) THEN
+      ALLOCATE(COEFFS_MODE2(NUM_MONTE_CARLO_VARIABLES, MAX(NUM_ENSEMBLE_MEMBERS,1), &
+                            METEOROLOGY_BAND_START:METEOROLOGY_BAND_STOP))
+      COEFFS_MODE2 = 0.
+   ENDIF
+
+   ! Mark which weather bands are active (i.e. land on the METEOROLOGY_BAND_SKIP_INTERVAL
+   ! grid). The stored value is unused now that work is distributed per (band, member)
+   ! unit below; only the -1 sentinel ("band not active, skip it") still matters.
    IRANK_TO_RUN_METEOROLOGY_BAND(:) = -1
    DO IWX_BAND = METEOROLOGY_BAND_START, METEOROLOGY_BAND_STOP, METEOROLOGY_BAND_SKIP_INTERVAL
-      I = I + 1
-      IF (I .EQ. NPROC) I = 0
-      IRANK_TO_RUN_METEOROLOGY_BAND(IWX_BAND) = I
+      IRANK_TO_RUN_METEOROLOGY_BAND(IWX_BAND) = 0
    ENDDO
+
+   ! Global work-unit counter spanning all (active weather band x ensemble member) pairs.
+   ! Incremented identically on every rank (all ranks iterate all active bands/members),
+   ! so MOD(IWORK, NPROC) assigns each unit to exactly one rank. This distributes Monte
+   ! Carlo members across MPI ranks even when there is only a single weather band.
+   IWORK = -1
    DO IWX_MEM_BAND = METEOROLOGY_BAND_START, METEOROLOGY_BAND_STOP, WX_BANDS_KEPT_IN_MEM
       CALL UPDATE_WEATHER_SLICE(IWX_MEM_BAND, min(IWX_MEM_BAND+WX_BANDS_KEPT_IN_MEM-1, METEOROLOGY_BAND_STOP))
       DO IWX_BAND = 1, min(WX_BANDS_KEPT_IN_MEM, METEOROLOGY_BAND_STOP - IWX_MEM_BAND +1)
-         IF (IRANK_WORLD .NE. IRANK_TO_RUN_METEOROLOGY_BAND(IWX_BAND + IWX_MEM_BAND -1)) CYCLE
          IF (IRANK_TO_RUN_METEOROLOGY_BAND(IWX_BAND + IWX_MEM_BAND - 1) .eq. -1) CYCLE
 
          WRITE(THREE_IWX_BAND, '(I3.3)') IWX_BAND + IWX_MEM_BAND -1
          WRITE(FOUR_IWX_BAND,  '(I4.4)') IWX_BAND + IWX_MEM_BAND -1
-         WRITE(*,*) 'IWX_BAND: ', IWX_BAND + IWX_MEM_BAND -1
+         IF (IRANK_WORLD .EQ. 0) WRITE(*,*) 'IWX_BAND: ', IWX_BAND + IWX_MEM_BAND -1
 
          ! Monte Carlo ensemble for Mode 2. When Monte Carlo variables are configured we
          ! run NUM_ENSEMBLE_MEMBERS realizations per weather band, drawing a fresh set of
@@ -514,7 +538,6 @@ IF (MODE .NE. 1) THEN
          IF (DEBUG_LEVEL .GE. 20) PRINT *, "TOTAL FIRE NODES: ", LIST_FIRE_POTENTIAL%NUM_NODES
 
          DO IENS = 1, N_ENS_MODE2
-            print *, 'Running Ensemble Case ', IENS, ' of ', N_ENS_MODE2
             ! Member tag appended to output filenames. Empty for a single deterministic
             ! realization so existing (non-Monte-Carlo) output names are unchanged.
             IF (N_ENS_MODE2 .GT. 1) THEN
@@ -527,8 +550,30 @@ IF (MODE .NE. 1) THEN
             ! Draw this member's perturbations. PERTURB_RASTERS sets the global PERTURB_*
             ! offsets; ADJ/CBD/CBH perturbations are then applied inside the spread-rate
             ! routines, while the weather/moisture offsets are applied at the node fill below.
+            ! These draws are made on EVERY rank (not just the owner) so the random-number
+            ! stream stays in lockstep across ranks -- RANDOM_NUMBER here plus any internal
+            ! draws PERTURB_RASTERS makes for Gaussian/lognormal PDFs. As a result a given
+            ! member's coefficients are identical no matter which rank ends up computing it.
             IF (NUM_MONTE_CARLO_VARIABLES .GT. 0) CALL RANDOM_NUMBER(COEFFS(:))
             IF (NUM_RASTERS_TO_PERTURB .GT. 0) CALL PERTURB_RASTERS(COEFFS(:))
+
+            ! Distribute this (weather band x ensemble member) work unit round-robin across
+            ! ranks; only the owning rank performs the (expensive) spread computation and
+            ! raster dump below. Every unit is owned by exactly one rank, so the per-band
+            ! COEFFS_MODE2 sum-reduce later still gathers a complete coeffs.csv table.
+            IWORK = IWORK + 1
+            IF (MOD(IWORK, NPROC) .NE. IRANK_WORLD) CYCLE
+
+            print '(A,I0,A,I0,A,I0,A,I0,A)', &
+               'Rank ', IRANK_WORLD, &
+               ' running ensemble case ', IENS, &
+               ' of ', N_ENS_MODE2, &
+               ' (weather band ', IWX_BAND + IWX_MEM_BAND - 1, &
+               ')'
+
+            ! Record this draw's unscaled coefficients for coeffs.csv.
+            IF (NUM_MONTE_CARLO_VARIABLES .GT. 0) &
+               COEFFS_MODE2(:, IENS, IWX_BAND + IWX_MEM_BAND - 1) = COEFFS_UNSCALED(:)
 
             C => LIST_FIRE_POTENTIAL%HEAD
             DO I = 1, LIST_FIRE_POTENTIAL%NUM_NODES
@@ -643,6 +688,36 @@ IF (MODE .NE. 1) THEN
       ENDDO !IWX_BAND
    ENDDO !IWX_MEM_BAND
 
+   ! Write coeffs.csv: one row per (weather band, ensemble member) with the unscaled
+   ! Monte Carlo offsets drawn for each perturbed raster. Each band was computed on a
+   ! single rank, so a sum-reduce onto rank 0 gathers the full table (unrun slots are 0).
+   IF (NUM_MONTE_CARLO_VARIABLES .GT. 0) THEN
+      ALLOCATE(COEFFS_MODE2_GLOBAL(NUM_MONTE_CARLO_VARIABLES, MAX(NUM_ENSEMBLE_MEMBERS,1), &
+                                   METEOROLOGY_BAND_START:METEOROLOGY_BAND_STOP))
+      COEFFS_MODE2_GLOBAL = 0.
+      CALL MPI_REDUCE(COEFFS_MODE2, COEFFS_MODE2_GLOBAL, SIZE(COEFFS_MODE2), MPI_REAL, MPI_SUM, 0, MPI_COMM_WORLD, IERR)
+
+      IF (IRANK_WORLD .EQ. 0) THEN
+         COEFF_HEADER = 'IWX_BAND,ENSEMBLE_MEMBER'
+         DO J = 1, NUM_RASTERS_TO_PERTURB
+            COEFF_HEADER = TRIM(COEFF_HEADER) // ',' // TRIM(RASTER_TO_PERTURB(J))
+         ENDDO
+
+         FN = TRIM(OUTPUTS_DIRECTORY) // 'coeffs.csv'
+         OPEN(NEWUNIT=LU_COEFF, FILE=TRIM(FN), FORM='FORMATTED', STATUS='REPLACE', IOSTAT=IOS)
+         WRITE(LU_COEFF,'(A)') TRIM(COEFF_HEADER)
+         DO IWX_BAND = METEOROLOGY_BAND_START, METEOROLOGY_BAND_STOP, METEOROLOGY_BAND_SKIP_INTERVAL
+            DO IENS = 1, MAX(NUM_ENSEMBLE_MEMBERS,1)
+               WRITE(LU_COEFF,'(I0,",",I0,25(",",F12.5))') IWX_BAND, IENS, &
+                  (COEFFS_MODE2_GLOBAL(J,IENS,IWX_BAND), J = 1, NUM_RASTERS_TO_PERTURB)
+            ENDDO
+         ENDDO
+         CLOSE(LU_COEFF)
+      ENDIF
+
+      DEALLOCATE(COEFFS_MODE2, COEFFS_MODE2_GLOBAL)
+   ENDIF
+
 ENDIF ! (MODE .GT. 1)
 
 CALL MPI_BARRIER(MPI_COMM_WORLD, IERR)
@@ -725,6 +800,10 @@ IF (MODE .NE. 2) THEN
       IT1_LSP = IT1
       CALL LEVEL_SET_PROPAGATION(IWX_BAND,ICASE,NTIMESTEPS, IS_VIRTUAL_RUN)
       
+      ! Remember how many cases were complete before this round so we can compute exactly
+      ! how many worker ranks finished a real case this round (see rank-0 receive loop below).
+      DONE_CASES_PREV = DONE_CASES
+
       if (.not. IS_VIRTUAL_RUN) DONE_CASES_LOCAL = DONE_CASES_LOCAL + 1
       CALL MPI_ALLREDUCE(DONE_CASES_LOCAL, DONE_CASES, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr)
       
@@ -762,8 +841,14 @@ IF (MODE .NE. 2) THEN
          ENDIF   
       endif
       IF (IRANK_WORLD .EQ. 0 .AND. NPROC .GT. 1) THEN
+         ! Receive exactly one message from every OTHER rank that completed a real (non-virtual)
+         ! case this round. That count is (cases completed this round) - 1, because rank 0 ran one
+         ! of those cases itself and never sends to itself. Using mod(DONE_CASES, NPROC) here was
+         ! wrong: in a fully-subscribed round it is 0 (rank 0 under-receives, leaking messages into
+         ! MPI's buffer), and when oversubscribed (NPROC > NUM_CASES_TOTAL) it exceeds the number of
+         ! senders by one, so the final MPI_RECV blocks forever and the run stalls.
          TOTALCASESRUN = 0
-         DO WHILE (TOTALCASESRUN .LT. mod(DONE_CASES, NPROC))
+         DO WHILE (TOTALCASESRUN .LT. (DONE_CASES - DONE_CASES_PREV - 1))
 
             CALL SYSTEM_CLOCK(IT1)
 
