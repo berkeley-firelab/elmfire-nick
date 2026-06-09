@@ -1826,6 +1826,9 @@ DO WHILE (T .le. totalDuration)
          WRITE(LOG_MSG,'(A,I0,A)') '[',ICASE,'] LEVEL SET CASE ENDED'
          WRITE(*,'(A)') TRIM(LOG_MSG)
       endif
+
+      CALL SYSTEM_CLOCK(IT2)
+      STATS_WALL_CLOCK_TIME(ICASE) = REAL(IT2 - IT1_LSP) / REAL(CLOCK_COUNT_RATE)
    ENDIF
    ! if (ICASE .ge. 9945) then
    !    WRITE(LOG_MSG,'(A,I0,A,F12.1)') '[',ICASE,'] PASSED CASE END CHECK, T IS ',T

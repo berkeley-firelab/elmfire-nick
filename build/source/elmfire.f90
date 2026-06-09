@@ -811,8 +811,6 @@ IF (MODE .NE. 2) THEN
       
       if (.not. IS_VIRTUAL_RUN) then
          WRITE(*,'(A,I0,A, I6, A, I7, A, F8.1, A)') '[',ICASE,"] Meteorology band ", IWX_BAND, ": Case # ", ICASE, " complete.  Fire area: ", STATS_SURFACE_FIRE_AREA(ICASE), " acres."
-         CALL SYSTEM_CLOCK(IT2)
-         STATS_WALL_CLOCK_TIME(ICASE) = REAL(IT2 - IT1) / REAL(CLOCK_COUNT_RATE)
          TIMINGS(IRANK_HOST+1,80) = TIMINGS(IRANK_HOST+1,80) + STATS_WALL_CLOCK_TIME(ICASE)
          CALL SYSTEM_CLOCK(IT1)
          IF (NPROC .GT. 1 .and. IRANK_WORLD .ne. 0) THEN
