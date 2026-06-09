@@ -411,23 +411,31 @@ DO WHILE (T .le. totalDuration)
 
 #ifdef _SUPPRESSION
       IF (ENABLE_EXTENDED_ATTACK) THEN
-         DO IT_EA = 0, 1000
-            SUPP(IT_EA)%NCELLS(:)=0
-            SUPP(IT_EA)%VELOCITY(:)=0.
-            SUPP(IT_EA)%VELOCITY_SMOOTHED(:)=0.
-            SUPP(IT_EA)%FIRELINE_FRACTION(:)=0.
-            SUPP(IT_EA)%SUPPRESSED_FRACTION(:)=0.
-            SUPP(IT_EA)%T=0.
-            SUPP(IT_EA)%ACRES=0.
-            SUPP(IT_EA)%ACRES_SDI=0.
-            SUPP(IT_EA)%TARGET_CONTAINMENT=0.
-            SUPP(IT_EA)%DC_PER_DAY=0.
-            SUPP(IT_EA)%DADT=0.
-            SUPP(IT_EA)%DASDIDT=0.
-            SUPP(IT_EA)%SDIBAR=0.
-            SUPP(IT_EA)%IXCEN=0
-            SUPP(IT_EA)%IYCEN=0
-         ENDDO
+         ! Majid_bav::modified below
+         IF (EXTENDED_ATTACK_MODEL .EQ. 0) THEN
+            DO IT_EA = 0, 1000
+               SUPP(IT_EA)%NCELLS(:)=0
+               SUPP(IT_EA)%VELOCITY(:)=0.
+               SUPP(IT_EA)%VELOCITY_SMOOTHED(:)=0.
+               SUPP(IT_EA)%FIRELINE_FRACTION(:)=0.
+               SUPP(IT_EA)%SUPPRESSED_FRACTION(:)=0.
+               SUPP(IT_EA)%T=0.
+               SUPP(IT_EA)%ACRES=0.
+               SUPP(IT_EA)%ACRES_SDI=0.
+               SUPP(IT_EA)%TARGET_CONTAINMENT=0.
+               SUPP(IT_EA)%DC_PER_DAY=0.
+               SUPP(IT_EA)%DADT=0.
+               SUPP(IT_EA)%DASDIDT=0.
+               SUPP(IT_EA)%SDIBAR=0.
+               SUPP(IT_EA)%IXCEN=0
+               SUPP(IT_EA)%IYCEN=0
+            ENDDO
+         ELSE IF (EXTENDED_ATTACK_MODEL .EQ. 1) THEN
+            WRITE(*,*) "NEW SUPPRESSION MODEL :::: elmfire_level_set.f90:434"
+         ELSE
+            WRITE(*,*) 'Error: "EXTENDED_ATTACK_MODEL" should be 0 or 1 in namelist!'
+            STOP
+         ENDIF
       ENDIF
 #endif
       IT_EA=0
@@ -513,7 +521,17 @@ DO WHILE (T .le. totalDuration)
 #endif
 
 #ifdef _SUPPRESSION
-               IF (ENABLE_EXTENDED_ATTACK .AND. USE_SDI) C%SDI = SDI_FACTOR * SDI%R4(ICOL,IROW,1)
+         ! Majid_bav::modified below
+         IF (ENABLE_EXTENDED_ATTACK) THEN
+            IF (EXTENDED_ATTACK_MODEL .EQ. 0) THEN
+               IF (USE_SDI) C%SDI = SDI_FACTOR * SDI%R4(ICOL,IROW,1)
+            ELSE IF (EXTENDED_ATTACK_MODEL .EQ. 1) THEN
+               WRITE(*,*) "NEW SUPPRESSION MODEL :::: elmfire_level_set.f90:529"
+            ELSE
+               WRITE(*,*) 'Error: "EXTENDED_ATTACK_MODEL" should be 0 or 1 in namelist!'
+               STOP
+            ENDIF
+         ENDIF
 #endif
             ENDIF
          ENDDO
@@ -607,7 +625,17 @@ DO WHILE (T .le. totalDuration)
 #endif
 
 #ifdef _SUPPRESSION
-         IF (ENABLE_EXTENDED_ATTACK) SUPP(0)%ACRES = ACRES
+         ! Majid_bav::modified below
+         IF (ENABLE_EXTENDED_ATTACK) THEN
+            IF (EXTENDED_ATTACK_MODEL .EQ. 0) THEN
+               SUPP(0)%ACRES = ACRES
+            ELSE IF (EXTENDED_ATTACK_MODEL .EQ. 1) THEN
+               WRITE(*,*) "NEW SUPPRESSION MODEL :::: elmfire_level_set.f90:633"
+            ELSE
+               WRITE(*,*) 'Error: "EXTENDED_ATTACK_MODEL" should be 0 or 1 in namelist!'
+               STOP
+            ENDIF
+         ENDIF
 #endif
          ICOUNT = 0
          DO IY = 1, NY
@@ -1014,13 +1042,22 @@ DO WHILE (T .le. totalDuration)
          
             ACRES = ACRES + ACRES_PER_PIXEL
 #ifdef _SUPPRESSION
-            IF (ENABLE_EXTENDED_ATTACK) THEN
+         ! Majid_bav::modified_below
+         IF (ENABLE_EXTENDED_ATTACK) THEN
+            IF (EXTENDED_ATTACK_MODEL .EQ. 0) THEN
                IF (USE_SDI) THEN
                   ACRES_SDI = ACRES_SDI + ACRES_PER_PIXEL * (1.0 + C%SDI )
                ELSE
                   ACRES_SDI = ACRES
                ENDIF
+            ELSE IF (EXTENDED_ATTACK_MODEL .EQ. 1) THEN
+               WRITE(*,*) "NEW SUPPRESSION MODEL :::: elmfire_level_set.f90:1054"
+            ELSE
+               WRITE(*,*) 'Error: "EXTENDED_ATTACK_MODEL" should be 0 or 1 in namelist!'
+               STOP
             ENDIF
+
+         ENDIF
 #endif
             C%BURNED               = .TRUE.
             C%TIME_OF_ARRIVAL      = T
@@ -1246,7 +1283,17 @@ DO WHILE (T .le. totalDuration)
                CALL CFFDRS_SPREAD_RATE(LIST_TAGGED, C, daily_bui(DAY_OF_SIM))
             ENDIF
 #ifdef _SUPPRESSION
-            IF (ENABLE_EXTENDED_ATTACK .AND. USE_SDI) C%SDI = SDI_FACTOR * SDI%R4(C%IX,C%IY,1)
+            ! Majid_bav::modified below
+            IF (ENABLE_EXTENDED_ATTACK) THEN
+               IF (EXTENDED_ATTACK_MODEL .EQ. 0) THEN
+                  IF (USE_SDI) C%SDI = SDI_FACTOR * SDI%R4(C%IX,C%IY,1)
+               ELSE IF (EXTENDED_ATTACK_MODEL .EQ. 1) THEN
+                     WRITE(*,*) "NEW SUPPRESSION MODEL :::: elmfire_level_set.f90:1291" !, SDI%R4(C%IX,C%IY,1), PCL%R4(C%IX,C%IY,1)
+               ELSE
+                  WRITE(*,*) 'Error: "EXTENDED_ATTACK_MODEL" should be 0 or 1 in namelist!'
+                  STOP
+               ENDIF
+            ENDIF
 #endif
          ENDIF
          C => C%NEXT
@@ -1361,45 +1408,56 @@ DO WHILE (T .le. totalDuration)
       ! Extended attack model
       IF (ITIMESTEP .EQ. 1) T_LAST_EXTENDED_ATTACK = T
 #ifdef _SUPPRESSION   
-      IF (ENABLE_EXTENDED_ATTACK .AND. T - T_LAST_EXTENDED_ATTACK .GT. DT_EXTENDED_ATTACK .AND. LIST_BURNED%NUM_NODES .GT. 0) THEN
-         IT_EA = IT_EA + 1
-         DT_DAY = (T - T_LAST_EXTENDED_ATTACK) / 86400.
-         SUPP(IT_EA)%T         = T
-         SUPP(IT_EA)%ACRES     = ACRES
-         SUPP(IT_EA)%ACRES_SDI = ACRES_SDI
+   ! Majid_bav::modified below
+      IF (ENABLE_EXTENDED_ATTACK) THEN
+         IF (EXTENDED_ATTACK_MODEL .EQ. 0) THEN
+            IF (T - T_LAST_EXTENDED_ATTACK .GT. DT_EXTENDED_ATTACK .AND. LIST_BURNED%NUM_NODES .GT. 0) THEN
+               IT_EA = IT_EA + 1
+               DT_DAY = (T - T_LAST_EXTENDED_ATTACK) / 86400.
+               SUPP(IT_EA)%T         = T
+               SUPP(IT_EA)%ACRES     = ACRES
+               SUPP(IT_EA)%ACRES_SDI = ACRES_SDI
 
-         SUPP(IT_EA)%DADT    = (ACRES     - SUPP(IT_EA-1)%ACRES    ) / DT_DAY
-         SUPP(IT_EA)%DASDIDT = (ACRES_SDI - SUPP(IT_EA-1)%ACRES_SDI) / DT_DAY
-         IF (SUPP(IT_EA)%DADT .GT. 0.) THEN
-            SUPP(IT_EA)%SDIBAR = MIN(MAX(SUPP(IT_EA)%DASDIDT / SUPP(IT_EA)%DADT - 1.0, 0.0), 3.0)
-         ELSE
-            SUPP(IT_EA)%SDIBAR = 0
-         ENDIF
-         IF ( ABS(SUPP(IT_EA)%DADT) .LT. 1E-6 ) THEN
-            SUPP(IT_EA)%DC_PER_DAY = 0.
-         ELSE
-            IF (USE_SDI_LOG_FUNCTION) THEN
-               SUPP(IT_EA)%DC_PER_DAY = 0.01 * DIURNAL_ADJUSTMENT_FACTOR * MAX_CONTAINMENT_PER_DAY * (1. - LOG10(SUPP(IT_EA)%DADT) / LOG10(AREA_NO_CONTAINMENT_CHANGE) )
-            ELSE
-               SUPP(IT_EA)%DC_PER_DAY = 0.01 * DIURNAL_ADJUSTMENT_FACTOR * MAX_CONTAINMENT_PER_DAY * (1. - SUPP(IT_EA)%DADT        / AREA_NO_CONTAINMENT_CHANGE       )
+               SUPP(IT_EA)%DADT    = (ACRES     - SUPP(IT_EA-1)%ACRES    ) / DT_DAY
+               SUPP(IT_EA)%DASDIDT = (ACRES_SDI - SUPP(IT_EA-1)%ACRES_SDI) / DT_DAY
+               IF (SUPP(IT_EA)%DADT .GT. 0.) THEN
+                  SUPP(IT_EA)%SDIBAR = MIN(MAX(SUPP(IT_EA)%DASDIDT / SUPP(IT_EA)%DADT - 1.0, 0.0), 3.0)
+               ELSE
+                  SUPP(IT_EA)%SDIBAR = 0
+               ENDIF
+               IF ( ABS(SUPP(IT_EA)%DADT) .LT. 1E-6 ) THEN
+                  SUPP(IT_EA)%DC_PER_DAY = 0.
+               ELSE
+                  IF (USE_SDI_LOG_FUNCTION) THEN
+                     SUPP(IT_EA)%DC_PER_DAY = 0.01 * DIURNAL_ADJUSTMENT_FACTOR * MAX_CONTAINMENT_PER_DAY * (1. - LOG10(SUPP(IT_EA)%DADT) / LOG10(AREA_NO_CONTAINMENT_CHANGE) )
+                  ELSE
+                     SUPP(IT_EA)%DC_PER_DAY = 0.01 * DIURNAL_ADJUSTMENT_FACTOR * MAX_CONTAINMENT_PER_DAY * (1. - SUPP(IT_EA)%DADT        / AREA_NO_CONTAINMENT_CHANGE       )
+                  ENDIF
+               ENDIF
+               IF (SUPP(IT_EA)%DC_PER_DAY .GT. 0.) THEN
+                  SUPP(IT_EA)%DC_PER_DAY = SUPP(IT_EA)%DC_PER_DAY * EXP(-B_SDI * SUPP(IT_EA)%SDIBAR)
+               ELSE
+                  SUPP(IT_EA)%DC_PER_DAY = SUPP(IT_EA)%DC_PER_DAY * EXP( B_SDI * SUPP(IT_EA)%SDIBAR)
+               ENDIF
+               
+               SUPP(IT_EA)%TARGET_CONTAINMENT = SUPP(IT_EA-1)%TARGET_CONTAINMENT  + SUPP(IT_EA)%DC_PER_DAY * DT_DAY
+               IF (SUPP(IT_EA)%TARGET_CONTAINMENT .GT. 1. ) SUPP(IT_EA)%TARGET_CONTAINMENT = 1.
+               IF (SUPP(IT_EA)%TARGET_CONTAINMENT .LT. 0. ) SUPP(IT_EA)%TARGET_CONTAINMENT = 0.
+               
+               CALL CENTROID(IT_EA)
+               CALL CONTAINMENT(IT_EA,T)
+               CALL UNTAG_CELLS(NX,NY,TIME_OF_ARRIVAL,T,SURFACE_FIRE)
+               T_LAST_EXTENDED_ATTACK = T
+
+               CONTINUE
             ENDIF
-         ENDIF
-         IF (SUPP(IT_EA)%DC_PER_DAY .GT. 0.) THEN
-            SUPP(IT_EA)%DC_PER_DAY = SUPP(IT_EA)%DC_PER_DAY * EXP(-B_SDI * SUPP(IT_EA)%SDIBAR)
-         ELSE
-            SUPP(IT_EA)%DC_PER_DAY = SUPP(IT_EA)%DC_PER_DAY * EXP( B_SDI * SUPP(IT_EA)%SDIBAR)
-         ENDIF
-         
-         SUPP(IT_EA)%TARGET_CONTAINMENT = SUPP(IT_EA-1)%TARGET_CONTAINMENT  + SUPP(IT_EA)%DC_PER_DAY * DT_DAY
-         IF (SUPP(IT_EA)%TARGET_CONTAINMENT .GT. 1. ) SUPP(IT_EA)%TARGET_CONTAINMENT = 1.
-         IF (SUPP(IT_EA)%TARGET_CONTAINMENT .LT. 0. ) SUPP(IT_EA)%TARGET_CONTAINMENT = 0.
-         
-         CALL CENTROID(IT_EA)
-         CALL CONTAINMENT(IT_EA,T)
-         CALL UNTAG_CELLS(NX,NY,TIME_OF_ARRIVAL,T,SURFACE_FIRE)
-         T_LAST_EXTENDED_ATTACK = T
 
-         CONTINUE
+         ELSE IF (EXTENDED_ATTACK_MODEL .EQ. 1) THEN
+            WRITE(*,*) "NEW SUPPRESSION MODEL :::: elmfire_level_set.f90:1456"
+         ELSE
+            WRITE(*,*) 'Error: "EXTENDED_ATTACK_MODEL" should be 0 or 1 in namelist!'
+            STOP
+         ENDIF
       ENDIF
 #endif   
 
@@ -1810,7 +1868,17 @@ DO WHILE (T .le. totalDuration)
 
       IF (SIMULATION_TSTOP_HOURS .LT. 0. ) STATS_SIMULATION_TSTOP_HOURS(ICASE) = T / 3600.
 #ifdef _SUPPRESSION   
-      IF (ENABLE_EXTENDED_ATTACK .AND. STATS_FINAL_CONTAINMENT_FRAC(ICASE) .LT. 0.) STATS_FINAL_CONTAINMENT_FRAC(ICASE) = SUPP(IT_EA)%TARGET_CONTAINMENT
+      ! Majid_bav::modified below  
+      IF (ENABLE_EXTENDED_ATTACK) THEN
+         IF (EXTENDED_ATTACK_MODEL .EQ. 0) THEN
+            IF (STATS_FINAL_CONTAINMENT_FRAC(ICASE) .LT. 0.) STATS_FINAL_CONTAINMENT_FRAC(ICASE) = SUPP(IT_EA)%TARGET_CONTAINMENT
+         ELSE IF (EXTENDED_ATTACK_MODEL .EQ. 1) THEN
+            WRITE(*,*) "NEW SUPPRESSION MODEL :::: elmfire_level_set.f90:1876"
+         ELSE
+            WRITE(*,*) 'Error: "EXTENDED_ATTACK_MODEL" should be 0 or 1 in namelist!'
+            STOP
+         ENDIF
+      ENDIF
 #endif   
 
       CALL ACCUMULATE_CPU_USAGE(61, IT1, IT2)
