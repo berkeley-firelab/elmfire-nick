@@ -1500,7 +1500,8 @@ DO WHILE (T .le. totalDuration)
       IF (DUMP_HRR_TRANSIENT .AND. LIST_BURNED%NUM_NODES .GT. 0) THEN
          C => LIST_BURNED%HEAD
          DO I = 1, LIST_BURNED%NUM_NODES
-            CALL HRR_TRANSIENT(C, T)
+            IF (C%IFBFM .NE. 91 .AND. &
+                C%TIME_OF_ARRIVAL .GT. SIMULATION_TSTART) CALL HRR_TRANSIENT(C, T)
             C => C%NEXT
          ENDDO
       ENDIF
