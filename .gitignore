@@ -86,6 +86,7 @@ examples/smoke/STARTUP
 # Validation, verification & tutorials (generated outputs)
 # ============================================================
 tutorials/05-UMD-spotting
+tutorials/01-constant-wind
 validation/01-single-fire/ca-county_20180701_062200
 validation/02-multi-fire/2*
 verification/01-elliptical-shape/exact_ellipses
@@ -104,47 +105,3 @@ rag_db
 # ============================================================
 .webui_secret_key
 log.txt
-tutorials/01-constant-wind/~$PLOT.xlsx
-tutorials/01-constant-wind/.elmfire.data.in.swp
-tutorials/01-constant-wind/base.tif
-tutorials/01-constant-wind/elmfire.data.in
-tutorials/01-constant-wind/PLOT.xlsx
-tutorials/01-constant-wind/elmfire.data.in
-tutorials/01-constant-wind/elmfire.data.in
-tutorials/01-constant-wind/elmfire.data.in
-tutorials/01-constant-wind/inputs/elmfire.data
-tutorials/01-constant-wind/inputs/pcl.tif
-tutorials/01-constant-wind/inputs/sdi.tif
-tutorials/01-constant-wind/inputs/ws.tif
-tutorials/01-constant-wind/outputs_nosuppression_15mph/flin_0000001_0019803.tif
-tutorials/01-constant-wind/01-run.sh
-tutorials/01-constant-wind/elmfire.data.in
-tutorials/01-constant-wind/inputs/elmfire.data
-tutorials/01-constant-wind/inputs/ws.tif
-tutorials/01-constant-wind/outputs_nosuppression_15mph/hourly_isochrones.dbf
-tutorials/01-constant-wind/outputs_nosuppression_15mph/hourly_isochrones.prj
-tutorials/01-constant-wind/outputs_nosuppression_15mph/hourly_isochrones.shp
-tutorials/01-constant-wind/outputs_nosuppression_15mph/hourly_isochrones.shx
-tutorials/01-constant-wind/outputs_nosuppression_15mph/time_of_arrival_0000001_0019803.tif
-tutorials/01-constant-wind/outputs_nosuppression_15mph/vs_0000001_0019803.tif
-tutorials/01-constant-wind/outputs_nosuppression_5mph/flame_length_0000001_0019836.tif
-tutorials/01-constant-wind/outputs_nosuppression_5mph/flin_0000001_0019836.tif
-tutorials/01-constant-wind/outputs_nosuppression_5mph/hourly_isochrones.dbf
-tutorials/01-constant-wind/outputs_nosuppression_5mph/hourly_isochrones.prj
-tutorials/01-constant-wind/outputs_nosuppression_5mph/hourly_isochrones.shp
-tutorials/01-constant-wind/outputs_nosuppression_5mph/hourly_isochrones.shx
-tutorials/01-constant-wind/outputs_nosuppression_5mph/segments_0000001_0019836.tif
-tutorials/01-constant-wind/outputs_nosuppression_5mph/sts_0000001_0019836.tif
-tutorials/01-constant-wind/outputs_nosuppression_5mph/time_of_arrival_0000001_0019836.tif
-tutorials/01-constant-wind/outputs_nosuppression_5mph/vs_0000001_0019836.tif
-tutorials/01-constant-wind/outputs_suppression/flin_0000001_0019803.tif
-tutorials/01-constant-wind/outputs_suppression/hourly_isochrones.dbf
-tutorials/01-constant-wind/outputs_suppression/hourly_isochrones.prj
-tutorials/01-constant-wind/outputs_suppression/hourly_isochrones.shp
-tutorials/01-constant-wind/outputs_suppression/hourly_isochrones.shx
-tutorials/01-constant-wind/outputs_suppression/time_of_arrival_0000001_0019803.tif
-tutorials/01-constant-wind/outputs_suppression/vs_0000001_0019803.tif
-tutorials/01-constant-wind/01-run.sh
-tutorials/01-constant-wind/elmfire.data.in
-tutorials/01-constant-wind/inputs/elmfire.data
-tutorials/01-constant-wind/inputs/ws.tif
