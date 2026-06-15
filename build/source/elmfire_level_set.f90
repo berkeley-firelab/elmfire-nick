@@ -429,9 +429,34 @@ DO WHILE (T .le. totalDuration)
                SUPP(IT_EA)%SDIBAR=0.
                SUPP(IT_EA)%IXCEN=0
                SUPP(IT_EA)%IYCEN=0
+
+               SUPP(IT_EA)%FIRE_LINE_LENGTH=0.
+               SUPP(IT_EA)%SUPPRESSED_FIRELINE_LENGTH=0.
+               SUPP(IT_EA)%CONTAINMENT=0.
             ENDDO
          ELSE IF (EXTENDED_ATTACK_MODEL .EQ. 1) THEN
-            WRITE(*,*) "NEW SUPPRESSION MODEL :::: elmfire_level_set.f90:434"
+
+            DO IT_EA = 0, 1000
+               SUPP(IT_EA)%NCELLS(:)=0
+               SUPP(IT_EA)%VELOCITY(:)=0.
+               SUPP(IT_EA)%VELOCITY_SMOOTHED(:)=0.
+               SUPP(IT_EA)%FIRELINE_FRACTION(:)=0.
+               SUPP(IT_EA)%SUPPRESSED_FRACTION(:)=0.
+               SUPP(IT_EA)%T=0.
+               SUPP(IT_EA)%ACRES=0.
+               SUPP(IT_EA)%ACRES_SDI=0.
+               SUPP(IT_EA)%TARGET_CONTAINMENT=0.
+               SUPP(IT_EA)%DC_PER_DAY=0.
+               SUPP(IT_EA)%DADT=0.
+               SUPP(IT_EA)%DASDIDT=0.
+               SUPP(IT_EA)%SDIBAR=0.
+               SUPP(IT_EA)%IXCEN=0
+               SUPP(IT_EA)%IYCEN=0
+
+               SUPP(IT_EA)%FIRE_LINE_LENGTH=0.
+               SUPP(IT_EA)%SUPPRESSED_FIRELINE_LENGTH=0.
+               SUPP(IT_EA)%CONTAINMENT=0.
+            ENDDO
          ELSE
             WRITE(*,*) 'Error: "EXTENDED_ATTACK_MODEL" should be 0 or 1 in namelist!'
             STOP
@@ -445,6 +470,9 @@ DO WHILE (T .le. totalDuration)
       ! IF (DUMP_EMBER_FLUX .AND. (.NOT. ACCUMULATE_EMBER_FLUX) ) EMBER_FLUX%R4(:,:,1) = 0
 
       IF (USE_BARRIERS) BANDTHICKNESS = 1
+      !Majid_bav:added below
+      ! IF (ENABLE_EXTENDED_ATTACK .AND. EXTENDED_ATTACK_MODEL .EQ. 1) BANDTHICKNESS = 1
+      
       ! Tag bands where initial phi values are less than 0:
       IF (.NOT. RANDOM_IGNITIONS) THEN
          PHIP(:,:) = PHI0%R4(:,:,1)
@@ -526,7 +554,8 @@ DO WHILE (T .le. totalDuration)
             IF (EXTENDED_ATTACK_MODEL .EQ. 0) THEN
                IF (USE_SDI) C%SDI = SDI_FACTOR * SDI%R4(ICOL,IROW,1)
             ELSE IF (EXTENDED_ATTACK_MODEL .EQ. 1) THEN
-               WRITE(*,*) "NEW SUPPRESSION MODEL :::: elmfire_level_set.f90:529"
+               C%SDI = SDI%R4(ICOL,IROW,1)
+               C%PCL = PCL%R4(ICOL,IROW,1)
             ELSE
                WRITE(*,*) 'Error: "EXTENDED_ATTACK_MODEL" should be 0 or 1 in namelist!'
                STOP
@@ -630,7 +659,7 @@ DO WHILE (T .le. totalDuration)
             IF (EXTENDED_ATTACK_MODEL .EQ. 0) THEN
                SUPP(0)%ACRES = ACRES
             ELSE IF (EXTENDED_ATTACK_MODEL .EQ. 1) THEN
-               WRITE(*,*) "NEW SUPPRESSION MODEL :::: elmfire_level_set.f90:633"
+               CONTINUE
             ELSE
                WRITE(*,*) 'Error: "EXTENDED_ATTACK_MODEL" should be 0 or 1 in namelist!'
                STOP
@@ -1051,7 +1080,8 @@ DO WHILE (T .le. totalDuration)
                   ACRES_SDI = ACRES
                ENDIF
             ELSE IF (EXTENDED_ATTACK_MODEL .EQ. 1) THEN
-               WRITE(*,*) "NEW SUPPRESSION MODEL :::: elmfire_level_set.f90:1054"
+               CONTINUE
+               ! WRITE(*,*) "NEW SUPPRESSION MODEL :::: elmfire_level_set.f90:1054"
             ELSE
                WRITE(*,*) 'Error: "EXTENDED_ATTACK_MODEL" should be 0 or 1 in namelist!'
                STOP
@@ -1098,6 +1128,11 @@ DO WHILE (T .le. totalDuration)
             LIST_BURNED%TAIL%CRITICAL_FLIN          = C%CRITICAL_FLIN
             LIST_BURNED%TAIL%CROWN_FIRE             = C%CROWN_FIRE
             LIST_BURNED%TAIL%BURNED                 = .TRUE.
+            
+            !Majid_bav::added below
+            LIST_BURNED%TAIL%TYPE_GROUP             = C%TYPE_GROUP
+            LIST_BURNED%TAIL%SEGMENT_GROUP          = C%SEGMENT_GROUP
+            LIST_BURNED%TAIL%STS                    = C%STS
             
             LIST_BURNED%TAIL%IFBFM                  = C%IFBFM
             LIST_BURNED%TAIL%WS20_NOW               = C%WS20_NOW
@@ -1288,7 +1323,8 @@ DO WHILE (T .le. totalDuration)
                IF (EXTENDED_ATTACK_MODEL .EQ. 0) THEN
                   IF (USE_SDI) C%SDI = SDI_FACTOR * SDI%R4(C%IX,C%IY,1)
                ELSE IF (EXTENDED_ATTACK_MODEL .EQ. 1) THEN
-                     WRITE(*,*) "NEW SUPPRESSION MODEL :::: elmfire_level_set.f90:1291" !, SDI%R4(C%IX,C%IY,1), PCL%R4(C%IX,C%IY,1)
+                     C%PCL = PCL%R4(C%IX,C%IY,1)
+                     C%SDI = SDI%R4(C%IX,C%IY,1)
                ELSE
                   WRITE(*,*) 'Error: "EXTENDED_ATTACK_MODEL" should be 0 or 1 in namelist!'
                   STOP
@@ -1406,7 +1442,11 @@ DO WHILE (T .le. totalDuration)
       777 FORMAT (I7, ',', F8.1, ',', F7.2, ',', F8.3)
 
       ! Extended attack model
-      IF (ITIMESTEP .EQ. 1) T_LAST_EXTENDED_ATTACK = T
+      !Majid_bav::modified below
+      IF (ITIMESTEP .EQ. 1) THEN
+         IF (EXTENDED_ATTACK_MODEL .EQ. 0) T_LAST_EXTENDED_ATTACK = T
+         IF (EXTENDED_ATTACK_MODEL .EQ. 1) T_LAST_EXTENDED_ATTACK = EXTENDED_ATTACK_TIME
+      ENDIF
 #ifdef _SUPPRESSION   
    ! Majid_bav::modified below
       IF (ENABLE_EXTENDED_ATTACK) THEN
@@ -1453,7 +1493,23 @@ DO WHILE (T .le. totalDuration)
             ENDIF
 
          ELSE IF (EXTENDED_ATTACK_MODEL .EQ. 1) THEN
-            WRITE(*,*) "NEW SUPPRESSION MODEL :::: elmfire_level_set.f90:1456"
+            IF (T - T_LAST_EXTENDED_ATTACK .GT. DT_EXTENDED_ATTACK) THEN
+
+               IT_EA = IT_EA + 1
+               SUPP(IT_EA)%T = T
+
+               CALL SEGMENT_FIRELINE
+               CALL CALCULATE_STS
+               CALL SORT_STS
+               CALL DIRECT_ATTACK(T, IT_EA, rank_finished, DT, ICASE, IDUMPCOUNT, NDUMPS, TSTOP)
+
+               ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"STS",T,"STS",1)
+               ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"SEGMENT",T,"SEGMENT",1)
+
+               DEALLOCATE(SUPPRESSION_TYPE_SCORE)
+               DEALLOCATE(SUPPRESSION_TYPE_SCORE_RANK)
+               T_LAST_EXTENDED_ATTACK = T
+            ENDIF
          ELSE
             WRITE(*,*) 'Error: "EXTENDED_ATTACK_MODEL" should be 0 or 1 in namelist!'
             STOP
@@ -1873,7 +1929,7 @@ DO WHILE (T .le. totalDuration)
          IF (EXTENDED_ATTACK_MODEL .EQ. 0) THEN
             IF (STATS_FINAL_CONTAINMENT_FRAC(ICASE) .LT. 0.) STATS_FINAL_CONTAINMENT_FRAC(ICASE) = SUPP(IT_EA)%TARGET_CONTAINMENT
          ELSE IF (EXTENDED_ATTACK_MODEL .EQ. 1) THEN
-            WRITE(*,*) "NEW SUPPRESSION MODEL :::: elmfire_level_set.f90:1876"
+            IF (STATS_FINAL_CONTAINMENT_FRAC(ICASE) .LT. 0.) STATS_FINAL_CONTAINMENT_FRAC(ICASE) = SUPP(IT_EA)%CONTAINMENT
          ELSE
             WRITE(*,*) 'Error: "EXTENDED_ATTACK_MODEL" should be 0 or 1 in namelist!'
             STOP
