@@ -31,11 +31,11 @@ LOGICAL, INTENT(IN) :: IS_VIRTUAL_RUN
 
 ! Local variables & pointers:
 INTEGER :: I, ILOC, J, IX, IY, ITIMESTEP, IX_IGN, IY_IGN, ISTEP, K, LU, IT1, IT2, &
-           COUNT_START, COUNT_END, IDUMPCOUNT, ICOUNT, IXSTART, IYSTART, IXSTOP, IYSTOP, IX2, IY2, &
+           COUNT_START, COUNT_END, ICOUNT, IXSTART, IYSTART, IXSTOP, IYSTOP, IX2, IY2, &
            ITLO_METEOROLOGY, ITHI_METEOROLOGY, BINARY_OUTPUTS_SIZE, IT_EA, IXCEN, IYCEN, IOS, IPYROME, &
            N_TO_TAG, N_SPOT_FIRES, IT2_LSP, ICOL, IROW, YEAR , MONTH, DAY_OF_MONTH, HOUR, &
-           BAND_L, BAND_H, IERR=0, DAY_OF_SIM, totalDuration,  BLDGFM
-INTEGER, SAVE :: NX, NY, NDUMPS
+           BAND_L, BAND_H, IERR=0, DAY_OF_SIM, totalDuration,  BLDGFM, IDUMP_OUTPUT
+INTEGER, SAVE :: NX, NY
 INTEGER, POINTER, SAVE, DIMENSION(:) :: IX_TO_TAG, IY_TO_TAG, IX_SPOT_FIRE, IY_SPOT_FIRE
 INTEGER, PARAMETER :: NO_DATA = -9999
 
@@ -43,20 +43,20 @@ REAL :: SURFACE_ACCELERATION_FACTOR, F_METEOROLOGY, R0, TAU, ACRES, ACRES_SDI, E
         BURN_PERIOD_CENTER_HOUR, BURN_PERIOD_START_HOUR, BURN_PERIOD_STOP_HOUR, HOUR_OF_DAY, DT_DAY, TBURN, &
         T_LAST_SMOKE_OUTPUT, RUNTIME, &
         CELLTIME, WET_WOOD_CALORIFIC_VALUE, CELLENERGYRELEASE, PM_FLAMING_MAX, PM_SMOLDERING_MAX , LAT, LON, XCEN, YCEN, &
-        DT_SPOTTING, FLIN, DT
+        DT_SPOTTING, FLIN, DT, NEXT_DUMP_TIME
 
 REAL(8) :: TOTALENERGY, T, T_LAST_EXTENDED_ATTACK, T_LAST_INTERPOLATE_M1, T_LAST_INTERPOLATE_M10, T_LAST_INTERPOLATE_M100, &
         T_LAST_INTERPOLATE_MLH, T_LAST_INTERPOLATE_MLW, T_LAST_INTERPOLATE_FMC, T_LAST_INTERPOLATE_WIND, &
-        T_LAST_WIND_FLUCTUATIONS, T_temp
+        T_LAST_WIND_FLUCTUATIONS
 
-REAL, SAVE :: ACRES_PER_PIXEL, DUMPTIMES(0:1000), RCELLSIZE, HALFRCELLSIZE, TSTOP
+REAL, SAVE :: ACRES_PER_PIXEL, RCELLSIZE, HALFRCELLSIZE, TSTOP
 REAL, ALLOCATABLE, SAVE, DIMENSION(:) :: X,Y
 REAL, POINTER, DIMENSION(:,:), SAVE :: M1_LO, M1_HI, M10_LO, M10_HI, M100_LO, M100_HI, WS20_LO, WS20_HI, &
                                        WD20_LO, WD20_HI, MLH_LO, MLH_HI, MLW_LO, MLW_HI, FMC_LO, FMC_HI
 REAL, POINTER, SAVE, DIMENSION(:,:,:) :: A_TIMES_BURNED
 
 LOGICAL :: IA_HAS_OCCURRED, LOPEN, GO, CALL_SPOTTING, JUST_INTERPOLATED, DUMP_SMOKE_OUTPUTS, RUN, &
-            INITIATED, START_CALCS
+            INITIATED, START_CALCS, IS_FINAL_DUMP
 LOGICAL, SAVE :: FIRSTCALL
 LOGICAL, DIMENSION(1:100) :: ALREADY_IGNITED
 
@@ -79,7 +79,7 @@ T=(MIN_IWX_BAND-1)*DT_METEOROLOGY
 INITIATED = .FALSE.
 START_CALCS = .FALSE.
 DT = 1
-TSTOP = WS%NBANDS * DT_METEOROLOGY - 1 ! placeholder value, fixes issue where mpi procs > num_cases
+TSTOP = SIMULATION_TSTOP + (IWX_BAND - 1) * DT_METEOROLOGY ! Default stop time for inactive/virtual ranks; real cases may override during initiation.
 rank_finished = 0
 
 if (DEBUG_LEVEL .ge. 10) then
@@ -167,6 +167,8 @@ DO WHILE (T .le. totalDuration)
 
       SIMULATION_TSTOP_HOURS = -1.
       STATS_SIMULATION_TSTOP_HOURS(ICASE) = SIMULATION_TSTOP_HOURS
+      NEXT_DUMP_TIME = SIMULATION_TSTART + (IWX_BAND - 1) * DT_METEOROLOGY + DTDUMP
+      IDUMP_OUTPUT = 0
 
       IF (FIRSTCALL) THEN
          FIRSTCALL      = .FALSE.
@@ -197,20 +199,6 @@ DO WHILE (T .le. totalDuration)
          DO IY = 2, NY
             Y(IY) = Y(IY-1) + ANALYSIS_CELLSIZE
          ENDDO
-
-         ! Determine when to dump:
-         T_temp = (IWX_BAND - 1) * DT_METEOROLOGY
-         IDUMPCOUNT = 0
-         DUMPTIMES(:) = 9E9
-         DUMPTIMES(0) = 0.
-         !This need to be revised if we want to dump more than 1000 times or if we want to dump at non-regular intervals
-         DO WHILE (T_temp .LT. TSTOP)
-            T_temp                = T_temp + DTDUMP
-            IDUMPCOUNT            = IDUMPCOUNT + 1
-            DUMPTIMES(IDUMPCOUNT) = T_temp
-         ENDDO
-         NDUMPS = IDUMPCOUNT
-
          ALLOCATE(TIME_OF_ARRIVAL (1:NX,1:NY)); TIME_OF_ARRIVAL(:,:) = -1.
          ALLOCATE(TAGGED          (1:NX,1:NY)); TAGGED(:,:) = .FALSE.
          ALLOCATE(PHIP            (1:NX,1:NY)); PHIP(:,:) = 1
@@ -218,9 +206,14 @@ DO WHILE (T .le. totalDuration)
          ALLOCATE(EVERTAGGED_IX   (1:NX*NY))
          ALLOCATE(EVERTAGGED_IY   (1:NX*NY))
 
+         ! Allocate HRR_TRANSIENT_MAP if dumping of transient HRRPUA is enabled, or if WUI spread model is enabled (since it requires transient HRRPUA for all cells, not just burning cells)
+         IF (DUMP_HRR_TRANSIENT .OR. USE_BLDG_SPREAD_MODEL) THEN
+            ALLOCATE(HRR_TRANSIENT_MAP(1:NX,1:NY))
+            HRR_TRANSIENT_MAP(:,:) = 0.
+         ENDIF
+#ifdef _WUI
          ! Allocate additional arrays for WU-E calculation and outputs
          IF (USE_BLDG_SPREAD_MODEL) THEN
-         ALLOCATE(HRR_TRANSIENT_MAP      (1:NX,1:NY)); HRR_TRANSIENT_MAP(:,:) = 0
          IF (BLDG_SPREAD_MODEL_TYPE .EQ. 2) THEN
             ALLOCATE(TOTAL_DFC_WUI          (1:NX,1:NY)); TOTAL_DFC_WUI(:,:) = 0
             ALLOCATE(TOTAL_RADIATION_WUI    (1:NX,1:NY)); TOTAL_RADIATION_WUI(:,:) = 0
@@ -244,6 +237,7 @@ DO WHILE (T .le. totalDuration)
             ALLOCATE(ELLIPSE_PROPERTY_MAP(1:NX,1:NY))
          ENDIF
          ENDIF
+#endif
 
          IF (.NOT. USE_SUPERSEDED_SPOTTING .AND. trim(ACCUMULATION_MODEL).EQ. 'EULERIAN') THEN
             ALLOCATE(EMBER_TOA(1:NX,1:NY)); EMBER_TOA(:,:) = -1.
@@ -509,10 +503,12 @@ DO WHILE (T .le. totalDuration)
                   IF(BLDG_FUEL_MODEL%I2(IX,IY,1) .NE. NO_DATA) THEN
                      LIST_BURNED%TAIL%IBLDGFM =  BLDG_FUEL_MODEL%I2(IX,IY,1)
                   ELSE
-                     LIST_BURNED%TAIL%IBLDGFM =  1
+                     LIST_BURNED%TAIL%IBLDGFM =  NO_DATA
                   ENDIF
                   ! Tagged WUI cells, for use in the refactored WUI spread model
                   IF(BLDG_SPREAD_MODEL_TYPE .EQ. 2) CALL TAG_WUI(NX, NY, IX, IY, T)
+               ELSE
+                  LIST_BURNED%TAIL%IBLDGFM = NO_DATA
                ENDIF
 #endif
 
@@ -655,7 +651,6 @@ DO WHILE (T .le. totalDuration)
       IF (NUM_TIME_AT_BURNED_ACRES .GT. 0) ALREADY_REACHED_BURNED_ACRES(:) = .FALSE.
       
       ! ***************************************************************************************
-      IDUMPCOUNT = 1
       START_CALCS = .TRUE.
       INITIATED = .TRUE.
 
@@ -999,6 +994,8 @@ DO WHILE (T .le. totalDuration)
          CALL CFL_AND_FLUX_LIMITER(DT, RCELLSIZE, PHIP, ISTEP, ITIMESTEP)
          CALL ACCUMULATE_CPU_USAGE(43, IT1, IT2)
 
+         IF (T + REAL(DT,8) .GT. REAL(TSTOP,8)) DT = MAX(0.0, REAL(TSTOP - T))
+
          ! 2nd order Runge Kutta integration:
          CALL RK2_INTEGRATE(DT, ISTEP)
          CALL ACCUMULATE_CPU_USAGE(44, IT1, IT2)
@@ -1071,22 +1068,20 @@ DO WHILE (T .le. totalDuration)
             LIST_BURNED%TAIL%WD20_NOW               = C%WD20_NOW
             LIST_BURNED%TAIL%LOCAL_EMBERGEN_DURATION= C%LOCAL_EMBERGEN_DURATION
 
-            ! Record transient HRRPUA for burned vegetative cells. WUI cells are updated in the WUI heat flux calculation.
-#ifdef _WUI
-            IF (C%IFBFM .NE. 91 .AND. DUMP_HRR_TRANSIENT) THEN
-               HRR_TRANSIENT_MAP(IX,IY) = C%HRRPUA
-            ENDIF
-#endif
+            LIST_BURNED%TAIL%VELOCITY_DMS_SURFACE = C%VELOCITY_DMS_SURFACE
+            LIST_BURNED%TAIL%HRRPUA = (C%FLIN_SURFACE + C%FLIN_CANOPY) / ASP%CELLSIZE
 
 #ifdef _WUI
             IF (USE_BLDG_SPREAD_MODEL) THEN
                IF(BLDG_FUEL_MODEL%I2(IX,IY,1) .NE. NO_DATA) THEN
                   LIST_BURNED%TAIL%IBLDGFM =  BLDG_FUEL_MODEL%I2(IX,IY,1)
                ELSE
-                  LIST_BURNED%TAIL%IBLDGFM =  1
+                  LIST_BURNED%TAIL%IBLDGFM =  NO_DATA
                ENDIF
                ! Tag WUI cells
                IF(BLDG_SPREAD_MODEL_TYPE .EQ. 2) CALL TAG_WUI(NX, NY, IX, IY, T) 
+            ELSE
+               LIST_BURNED%TAIL%IBLDGFM = NO_DATA
             ENDIF
 #endif
 
@@ -1312,7 +1307,6 @@ DO WHILE (T .le. totalDuration)
             STATS_FINAL_CONTAINMENT_FRAC(ICASE) = 1.0
             rank_finished = 1
             DT = DT_METEOROLOGY
-            IDUMPCOUNT = NDUMPS + 1
          ELSE
             IF((trim(ACCUMULATION_MODEL) .eq. 'EULERIAN' .AND. LIST_EMBER_TRACKER%NUM_NODES .LT. 1) .OR. &
                (trim(ACCUMULATION_MODEL) .eq. 'LAGRANGIAN' .AND. NUM_TRACKED_EMBERS .LT. 1)) THEN
@@ -1325,7 +1319,6 @@ DO WHILE (T .le. totalDuration)
                STATS_FINAL_CONTAINMENT_FRAC(ICASE) = 1.0
                rank_finished = 1
                DT = DT_METEOROLOGY
-               IDUMPCOUNT = NDUMPS + 1
             ENDIF
          ENDIF
       ENDIF
@@ -1339,7 +1332,6 @@ DO WHILE (T .le. totalDuration)
          STATS_SIMULATION_TSTOP_HOURS(ICASE) = SIMULATION_TSTOP_HOURS
          rank_finished = 1
          DT = DT_METEOROLOGY
-         IDUMPCOUNT = NDUMPS + 1
       ENDIF
 
       IF (NUM_TIME_AT_BURNED_ACRES .GT. 0) THEN
@@ -1503,6 +1495,36 @@ DO WHILE (T .le. totalDuration)
 
 #endif
 
+#ifdef _WUI
+      ! Update the transient HRRPUA for all burning cells within the residence time dx/V_VMS_SURFACE, for complete transient HRRPUA field
+      IF (DUMP_HRR_TRANSIENT .AND. LIST_BURNED%NUM_NODES .GT. 0) THEN
+         C => LIST_BURNED%HEAD
+         DO I = 1, LIST_BURNED%NUM_NODES
+            IF (C%IFBFM .NE. 91 .AND. &
+                C%TIME_OF_ARRIVAL .GT. SIMULATION_TSTART) CALL HRR_TRANSIENT(C, T)
+            C => C%NEXT
+         ENDDO
+      ENDIF
+#endif
+#ifndef _WUI
+      IF (DUMP_HRR_TRANSIENT .AND. LIST_BURNED%NUM_NODES .GT. 0) THEN
+         C => LIST_BURNED%HEAD
+         DO I = 1, LIST_BURNED%NUM_NODES
+            IX = C%IX
+            IY = C%IY
+            IF (PHIP(IX,IY) .LE. 0.) THEN
+               IF (C%IFBFM .NE. 91 .AND. &
+                   T - TIME_OF_ARRIVAL(IX,IY) .LT. ANALYSIS_CELLSIZE/MAX(1E-5, C%VELOCITY_DMS_SURFACE*0.00508)) THEN
+                  HRR_TRANSIENT_MAP(IX,IY) = C%HRRPUA
+               ELSE
+                  HRR_TRANSIENT_MAP(IX,IY) = 0.
+               ENDIF
+            ENDIF
+            C => C%NEXT
+         ENDDO
+      ENDIF
+#endif
+
       999 FORMAT(F9.2,',',A,',',F10.1,',',F10.1,',',E12.5,',',E12.5,',',E12.5)
 
       CALL ACCUMULATE_CPU_USAGE(52, IT1, IT2)
@@ -1524,13 +1546,19 @@ DO WHILE (T .le. totalDuration)
          STATS_SIMULATION_TSTOP_HOURS(ICASE) = SIMULATION_TSTOP_HOURS
          rank_finished = 1
          DT = DT_METEOROLOGY
-         IDUMPCOUNT = NDUMPS + 1
       ENDIF
 
       CALL ACCUMULATE_CPU_USAGE(54, IT1, IT2)
 
-      IF (ABS(T - DUMPTIMES(IDUMPCOUNT)) .LE. 0.5*DT .OR. T .GE. DUMPTIMES(IDUMPCOUNT)) THEN
-         CALL MAIN_DUMP_ROUTINE(IDUMPCOUNT, NDUMPS, ICASE, T, ACRES)
+      IS_FINAL_DUMP = T .GE. TSTOP
+      IF (DUMP_EVERY_STEP) THEN
+         IDUMP_OUTPUT = IDUMP_OUTPUT + 1
+         CALL MAIN_DUMP_ROUTINE(IS_FINAL_DUMP, IDUMP_OUTPUT, ICASE, T, ACRES)
+      ELSEIF (T .GE. NEXT_DUMP_TIME) THEN
+         ! Assume DT is always less than DTDUMP, so we won't miss the dump time step
+         IDUMP_OUTPUT = IDUMP_OUTPUT + 1
+         CALL MAIN_DUMP_ROUTINE(IS_FINAL_DUMP, IDUMP_OUTPUT, ICASE, T, ACRES)
+         NEXT_DUMP_TIME = NEXT_DUMP_TIME + DTDUMP
       ENDIF
 
 #ifdef _WUI
@@ -1563,7 +1591,8 @@ DO WHILE (T .le. totalDuration)
       CALL SYSTEM_CLOCK(IT1)
 
       NTIMESTEPS = ITIMESTEP
-      CALL MAIN_DUMP_ROUTINE(IDUMPCOUNT, NDUMPS, ICASE, T, ACRES)
+      IDUMP_OUTPUT = IDUMP_OUTPUT + 1
+      CALL MAIN_DUMP_ROUTINE(.TRUE., IDUMP_OUTPUT, ICASE, T, ACRES)
 
       CALL ACCUMULATE_CPU_USAGE(55, IT1, IT2)
 
@@ -1821,6 +1850,7 @@ DO WHILE (T .le. totalDuration)
       START_CALCS = .FALSE.
       rank_finished = 1
       DT = DT_METEOROLOGY
+      T = totalDuration + DT_METEOROLOGY
 
       if (DEBUG_LEVEL .ge. 30) then
          WRITE(LOG_MSG,'(A,I0,A)') '[',ICASE,'] LEVEL SET CASE ENDED'

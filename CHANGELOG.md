@@ -5,6 +5,22 @@ We constantly update and upgrade ELMFIRE based on user feedback and new cases / 
 We want to expand the list of errors that can be caught early in the simulation.
 
 Please create issues with your errors, requests or observations so they can be worked on for the next release.
+## ELMFIRE-memopt.0519
+
+### Added
+
+- Added `DUMP_EVERY_STEP` to the `&OUTPUTS` namelist to write transient outputs at every computation timestep.
+- Added dump-index filenames for transient rasters and a `dump_times_<case>.csv` manifest that records each dump index, exact output time, and whether the dump is final.
+
+### Changed
+
+- Reworked transient output scheduling so fixed `DTDUMP` output is no longer limited by the previous fixed-size dump-time array.
+- Updated final-output handling to use an explicit final-dump flag, preserving final-only outputs such as time of arrival, fireline intensity, spread rate, and ember ignition while allowing transient fields to dump repeatedly.
+
+### Bug Fixes
+
+- Fixed `HRR_TRANSIENT` outputs so `DUMP_HRR_TRANSIENT = .TRUE.` writes HRRPUA for all actively burning fuels within residence time, not only WUI cells.
+- Fixed simulation stop handling so runs are clipped to `SIMULATION_TSTOP` and exit after final cleanup instead of continuing to the end of the meteorology bands.
 
 ## ELMFIRE-memopt.0427
 
