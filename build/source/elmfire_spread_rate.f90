@@ -654,7 +654,7 @@ DO IX = IXTAGSTART, IXTAGSTOP
    ENDIF
 
    ! Interface Model
-   IF ((INTERFACE_MODEL_TYPE .EQ. 2) .AND. &
+   IF ((CRITICAL_HF_WUI .EQ. 2) .AND. &
       (BURNING_NODES%IFBFM .NE. 91) .AND. &
       (TARGET_R .LE. WTU_DIST_LIMIT).AND. &
       (FBFM%I2(IX,IY,1) .EQ. 91)) THEN
@@ -921,9 +921,9 @@ DO IY=1,NY
 DO IX=1,NX 
    IF (FBFM%I2(IX,IY,1) .NE. 91) CYCLE
    IF (TIME_OF_ARRIVAL(IX,IY) .LT. 0.) CYCLE
-   ! CRITICL_HF_WUI is the critical heat flux below which the fuel is considered to extinguish. This value is subject to changes and should be calibrated with real fire data.
+   ! CRITICAL_HF_WUI is the critical heat flux below which the fuel is considered to extinguish. This value is subject to changes and should be calibrated with real fire data.
    TOTAL_HEAT_FLUX = TRANSIENT_DFC_WUI(IX,IY)+TRANSIENT_RADIATION_WUI(IX,IY)
-   IF (TOTAL_HEAT_FLUX .LE. CRITICL_HF_WUI ) THEN 
+   IF (TOTAL_HEAT_FLUX .LE. CRITICAL_HF_WUI ) THEN 
       HRR_TRANSIENT = 0.
    ELSE
       HRR_TRANSIENT = HRR_TRANSIENT_MAP(IX,IY)

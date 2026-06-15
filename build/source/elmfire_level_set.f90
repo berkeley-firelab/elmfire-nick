@@ -82,7 +82,7 @@ DT = 1
 TSTOP = SIMULATION_TSTOP + (IWX_BAND - 1) * DT_METEOROLOGY ! Default stop time for inactive/virtual ranks; real cases may override during initiation.
 rank_finished = 0
 
-if (DEBUG_LEVEL .ge. 10) then
+if (FEEDBACK_LEVEL .ge. 1) then
    WRITE(LOG_MSG,'(A,I0,A,I0)') '[',ICASE,'] STARTING LEVEL SET PROPAGATION, WEATHER BAND START: ',IWX_BAND
    WRITE(*,'(A)') TRIM(LOG_MSG)
 endif
@@ -93,12 +93,12 @@ if (IS_VIRTUAL_RUN) then
 endif
 
 CALL MPI_BARRIER(MPI_COMM_WORLD, IERR)
-if (DEBUG_LEVEL .ge. 30) then
+if (FEEDBACK_LEVEL .ge. 3) then
    WRITE(LOG_MSG,'(A,I0,A,I0,A,I0,A)') '[',ICASE,'] INITIATING WEATHER SLICE FROM [',BAND_L,', ',BAND_H,']'
    WRITE(*,'(A)') TRIM(LOG_MSG)
 endif
 CALL UPDATE_WEATHER_SLICE(BAND_L, BAND_H)
-if (DEBUG_LEVEL .ge. 30) then
+if (FEEDBACK_LEVEL .ge. 3) then
    WRITE(LOG_MSG,'(A,I0,A,I0,A,I0,A)') '[',ICASE,'] INITIATED WEATHER SLICE TO [',BAND_L,', ',BAND_H,']'
    WRITE(*,'(A)') TRIM(LOG_MSG)
 endif
@@ -113,7 +113,7 @@ else
    totalDuration = WS%NBANDS * DT_METEOROLOGY
 endif
 
-if (DEBUG_LEVEL .ge. 30) then
+if (FEEDBACK_LEVEL .ge. 3) then
    WRITE(LOG_MSG,'(A,I0,A,F10.1,A,F10.1,A,F10.1)') '[',ICASE,'] PRIOR TO MAIN LOOP. T: ',T,', Total Duration: ',REAL(totalDuration),', Start: ',SIMULATION_TSTART+(IWX_BAND-1)*DT_METEOROLOGY
    WRITE(*,'(A)') TRIM(LOG_MSG)
 endif
@@ -125,7 +125,7 @@ DO WHILE (T .le. totalDuration)
    ! endif
    DAY_OF_SIM = ceiling(((12 + mod(HOUR_OF_YEAR, 24) + IWX_BAND + floor(T/3600) - 1)/24.0))
    IF (T > BAND_H * DT_METEOROLOGY .and. WS%NBANDS .gt. 1) THEN ! LOAD NEXT WEATHER SLICE (unless weather is constant)
-      if (DEBUG_LEVEL .ge. 30) then
+      if (FEEDBACK_LEVEL .ge. 3) then
          WRITE(LOG_MSG,'(A,I0,A,I0,A,I0,A)') '[',ICASE,'] UPDATING WEATHER SLICE FROM [',BAND_L,', ',BAND_H,']'
          WRITE(*,'(A)') TRIM(LOG_MSG)
       endif
@@ -133,7 +133,7 @@ DO WHILE (T .le. totalDuration)
       BAND_L = BAND_H 
       BAND_H = min(WS%NBANDS, BAND_H - 1 + WX_BANDS_KEPT_IN_MEM)
       CALL UPDATE_WEATHER_SLICE(BAND_L, BAND_H)
-      if (DEBUG_LEVEL .ge. 30) then
+      if (FEEDBACK_LEVEL .ge. 3) then
          WRITE(LOG_MSG,'(A,I0,A,I0,A,I0,A)') '[',ICASE,'] UPDATED WEATHER SLICE TO [',BAND_L,', ',BAND_H,']'
          WRITE(*,'(A)') TRIM(LOG_MSG)
       endif
@@ -147,7 +147,7 @@ DO WHILE (T .le. totalDuration)
    ! endif
    IF (T .ge. SIMULATION_TSTART + (IWX_BAND - 1) * DT_METEOROLOGY .and. .not. INITIATED .and. .not. IS_VIRTUAL_RUN) THEN ! START SIM
       ! ***************************************************************************************
-      if (DEBUG_LEVEL .ge. 30) then
+      if (FEEDBACK_LEVEL .ge. 3) then
          WRITE(LOG_MSG,'(A,I0,A,F12.1)') '[',ICASE,'] LEVEL SET CASE INITIATING AT T = ',T
          WRITE(*,'(A)') TRIM(LOG_MSG)
       endif
@@ -654,7 +654,7 @@ DO WHILE (T .le. totalDuration)
       START_CALCS = .TRUE.
       INITIATED = .TRUE.
 
-      if (DEBUG_LEVEL .ge. 30) then
+      if (FEEDBACK_LEVEL .ge. 3) then
          WRITE(LOG_MSG,'(A,I0,A)') '[',ICASE,'] INITIATION ENDED'
          WRITE(*,'(A)') TRIM(LOG_MSG)
       endif
@@ -669,7 +669,7 @@ DO WHILE (T .le. totalDuration)
    IF (START_CALCS .and. rank_finished .ne. 1) THEN
       CALL SYSTEM_CLOCK(IT1)
 
-      if (DEBUG_LEVEL .GE. 10 .and. NPROC .eq. 1) THEN
+      if (FEEDBACK_LEVEL .GE. 1 .and. NPROC .eq. 1) THEN
          write(*,'(A)', advance='no') char(13)   ! carriage return
          write(*,'(A,I0,A,F0.1,A,F0.1,A,I7,A,I0,A,I0,A,F0.1,A,F0.1)', advance='no') '[',ICASE,'] Current Timestep: ', T - (IWX_BAND - 1)*DT_METEOROLOGY, ' of ', SIMULATION_TSTOP, ', tracked nodes: ', LIST_TAGGED%NUM_NODES, ". Weather bands ", BAND_L, " to ", BAND_H!, " | Actual timings: ", T, " of ", TSTOP
          call flush(6)
@@ -1274,7 +1274,7 @@ DO WHILE (T .le. totalDuration)
          POC = MIN(MAX(0.,E/(1.+E)),1.0)
          CALL RANDOM_NUMBER(R0)
          IF (R0 .LE. POC) THEN !Fire is contained
-            if (DEBUG_LEVEL .ge. 30) then
+            if (FEEDBACK_LEVEL .ge. 3) then
                WRITE(LOG_MSG,'(A,I0,A)') '[',ICASE,'] INITIAL ATTACK CONTAINMENT SUCCESSFUL'
                WRITE(*,'(A)') TRIM(LOG_MSG)
             endif
@@ -1298,7 +1298,7 @@ DO WHILE (T .le. totalDuration)
 
       IF (LIST_TAGGED%NUM_NODES .LE. 2) THEN
          IF(.NOT. (ENABLE_SPOTTING .AND. (.NOT. USE_SUPERSEDED_SPOTTING))) THEN
-            if (DEBUG_LEVEL .ge. 30) then
+            if (FEEDBACK_LEVEL .ge. 3) then
                WRITE(LOG_MSG,'(A,I0,A)') '[',ICASE,'] STOPPING: LESS THAN 2 NODES TAGGED FOR FIRE SPREAD'
                WRITE(*,'(A)') TRIM(LOG_MSG)
             endif
@@ -1310,7 +1310,7 @@ DO WHILE (T .le. totalDuration)
          ELSE
             IF((trim(ACCUMULATION_MODEL) .eq. 'EULERIAN' .AND. LIST_EMBER_TRACKER%NUM_NODES .LT. 1) .OR. &
                (trim(ACCUMULATION_MODEL) .eq. 'LAGRANGIAN' .AND. NUM_TRACKED_EMBERS .LT. 1)) THEN
-               if (DEBUG_LEVEL .ge. 30) then
+               if (FEEDBACK_LEVEL .ge. 3) then
                WRITE(LOG_MSG,'(A,I0,A)') '[',ICASE,'] STOPPING: LESS THAN 2 NODES TAGGED FOR FIRE SPREAD'
                WRITE(*,'(A)') TRIM(LOG_MSG)
             endif
@@ -1324,7 +1324,7 @@ DO WHILE (T .le. totalDuration)
       ENDIF
 
       IF (ACRES .GT. STATS_ASTOP(ICASE) ) THEN
-         if (DEBUG_LEVEL .ge. 30) then
+         if (FEEDBACK_LEVEL .ge. 3) then
             WRITE(LOG_MSG,'(A,I0,A)') '[',ICASE,'] STOPPING: SIMULATED ACRES MORE THAN STOP CONDITION'
             WRITE(*,'(A)') TRIM(LOG_MSG)
          endif
@@ -1584,7 +1584,7 @@ DO WHILE (T .le. totalDuration)
    T = T + DT
 
    IF ((T .ge. TSTOP) .and. START_CALCS) THEN ! END SIM
-      if (DEBUG_LEVEL .ge. 30) then
+      if (FEEDBACK_LEVEL .ge. 3) then
          WRITE(LOG_MSG,'(A,I0,A,F12.1)') '[',ICASE,'] LEVEL SET CASE OUTPUT STARTED AT T ',T
          WRITE(*,'(A)') TRIM(LOG_MSG)
       endif
@@ -1852,7 +1852,7 @@ DO WHILE (T .le. totalDuration)
       DT = DT_METEOROLOGY
       T = totalDuration + DT_METEOROLOGY
 
-      if (DEBUG_LEVEL .ge. 30) then
+      if (FEEDBACK_LEVEL .ge. 3) then
          WRITE(LOG_MSG,'(A,I0,A)') '[',ICASE,'] LEVEL SET CASE ENDED'
          WRITE(*,'(A)') TRIM(LOG_MSG)
       endif
@@ -2157,7 +2157,7 @@ IF (ISTEP .EQ. 1) THEN
             C%TEST_INTERFACE = .FALSE.
             C%WTU_SPREAD = .FALSE.
 
-            IF (USE_BLDG_SPREAD_MODEL .AND. BLDG_SPREAD_MODEL_TYPE .EQ. 2 .AND. INTERFACE_MODEL_TYPE .EQ. 2) THEN
+            IF (USE_BLDG_SPREAD_MODEL .AND. BLDG_SPREAD_MODEL_TYPE .EQ. 2 .AND. CRITICAL_HF_WUI .EQ. 2) THEN
                C%TEST_INTERFACE = TEST_INTERFACE_WUI(C%IX,C%IY)
                C%WTU_SPREAD = WTU_SPREAD_WUI(C%IX,C%IY)
             ENDIF
@@ -2572,7 +2572,7 @@ DO
 
 ! Remove stale vegetative WUI cells after their transient HRR has ended:
    ! TOTAL_HEAT_FLUX = TRANSIENT_DFC_WUI(IXLOC,IYLOC)+TRANSIENT_RADIATION_WUI(IXLOC,IYLOC)
-   ! IF (TOTAL_HEAT_FLUX .LE. CRITICL_HF_WUI .AND. TIME_OF_ARRIVAL(IXLOC,IYLOC) .GT. 0. .AND. T-TIME_OF_ARRIVAL(IXLOC,IYLOC) .GT. 3000. ) THEN
+   ! IF (TOTAL_HEAT_FLUX .LE. CRITICAL_HF_WUI .AND. TIME_OF_ARRIVAL(IXLOC,IYLOC) .GT. 0. .AND. T-TIME_OF_ARRIVAL(IXLOC,IYLOC) .GT. 3000. ) THEN
    IF (C%IFBFM .NE. 91 .AND. C%HRR_TRANSIENT .LE. 0. .AND. &
        TIME_OF_ARRIVAL(IXLOC, IYLOC) .GT. 0. .AND. T-TIME_OF_ARRIVAL(IXLOC, IYLOC) .GT. 5000. ) THEN
       TAGGED_WUI    (IXLOC,IYLOC) = .FALSE.

@@ -819,7 +819,7 @@ ENDIF
 
 CALL MPI_BARRIER(MPI_COMM_WORLD, IERR)
 
-iF (DEBUG_LEVEL .GE. 10) PRINT *, "Shared memory (2) setup finished"
+iF (FEEDBACK_LEVEL .GE. 1) PRINT *, "Shared memory (2) setup finished"
 
 ! *****************************************************************************
 END SUBROUTINE SETUP_SHARED_MEMORY_2

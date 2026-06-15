@@ -564,14 +564,13 @@ END SUBROUTINE READ_MONTE_CARLO
 SUBROUTINE READ_SIMULATOR
 ! *****************************************************************************
 ! Reads the &SIMULATOR namelist group and sets defaults for run mode, crown
-! fire, ignition points/lines, wind fluctuations and runtime/feedback options;
-! maps the FEEDBACK_LEVEL string to a numeric DEBUG_LEVEL.
+! fire, ignition points/lines, wind fluctuations and runtime/feedback options
 
 INTEGER :: IOS
 
 NAMELIST /SIMULATOR/ &
 ALLOW_NONBURNABLE_PIXEL_IGNITION, BANDTHICKNESS, CRITICAL_CANOPY_COVER, &
-CROWN_FIRE_ADJ, CROWN_FIRE_MODEL, CROWN_FIRE_SPREAD_RATE_LIMIT, CROWN_RATIO, DEBUG_LEVEL, FEEDBACK_LEVEL, DT_WIND_FLUCTUATIONS, &
+CROWN_FIRE_ADJ, CROWN_FIRE_MODEL, CROWN_FIRE_SPREAD_RATE_LIMIT, CROWN_RATIO, FEEDBACK_LEVEL, DT_WIND_FLUCTUATIONS, &
 ESTIMATE_URBAN_LOSSES, MAX_LOW, MAX_RUNTIME, MODE, MULTIPLE_HOSTS, NUM_IGNITIONS, NUM_NODES_OMP_THRESHOLD, &
 PHIS_ADJ, PHIW_ADJ, PLIGNRATE_MIN, RANDOMIZE_RANDOM_SEED,SURFACE_ACCELERATION_TIME_CONSTANT, T_IGN, &
 UNTAG_CELLS_TIMESTEP_INTERVAL, UNTAG_TYPE_2, UNTAG_TYPE_3, USE_PYROMES, &
@@ -588,8 +587,7 @@ CROWN_FIRE_ADJ                       = 1.0
 CROWN_FIRE_MODEL                     = 1
 CROWN_FIRE_SPREAD_RATE_LIMIT         = 250.0
 CROWN_RATIO                          = 1.0
-DEBUG_LEVEL                          = 0
-FEEDBACK_LEVEL                       = '' ! options: 'Limited', 'Detailed', 'Extended'
+FEEDBACK_LEVEL                       = 0 ! options: 0, 1, 2
 DT_WIND_FLUCTUATIONS                 = 15.0
 ESTIMATE_URBAN_LOSSES                = .FALSE.
 MAX_LOW                              = 8.0
@@ -629,16 +627,6 @@ IF (IOS > 0) THEN
     STOP
 ENDIF
 
-if (FEEDBACK_LEVEL .eq. 'Limited') then 
-   DEBUG_LEVEL = 10
-else if (FEEDBACK_LEVEL .eq. 'Detailed') then
-   DEBUG_LEVEL = 20
-else if (FEEDBACK_LEVEL .eq. 'Extended') then
-   DEBUG_LEVEL = 30
-else
-   print *, '[WARNING] FEEDBACK LEVEL NOT SET, DEFAULTING TO DEBUG_LEVEL'
-endif
-
 ! *****************************************************************************
 END SUBROUTINE READ_SIMULATOR
 ! *****************************************************************************
@@ -656,7 +644,7 @@ NAMELIST /WUI/ BLDG_AREA_CONSTANT, BLDG_NONBURNABLE_FRAC_CONSTANT, BLDG_SEPARATI
                BLDG_SPREAD_MODEL_TYPE, BLDG_FOOTPRINT_FRAC_CONSTANT, BLDG_FUEL_MODEL_CONSTANT, &
                USE_BLDG_SPREAD_MODEL, USE_CONSTANT_BLDG_SPREAD_MODEL_PARAMS, GLOBAL_HARDENING_FACTOR, INTERFACE_MODEL_TYPE, &
                BANDTHICKNESS_WUI, CRITICL_HF_WUI, HRR_ELLIPSE_ADJ
-
+CRITICAL_HF_WUI
 IF (IRANK_WORLD .EQ. 0) WRITE(*,*) 'Reading &WUI namelist group'
 
 BLDG_AREA_CONSTANT                    = 20.0
@@ -670,7 +658,7 @@ USE_CONSTANT_BLDG_SPREAD_MODEL_PARAMS = .TRUE.
 GLOBAL_HARDENING_FACTOR               = 1.0
 INTERFACE_MODEL_TYPE                  = 1 ! 1 = Ellipse, 2 = Threshold
 BANDTHICKNESS_WUI                     = 5
-CRITICL_HF_WUI                        = 0.0
+CRITICAL_HF_WUI                  = 0.0
 HRR_ELLIPSE_ADJ                       = 0.5
 
 READ(LUINPUT,NML=WUI,IOSTAT=IOS)

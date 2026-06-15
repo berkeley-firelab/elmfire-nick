@@ -1465,7 +1465,7 @@ IF (IOS .NE. 0) THEN
    STOP
 ENDIF
 
-IF (DEBUG_LEVEL .GE. 30) WRITE(*,*) 'Reading bsq header from ', trim(FNIN)
+IF (FEEDBACK_LEVEL .GE. 3) WRITE(*,*) 'Reading bsq header from ', trim(FNIN)
 
 ! Read until we find the map info line instead of assuming line 12
 FOUND = .FALSE.
@@ -1640,7 +1640,7 @@ IF (USE_BSQ_XML_HEADER) THEN
       WRITE(*,*) 'Problem opening bsq header ', TRIM(FNHDR)
    ENDIF
 
-   IF (DEBUG_LEVEL .GE. 30) WRITE(*,*) 'Reading bsq header from ', trim(FN)
+   IF (FEEDBACK_LEVEL .GE. 3) WRITE(*,*) 'Reading bsq header from ', trim(FN)
 
 ! Skip 11 lines
    DO I = 1, 11

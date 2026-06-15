@@ -444,7 +444,7 @@ CALL MPI_BARRIER(MPI_COMM_WORLD, IERR)
 CALL ACCUMULATE_CPU_USAGE(11, IT1, IT2)
 
 IF (MODE .NE. 1) THEN
-   IF (DEBUG_LEVEL .GE. 20) PRINT *, "Mode 2: Calculation started"
+   IF (FEEDBACK_LEVEL .GE. 2) PRINT *, "Mode 2: Calculation started"
    CALL SYSTEM_CLOCK(IT1)
 
    R=>ASP
@@ -467,7 +467,7 @@ IF (MODE .NE. 1) THEN
    REACTION_INTENSITY_TO_DUMP%R4(:,:,:) = REACTION_INTENSITY_TO_DUMP%NODATA_VALUE
    
    LIST_FIRE_POTENTIAL = NEW_DLL()
-   IF (DEBUG_LEVEL .GE. 20 .AND. IRANK_WORLD .EQ. 0) PRINT *, "Mode 2: Output rasters allocated"
+   IF (FEEDBACK_LEVEL .GE. 2 .AND. IRANK_WORLD .EQ. 0) PRINT *, "Mode 2: Output rasters allocated"
 
    ! Every rank builds the full fire potential list (all burnable analysis cells): work is
    ! distributed by Monte Carlo member, not by spatial point, and each member computes a
@@ -475,7 +475,7 @@ IF (MODE .NE. 1) THEN
    ! to the per-member spread computations. Progress is printed by rank 0 only so the
    ! carriage-return progress line is not garbled by concurrent output from other ranks.
    DO IY = 1, ANALYSIS_NROWS
-      IF (DEBUG_LEVEL .GT. 20 .AND. IRANK_WORLD .EQ. 0) THEN
+      IF (FEEDBACK_LEVEL .GT. 2 .AND. IRANK_WORLD .EQ. 0) THEN
          WRITE(*,'(A)', advance='no') char(13)   ! carriage return
             WRITE(*,'(A,I0,A,F5.1,A)', ADVANCE='NO')  &
             "Mode 2: Total fire potential points: ", LIST_FIRE_POTENTIAL%NUM_NODES,  &
@@ -492,7 +492,7 @@ IF (MODE .NE. 1) THEN
       ENDDO
    ENDDO
 
-   IF (DEBUG_LEVEL .GE. 20 .AND. IRANK_WORLD .EQ. 0) PRINT *, "Mode 2: Fire potential list compiled"
+   IF (FEEDBACK_LEVEL .GE. 2 .AND. IRANK_WORLD .EQ. 0) PRINT *, "Mode 2: Fire potential list compiled"
 
    ! Storage for the Monte Carlo coefficients drawn per weather band and ensemble
    ! member, so they can be written to coeffs.csv (Mode 2 does not run POSTPROCESS,
@@ -535,7 +535,7 @@ IF (MODE .NE. 1) THEN
          N_ENS_MODE2 = 1
          IF (NUM_MONTE_CARLO_VARIABLES .GT. 0) N_ENS_MODE2 = MAX(NUM_ENSEMBLE_MEMBERS, 1)
 
-         IF (DEBUG_LEVEL .GE. 20) PRINT *, "TOTAL FIRE NODES: ", LIST_FIRE_POTENTIAL%NUM_NODES
+         IF (FEEDBACK_LEVEL .GE. 2) PRINT *, "TOTAL FIRE NODES: ", LIST_FIRE_POTENTIAL%NUM_NODES
 
          DO IENS = 1, N_ENS_MODE2
             ! Member tag appended to output filenames. Empty for a single deterministic
