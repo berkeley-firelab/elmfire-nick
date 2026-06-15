@@ -180,21 +180,556 @@ END SUBROUTINE CONTAINMENT
 ! *****************************************************************************
 
 
+
+
+
+! FUNCTION AND SUBROUTINE FOR NEW SUPPRESSION MODEL
+! *****************************************************************************
+LOGICAL FUNCTION IS_CLOSE(a, b, tol1, tol2, tol3, tol4)
+! *****************************************************************************
+    TYPE(Node), INTENT(IN) :: a, b
+    REAL, INTENT(IN) :: tol1, tol2, tol3, tol4
+
+    IS_CLOSE = ABS(a%VELOCITY - b%VELOCITY) <= tol1 .AND. &
+               ABS(a%FLAME_LENGTH - b%FLAME_LENGTH) <= tol2 .AND. &
+               ABS(a%SDI - b%SDI) <= tol3 .AND. &
+               ABS(a%PCL - b%PCL) <= tol4 .AND. &
+               (a%TYPE_GROUP .EQ. b%TYPE_GROUP)
+! *****************************************************************************  
+END FUNCTION IS_CLOSE
+! *****************************************************************************
+
+! *****************************************************************************
+SUBROUTINE ABSORB_SMALL_SEGMENTS(NODES, GRID, N, NX, NY, IX_MIN, IY_MIN, &
+                                 NUM_SEGMENTS, SMALL_LIMIT)
+! *****************************************************************************
+
+TYPE(NODE_PTR), INTENT(INOUT) :: NODES(:)
+INTEGER, INTENT(IN) :: GRID(:,:)
+INTEGER, INTENT(IN) :: N, NX, NY
+INTEGER, INTENT(IN) :: IX_MIN, IY_MIN
+INTEGER, INTENT(IN) :: NUM_SEGMENTS
+INTEGER, INTENT(IN) :: SMALL_LIMIT
+
+INTEGER, ALLOCATABLE :: SEG_SIZE(:)
+INTEGER, ALLOCATABLE :: SEG_COUNT(:)
+INTEGER :: I, S, DX, DY, GX, GY, IX, IY
+INTEGER :: NB, NB_SEG
+INTEGER :: BEST_SEG, BEST_COUNT
+
+ALLOCATE(SEG_SIZE(NUM_SEGMENTS))
+ALLOCATE(SEG_COUNT(NUM_SEGMENTS))
+
+SEG_SIZE = 0
+
+DO I = 1, N
+   S = NODES(I)%P%SEGMENT_GROUP
+   IF (S .GE. 1 .AND. S .LE. NUM_SEGMENTS) THEN
+      SEG_SIZE(S) = SEG_SIZE(S) + 1
+   ENDIF
+ENDDO
+
+DO I = 1, N
+
+   S = NODES(I)%P%SEGMENT_GROUP
+
+   IF (S .LT. 1 .OR. S .GT. NUM_SEGMENTS) CYCLE
+   IF (SEG_SIZE(S) > SMALL_LIMIT) CYCLE
+
+   SEG_COUNT = 0
+
+   DO DX = -1, 1
+      DO DY = -1, 1
+
+         IF (DX .EQ. 0 .AND. DY .EQ. 0) CYCLE
+
+         IX = NODES(I)%P%IX + DX
+         IY = NODES(I)%P%IY + DY
+
+         GX = IX - IX_MIN + 1
+         GY = IY - IY_MIN + 1
+
+         IF (GX .LT. 1 .OR. GX .GT. NX) CYCLE
+         IF (GY .LT. 1 .OR. GY .GT. NY) CYCLE
+
+         NB = GRID(GX, GY)
+
+         IF (NB .EQ. 0) CYCLE
+
+         NB_SEG = NODES(NB)%P%SEGMENT_GROUP
+
+         IF (NB_SEG .LT. 1 .OR. NB_SEG .GT. NUM_SEGMENTS) CYCLE
+         IF (NB_SEG .EQ. S) CYCLE
+         IF (SEG_SIZE(NB_SEG) .LE. SMALL_LIMIT) CYCLE
+
+         SEG_COUNT(NB_SEG) = SEG_COUNT(NB_SEG) + 1
+
+      ENDDO
+   ENDDO
+
+   BEST_SEG = S
+   BEST_COUNT = 0
+
+   DO NB_SEG = 1, NUM_SEGMENTS
+      IF (SEG_COUNT(NB_SEG) .GT. BEST_COUNT) THEN
+         BEST_COUNT = SEG_COUNT(NB_SEG)
+         BEST_SEG = NB_SEG
+      ENDIF
+   ENDDO
+
+   IF (BEST_SEG .NE. S) THEN
+      NODES(I)%P%SEGMENT_GROUP = BEST_SEG
+   ENDIF
+
+ENDDO
+
+DEALLOCATE(SEG_SIZE)
+DEALLOCATE(SEG_COUNT)
+
+! *****************************************************************************
+END SUBROUTINE ABSORB_SMALL_SEGMENTS
+! *****************************************************************************
+
+
 ! *****************************************************************************
 SUBROUTINE SEGMENT_FIRELINE
 ! *****************************************************************************
+! REAL(8), INTENT(IN) :: T
 TYPE(NODE), POINTER :: C
-REAL :: DELTA_ROS, DELTA_FL, DELTA_SDI, DELTA_PCI
-! ROS; FlameLength; type; SDI, PCI
+REAL :: C_ELLIPSE, X_PNT, COSANG
+INTEGER  :: IX_MIN, IX_MAX, IY_MIN, IY_MAX
+INTEGER :: I, SEGMENT_ID, N, NX, NY, GX, GY, DX, DY, IX, IY, HEAD, TAIL, CURRENT, NB
 
+TYPE(NODE_PTR), ALLOCATABLE :: NODES(:)
+INTEGER, ALLOCATABLE :: GRID(:,:)
+INTEGER, ALLOCATABLE :: QUEUE(:)
+INTEGER, ALLOCATABLE :: MAP_SEG(:)
+INTEGER :: OLD_SEG
+
+! detect fireline
+C => LIST_TAGGED%HEAD
+DO I = 1, LIST_TAGGED%NUM_NODES
+   IF (C%FLAME_LENGTH .NE. 0) THEN
+      IF (SURFACE_FIRE(C%IX,C%IY) .EQ. 0) THEN
+         DO DX = -FIRE_LINE_THICKNESS, FIRE_LINE_THICKNESS
+            DO DY = -FIRE_LINE_THICKNESS, FIRE_LINE_THICKNESS
+               IF (DX .EQ. 0 .AND. DY .EQ. 0) CYCLE
+               IX = C%IX + DX
+               IY = C%IY + DY
+               IF (SURFACE_FIRE(IX,IY) .EQ. 1) C%FIRE_LINE = .TRUE.
+            ENDDO
+         ENDDO
+      ENDIF
+   ENDIF
+   
+   C => C%NEXT
+ENDDO
+
+
+N = LIST_TAGGED%NUM_NODES
+IF (N .LE. 0) THEN
+   LIST_TAGGED%NUM_SEGMENTS = 0
+   RETURN
+END IF
+
+
+! determine fireline type.
+C => LIST_TAGGED%HEAD
+DO I = 1, LIST_TAGGED%NUM_NODES
+
+   IF (.NOT. C%FIRE_LINE) THEN
+      C => C%NEXT
+      CYCLE
+   ENDIF
+
+   ! We can get sin(theta - dms) and cos(theta - dms) directly:
+   COSANG   = C%NORMVECTORY*C%NORMVECTORY_DMS + C%NORMVECTORX*C%NORMVECTORX_DMS
+
+   C_ELLIPSE = (C%VELOCITY_DMS - C%VBACK)*0.5
+   X_PNT = C%VELOCITY*COSANG
+
+   ! TYPE_GROUP = 2:head; 1:flank; 0:back
+   IF (X_PNT .GE. C_ELLIPSE) THEN
+      C%TYPE_GROUP = 2
+   ELSE IF (X_PNT .GE. 0) THEN
+      C%TYPE_GROUP = 1
+   ELSE
+      C%TYPE_GROUP = 0
+   ENDIF
+
+   C => C%NEXT
+ENDDO
+
+! find IX_MIN, IX_MAX, IY_MIN, IY_MAX
+IX_MIN = 9999; IX_MAX = -9999
+IY_MIN = 9999; IY_MAX = -9999
 
 C => LIST_TAGGED%HEAD
+DO I = 1, LIST_TAGGED%NUM_NODES
+   IF (C%IX .GT. IX_MAX) IX_MAX = C%IX
+   IF (C%IX .LT. IX_MIN) IX_MIN = C%IX
+   IF (C%IY .GT. IY_MAX) IY_MAX = C%IY
+   IF (C%IY .LT. IY_MIN) IY_MIN = C%IY
+   C => C%NEXT
+ENDDO
+
+! segment the fireline
+
+NX = IX_MAX - IX_MIN + 1
+NY = IY_MAX - IY_MIN + 1
+
+ALLOCATE(NODES(N))
+ALLOCATE(GRID(NX, NY))
+ALLOCATE(QUEUE(N))
+
+GRID = 0
+
+C => LIST_TAGGED%HEAD
+
+DO I = 1, N
+
+   NODES(I)%P => C
+
+   IF (.NOT. C%FIRE_LINE) THEN
+      C => C%NEXT
+      CYCLE
+   ENDIF
+
+
+   GX = C%IX - IX_MIN + 1
+   GY = C%IY - IY_MIN + 1
+
+   IF (GX .LT. 1 .OR. GX .GT. NX .OR. GY .LT. 1 .OR. GY .GT. NY) THEN
+      WRITE(*,*) 'SUPPRESSION MODULE ERROR: NODE OUTSIDE GRID BOUNDS'
+      STOP
+   END IF
+
+   GRID(GX, GY) = I
+   C%SEGMENT_GROUP = 0
+
+   C => C%NEXT
+ENDDO
+
+SEGMENT_ID = 0
+
+DO I = 1, N
+
+   IF (NODES(I)%P%SEGMENT_GROUP .NE. 0) CYCLE
+
+   SEGMENT_ID = SEGMENT_ID + 1
+
+   HEAD = 1
+   TAIL = 1
+   QUEUE(TAIL) = I
+   NODES(I)%P%SEGMENT_GROUP = SEGMENT_ID
+
+   DO WHILE (HEAD .LE. TAIL)
+      CURRENT = QUEUE(HEAD)
+      HEAD = HEAD + 1
+
+      DO DX = -1, 1
+         DO DY = -1, 1
+            IF (DX .EQ. 0 .AND. DY .EQ. 0) CYCLE
+
+            IX = NODES(CURRENT)%P%IX + DX
+            IY = NODES(CURRENT)%P%IY + DY
+
+            GX = IX - IX_MIN + 1
+            GY = IY - IY_MIN + 1
+
+            IF (GX .LT. 1 .OR. GX .GT. NX) CYCLE
+            IF (GY .LT. 1 .OR. GY .GT. NY) CYCLE
+
+            NB = GRID(GX, GY)
+
+            IF (NB .EQ. 0) CYCLE
+
+            IF (NODES(NB)%P%SEGMENT_GROUP .NE. 0) CYCLE
+
+            IF (IS_CLOSE(NODES(CURRENT)%P, NODES(NB)%P, DELTA_ROS, DELTA_FL, DELTA_SDI, DELTA_PCL)) THEN
+               TAIL = TAIL + 1
+               QUEUE(TAIL) = NB
+               NODES(NB)%P%SEGMENT_GROUP = SEGMENT_ID
+            ENDIF
+         ENDDO
+      ENDDO
+   ENDDO
+ENDDO
+
+CALL ABSORB_SMALL_SEGMENTS(NODES, GRID, N, NX, NY, IX_MIN, IY_MIN, SEGMENT_ID, 3)
+LIST_TAGGED%NUM_SEGMENTS = SEGMENT_ID
+DEALLOCATE(NODES)
+DEALLOCATE(GRID)
+DEALLOCATE(QUEUE)
+
+!correcting segment_id and numbers
+ALLOCATE(MAP_SEG(LIST_TAGGED%NUM_SEGMENTS))
+MAP_SEG = 0
+C => LIST_TAGGED%HEAD
+SEGMENT_ID = 0
+
+DO I = 1, LIST_TAGGED%NUM_NODES
+
+   IF (.NOT. C%FIRE_LINE) THEN
+      C => C%NEXT
+      CYCLE
+   ENDIF
+
+   OLD_SEG = C%SEGMENT_GROUP
+
+   IF (MAP_SEG(OLD_SEG) .EQ. 0) THEN
+      SEGMENT_ID = SEGMENT_ID + 1
+      MAP_SEG(OLD_SEG) = SEGMENT_ID
+   ENDIF
+
+   C%SEGMENT_GROUP = MAP_SEG(OLD_SEG)
+
+   C => C%NEXT
+
+ENDDO
+
+
+LIST_TAGGED%NUM_SEGMENTS = SEGMENT_ID
+DEALLOCATE(MAP_SEG)
 
 ! *****************************************************************************
 END SUBROUTINE SEGMENT_FIRELINE
 ! *****************************************************************************
 
+! *****************************************************************************
+SUBROUTINE CALCULATE_STS
+! *****************************************************************************
 
+! STS: Suppression Type Score
+
+TYPE(NODE), POINTER :: C
+REAL, ALLOCATABLE ::  SDI_AVG(:), FL_AVG(:), N_CELLS(:)
+INTEGER :: I
+REAL :: FL_NI, SDI_NI
+
+ALLOCATE(SUPPRESSION_TYPE_SCORE(LIST_TAGGED%NUM_SEGMENTS))
+ALLOCATE(FL_AVG(LIST_TAGGED%NUM_SEGMENTS))
+ALLOCATE(SDI_AVG(LIST_TAGGED%NUM_SEGMENTS))
+ALLOCATE(N_CELLS(LIST_TAGGED%NUM_SEGMENTS))
+
+SDI_AVG = 0.0
+FL_AVG  = 0.0
+N_CELLS = 0.0
+
+
+! calculate max of FL and SDI over fireline
+! calculate mean of SDI and FL over each segment
+C => LIST_TAGGED%HEAD
+DO I = 1, LIST_TAGGED%NUM_NODES
+
+   IF (.NOT. C%FIRE_LINE) THEN
+      C => C%NEXT
+      CYCLE
+   ENDIF
+
+   SDI_AVG(C%SEGMENT_GROUP) = SDI_AVG(C%SEGMENT_GROUP) + C%SDI
+   FL_AVG(C%SEGMENT_GROUP)  = FL_AVG(C%SEGMENT_GROUP)  + C%FLAME_LENGTH
+   N_CELLS(C%SEGMENT_GROUP) = N_CELLS(C%SEGMENT_GROUP) + 1.0
+
+   C => C%NEXT
+ENDDO
+
+! calculate STS for seg
+DO I = 1, LIST_TAGGED%NUM_SEGMENTS
+
+   IF (N_CELLS(I) .EQ. 0) CYCLE
+
+   FL_AVG(I) = FL_AVG(I)/N_CELLS(I)
+   FL_NI = (FL_AVG(I)/FL_MAX_DIRECT_ATTACK)
+
+   SDI_AVG(I) = SDI_AVG(I)/N_CELLS(I)
+   SDI_NI = (SDI_AVG(I)/SDI_MAX_DIRECT_ATTACK)
+
+   SUPPRESSION_TYPE_SCORE(I) = (0.7*FL_NI) + (0.3*SDI_NI)
+ENDDO
+
+
+! assign sts to each node
+C => LIST_TAGGED%HEAD
+DO I = 1, LIST_TAGGED%NUM_NODES
+
+   IF (.NOT. C%FIRE_LINE) THEN
+      C => C%NEXT
+      CYCLE
+   ENDIF
+
+   C%STS = SUPPRESSION_TYPE_SCORE(C%SEGMENT_GROUP)
+
+   C => C%NEXT
+ENDDO
+
+
+DEALLOCATE(FL_AVG)
+DEALLOCATE(SDI_AVG)
+DEALLOCATE(N_CELLS)
+
+
+! *****************************************************************************
+END SUBROUTINE CALCULATE_STS
+! *****************************************************************************
+
+! *****************************************************************************
+SUBROUTINE SORT_STS
+! *****************************************************************************
+INTEGER :: I, J, TEMP_INDX
+ALLOCATE(SUPPRESSION_TYPE_SCORE_RANK(LIST_TAGGED%NUM_SEGMENTS))
+
+! initiate the rank array
+DO I = 1, LIST_TAGGED%NUM_SEGMENTS
+   SUPPRESSION_TYPE_SCORE_RANK(I) = i
+ENDDO
+
+! sorting index
+DO I = 1, LIST_TAGGED%NUM_SEGMENTS-1
+   DO J = I+1, LIST_TAGGED%NUM_SEGMENTS
+      IF (SUPPRESSION_TYPE_SCORE(SUPPRESSION_TYPE_SCORE_RANK(J)) .LT. SUPPRESSION_TYPE_SCORE(SUPPRESSION_TYPE_SCORE_RANK(I))) THEN
+         TEMP_INDX = SUPPRESSION_TYPE_SCORE_RANK(I)
+         SUPPRESSION_TYPE_SCORE_RANK(I) = SUPPRESSION_TYPE_SCORE_RANK(J)
+         SUPPRESSION_TYPE_SCORE_RANK(J) = TEMP_INDX
+      ENDIF
+   ENDDO
+ENDDO
+
+! *****************************************************************************
+END SUBROUTINE SORT_STS
+! *****************************************************************************
+
+
+! *****************************************************************************
+SUBROUTINE DIRECT_ATTACK(T, IT, rank_finished, DT, ICASE, IDUMPCOUNT, NDUMPS, TSTOP)
+! *****************************************************************************
+REAL(8), INTENT(IN) :: T
+INTEGER, INTENT(IN) :: IT
+INTEGER, INTENT(IN) :: ICASE
+REAL, INTENT(INOUT)    :: DT, TSTOP
+INTEGER, INTENT(INOUT) :: rank_finished, IDUMPCOUNT, NDUMPS
+TYPE(NODE), POINTER :: C
+INTEGER :: I, J
+REAL :: CAP_0, L_CAP, L_AVAIL
+REAL, ALLOCATABLE :: L_SEG(:), L_REQ(:)
+
+IF (IT .NE. 1) THEN
+   SUPP(IT)%FIRE_LINE_LENGTH = SUPP(IT-1)%FIRE_LINE_LENGTH
+   SUPP(IT)%SUPPRESSED_FIRELINE_LENGTH = SUPP(IT-1)%SUPPRESSED_FIRELINE_LENGTH
+ENDIF
+
+
+CAP_0 = FIRE_LINE_THICKNESS * AVAILABLE_SUPPRESSION_CAPACITY * (1/3600.0)
+L_CAP = CAP_0*DT_EXTENDED_ATTACK
+ALLOCATE(L_SEG(LIST_TAGGED%NUM_SEGMENTS))
+ALLOCATE(L_REQ(LIST_TAGGED%NUM_SEGMENTS))
+
+L_SEG = 0
+L_REQ = 0
+
+! Calculate fireline length in each segement
+C => LIST_TAGGED%HEAD
+DO I = 1, LIST_TAGGED%NUM_NODES
+
+   IF (.NOT. C%FIRE_LINE) THEN
+      C => C%NEXT
+      CYCLE
+   ENDIF
+
+   SUPP(IT)%FIRE_LINE_LENGTH = SUPP(IT)%FIRE_LINE_LENGTH + ANALYSIS_CELLSIZE
+
+   L_SEG(C%SEGMENT_GROUP) = L_SEG(C%SEGMENT_GROUP) + ANALYSIS_CELLSIZE
+
+   C => C%NEXT
+ENDDO
+
+! consider effect of sts on length in each segment
+DO I = 1, LIST_TAGGED%NUM_SEGMENTS
+   IF (1-SUPPRESSION_TYPE_SCORE(I) .GT. 0) THEN
+      L_REQ(I) = L_SEG(I)/(1-SUPPRESSION_TYPE_SCORE(I))
+   ELSEIF (1-SUPPRESSION_TYPE_SCORE(I) .EQ. 0) THEN
+      L_REQ(I) = L_SEG(I)
+   ELSE
+      L_REQ(I) = 0
+   ENDIF
+ENDDO
+
+! Apply direct attack
+I = 0
+L_CAP = MIN(L_CAP, SUPP(IT)%FIRE_LINE_LENGTH)
+DO WHILE (L_CAP .GT. 0 .AND. I .LT. LIST_TAGGED%NUM_SEGMENTS)
+
+   I = I + 1
+
+   IF (L_REQ(SUPPRESSION_TYPE_SCORE_RANK(I)) .EQ. 0) CYCLE
+
+   IF (L_CAP .GT. L_REQ(SUPPRESSION_TYPE_SCORE_RANK(I))) THEN
+
+      SUPP(IT)%SUPPRESSED_FIRELINE_LENGTH = SUPP(IT)%SUPPRESSED_FIRELINE_LENGTH + L_REQ(SUPPRESSION_TYPE_SCORE_RANK(I))
+
+      C => LIST_TAGGED%HEAD
+      DO J = 1, LIST_TAGGED%NUM_NODES
+
+         IF (.NOT. C%FIRE_LINE .OR. C%SEGMENT_GROUP .NE. SUPPRESSION_TYPE_SCORE_RANK(I)) THEN
+            C => C%NEXT
+            CYCLE
+         ENDIF
+
+         C%TIME_SUPPRESSED = T
+         C%SUPPRESSION_ADJUSTMENT_FACTOR = 0.0
+
+         C => C%NEXT
+
+      ENDDO
+
+      L_CAP = L_CAP - L_REQ(SUPPRESSION_TYPE_SCORE_RANK(I))
+
+   ELSE
+
+      L_AVAIL = L_CAP * (1-SUPPRESSION_TYPE_SCORE(SUPPRESSION_TYPE_SCORE_RANK(I)))
+
+      SUPP(IT)%SUPPRESSED_FIRELINE_LENGTH = SUPP(IT)%SUPPRESSED_FIRELINE_LENGTH + L_AVAIL
+
+      C => LIST_TAGGED%HEAD
+      DO J = 1, LIST_TAGGED%NUM_NODES
+
+         IF (.NOT. C%FIRE_LINE .OR. C%SEGMENT_GROUP .NE. SUPPRESSION_TYPE_SCORE_RANK(I) .OR. L_AVAIL .LE. 0) THEN
+            C => C%NEXT
+            CYCLE
+         ENDIF
+
+         C%TIME_SUPPRESSED = T
+         C%SUPPRESSION_ADJUSTMENT_FACTOR = 0.0
+
+         L_AVAIL = L_AVAIL - ANALYSIS_CELLSIZE
+
+         C => C%NEXT
+
+      ENDDO
+
+      L_CAP = -1.0
+
+   ENDIF
+
+
+ENDDO
+
+SUPP(IT)%CONTAINMENT = (SUPP(IT)%SUPPRESSED_FIRELINE_LENGTH / SUPP(IT)%FIRE_LINE_LENGTH)
+
+WRITE(*,*) SUPP(IT)%T, SUPP(IT)%SUPPRESSED_FIRELINE_LENGTH, SUPP(IT)%FIRE_LINE_LENGTH, SUPP(IT)%CONTAINMENT
+
+IF (SUPP(IT)%CONTAINMENT .GE. 0.99) THEN
+   rank_finished = 1
+   DT = DT_METEOROLOGY
+   STATS_FINAL_CONTAINMENT_FRAC(ICASE) = 1.0
+   STATS_SIMULATION_TSTOP_HOURS(ICASE) = T / 3600.0
+   TSTOP = T
+   IDUMPCOUNT = NDUMPS
+ENDIF
+
+! *****************************************************************************
+END SUBROUTINE DIRECT_ATTACK
+! *****************************************************************************
 
 
 ! *****************************************************************************
