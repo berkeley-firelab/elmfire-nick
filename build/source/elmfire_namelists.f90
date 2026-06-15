@@ -790,7 +790,7 @@ NAMELIST /SUPPRESSION/ AREA_NO_CONTAINMENT_CHANGE, B_SDI, DT_EXTENDED_ATTACK, &
                        ENABLE_EXTENDED_ATTACK, ENABLE_INITIAL_ATTACK, &
                        INITIAL_ATTACK_TIME, MAX_CONTAINMENT_PER_DAY, SDI_FACTOR, USE_SDI, USE_SDI_LOG_FUNCTION, &
                        ! Majid_bav::added below
-                       EXTENDED_ATTACK_MODEL, EXTENDED_ATTACK_TIME, AVAILABLE_SUPPRESSION_CAPACITY
+                       EXTENDED_ATTACK_MODEL, EXTENDED_ATTACK_TIME, AVAILABLE_SUPPRESSION_CAPACITY, DELTA_ROS, DELTA_FL, DELTA_SDI, DELTA_PCL, FIRE_LINE_THICKNESS, SDI_MAX_DIRECT_ATTACK, FL_MAX_DIRECT_ATTACK
 
 IF (IRANK_WORLD .EQ. 0) WRITE(*,*) 'Reading &SUPPRESSION namelist group'
 
@@ -810,7 +810,15 @@ USE_SDI_LOG_FUNCTION        = .FALSE.
 ! Majid_bav::added below
 EXTENDED_ATTACK_MODEL              = 1          ! 0: legacy model; 1: new model.
 EXTENDED_ATTACK_TIME               = 3600       ! seconds
+FL_MAX_DIRECT_ATTACK               = 0.5
+SDI_MAX_DIRECT_ATTACK              = 1.0
 AVAILABLE_SUPPRESSION_CAPACITY     = 100        ! m/hr
+FIRE_LINE_THICKNESS                = 1
+
+DELTA_ROS                          = 5
+DELTA_FL                           = 1
+DELTA_SDI                          = 0.5
+DELTA_PCL                          = 0.2
 
 IF (EXTENDED_ATTACK_MODEL .EQ. 1) USE_SDI = .TRUE.
 
