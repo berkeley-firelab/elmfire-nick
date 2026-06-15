@@ -104,3 +104,16 @@ rag_db
 # ============================================================
 .webui_secret_key
 log.txt
+tutorials/01-constant-wind/~$PLOT.xlsx
+tutorials/01-constant-wind/.elmfire.data.in.swp
+tutorials/01-constant-wind/base.tif
+tutorials/01-constant-wind/elmfire.data.in
+tutorials/01-constant-wind/PLOT.xlsx
+tutorials/01-constant-wind/elmfire.data.in
+tutorials/01-constant-wind/elmfire.data.in
+tutorials/01-constant-wind/elmfire.data.in
+tutorials/01-constant-wind/inputs/elmfire.data
+tutorials/01-constant-wind/inputs/pcl.tif
+tutorials/01-constant-wind/inputs/sdi.tif
+tutorials/01-constant-wind/inputs/ws.tif
+tutorials/01-constant-wind/outputs_nosuppression_15mph/flin_0000001_0019803.tif
