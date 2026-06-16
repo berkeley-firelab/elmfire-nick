@@ -56,5 +56,4 @@ RANDOMIZE_RANDOM_SEED = .TRUE.
 &MISCELLANEOUS
 PATH_TO_GDAL                   = '/usr/bin/'
 SCRATCH                        = './scratch'
-FUEL_MODEL_FILE				   = 'fuel_models.csv'
 /

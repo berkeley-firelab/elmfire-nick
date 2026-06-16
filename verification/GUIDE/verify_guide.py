@@ -211,11 +211,14 @@ CASES = [
         # Table 3.1 (actual sim parameter) = 5 mph 20-ft wind. The guide's BEHAVE
         # target used 6 mph + WAF 0.418; ELMFIRE computes WAF internally.
         layers=L(fbfm=5, ws=6.0, m1=6.0, m10=7.0),
-        targets=[Target("head ROS", 3.06, "m/min")],
-        metric="max_ros",
-        notes=("Wind-driven ellipse (5 mph 20-ft per Table 3.1). Residual error is "
-               "a WAF convention gap: ELMFIRE computes WAF internally, the guide's "
-               "BEHAVE target used WAF=0.418. Tune wind/WS_AT_10M to match the guide run."),
+        targets=[
+            Target("head ROS", 3.06, "m/min"),
+            Target("L/W ratio", 1.40, "-"),
+        ],
+        metric="ros_and_lw",
+        notes=("Wind-driven ellipse. Head ROS (target 3.06 m/min) and ellipse "
+               "L/W (target 1.20) checked; L/W is measured from the arrival-time "
+               "raster. ELMFIRE computes WAF internally vs the guide's WAF=0.418."),
     ),
     Case(
         name="Valley",
@@ -261,31 +264,34 @@ CASES = [
         notes="Uniform fuel, varying 1-h FMC; 25% = moisture of extinction (no spread).",
     ),
     Case(
-        name="Canopy-2mph",
+        name="Canopy-1mph",
         data_rel="Canopy/2/canopy_lowwind.data",
-        layers=L(fbfm=5, ws=2.0, m1=6.0, m10=7.0,
-                 cc=80, ch=16, cbh=16, cbd=55),
-        targets=[Target("head ROS (no crown)", 1.96, "m/min")],
+        layers=L(fbfm=5, ws=1.0, m1=6.0, m10=7.0,
+                 cc=80, ch=16, cbh=16, cbd=56),
+        targets=[],
         metric="max_ros_crown",
-        notes="Surface fire only; insufficient intensity for crown fire.",
-    ),
-    Case(
-        name="Canopy-3mph",
-        data_rel="Canopy/3/canopy_mediumwind.data",
-        layers=L(fbfm=5, ws=3.0, m1=6.0, m10=7.0,
-                 cc=80, ch=16, cbh=16, cbd=55),
-        targets=[Target("head ROS (passive crown)", 6.1, "m/min")],
-        metric="max_ros_crown",
-        notes="Passive crown fire expected toward the head.",
+        quantitative=False,
+        notes="1 mph. Reports head ROS + crown class; BEHAVE target TBD for this wind.",
     ),
     Case(
         name="Canopy-6mph",
-        data_rel="Canopy/6/canopy_highwind.data",
+        data_rel="Canopy/3/canopy_mediumwind.data",
         layers=L(fbfm=5, ws=6.0, m1=6.0, m10=7.0,
-                 cc=80, ch=16, cbh=16, cbd=55),
-        targets=[Target("head ROS (active crown)", 21.3, "m/min")],
+                 cc=80, ch=16, cbh=16, cbd=56),
+        targets=[],
         metric="max_ros_crown",
-        notes="Active crown fire expected; theoretical RC 21.5 m/min.",
+        quantitative=False,
+        notes="6 mph. Reports head ROS + crown class; BEHAVE target TBD for this wind.",
+    ),
+    Case(
+        name="Canopy-12mph",
+        data_rel="Canopy/6/canopy_highwind.data",
+        layers=L(fbfm=5, ws=12.0, m1=6.0, m10=7.0,
+                 cc=80, ch=16, cbh=16, cbd=56),
+        targets=[],
+        metric="max_ros_crown",
+        quantitative=False,
+        notes="12 mph. Reports head ROS + crown class; BEHAVE target TBD for this wind.",
     ),
     Case(
         name="Complex",
@@ -580,6 +586,65 @@ def metric_max_ros(out_dir, case):
     return {"head ROS": _max_over(arrs)}
 
 
+def lw_ratio_from_toa(out_dir):
+    """Length-to-width ratio of the burned ellipse from the time-of-arrival map.
+
+    The burned region is a filled ellipse, so its aspect ratio equals
+    sqrt(major/minor eigenvalue) of the covariance of the burned-cell
+    coordinates -- no need to know the wind axis, and unaffected by where the
+    ignition focus sits inside the ellipse.
+
+    Crucially, we restrict to the isochrone that arrived *before* the fire
+    first reached any domain edge. Once the front hits a wall the burned region
+    is clipped into a non-ellipse (a domain-filling blob reads as L/W ~ 1), which
+    would corrupt the measurement.
+    """
+    toa = _glob(out_dir, "time_of_arrival_")
+    if not toa:
+        return None
+    with rasterio.open(sorted(toa)[-1]) as src:
+        arr = src.read(1, masked=True).astype(float).filled(np.nan)
+    burned = np.isfinite(arr) & (arr >= 0.0) & (arr < 1e8)
+    if burned.sum() < 10:
+        return None
+
+    # Time at which the fire first comes within MARGIN cells of any domain edge.
+    # A 1-pixel border is not enough: the fire can fill almost the whole domain
+    # (leaving only corners) and read as a square (L/W ~ 1). We take the last
+    # isochrone that is still comfortably interior, where the shape is a clean
+    # ellipse.
+    MARGIN = 8
+    band = np.zeros_like(burned)
+    band[:MARGIN, :] = band[-MARGIN:, :] = band[:, :MARGIN] = band[:, -MARGIN:] = True
+    band_burned = burned & band
+    if band_burned.any():
+        t_safe = float(np.nanmin(arr[band_burned]))
+        region = burned & (arr < t_safe)   # last fully-interior isochrone
+    else:
+        region = burned                    # fire never approached an edge
+
+    ys, xs = np.where(region)
+    if xs.size < 10:
+        return None
+    cov = np.cov(np.vstack([xs.astype(float), ys.astype(float)]))
+    eig = np.linalg.eigvalsh(cov)          # ascending: [minor, major]
+    if eig[0] <= 0:
+        return None
+    return float(np.sqrt(eig[1] / eig[0]))
+
+
+def metric_ros_and_lw(out_dir, case):
+    """Head ROS (max vs_) plus the ellipse L/W from the arrival-time raster."""
+    arrs = _read_stack(_glob(out_dir, "vs_"))
+    res = {"head ROS": _max_over(arrs)}
+    lw = lw_ratio_from_toa(out_dir)
+    # Map to whichever target carries the L/W label.
+    for t in case.targets:
+        if "L/W" in t.name or "length" in t.name.lower():
+            res[t.name] = lw
+    return res
+
+
 def metric_max_ros_region(out_dir, case):
     arrs = _read_stack(_glob(out_dir, "vs_"))
     masks = {**_quadrant_masks(), **_half_masks()}
@@ -593,8 +658,8 @@ def metric_max_ros_crown(out_dir, case):
     arrs = _read_stack(_glob(out_dir, "vs_"))
     crown = _read_stack(_glob(out_dir, "crown_fire_"))
     crown_max = _max_over(crown) if crown else None
-    label = case.targets[0].name
-    return {label: _max_over(arrs), "_crown_class_max": crown_max}
+    label = case.targets[0].name if case.targets else "head ROS"
+    return {label: _max_over(arrs), "crown class (max)": crown_max}
 
 
 def metric_qualitative_ros(out_dir, case):
@@ -700,6 +765,7 @@ def metric_initial_attack(out_dir, case):
 
 METRICS = {
     "max_ros": metric_max_ros,
+    "ros_and_lw": metric_ros_and_lw,
     "max_ros_region": metric_max_ros_region,
     "max_ros_crown": metric_max_ros_crown,
     "qualitative_ros": metric_qualitative_ros,

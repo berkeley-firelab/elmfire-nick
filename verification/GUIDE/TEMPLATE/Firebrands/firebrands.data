@@ -21,7 +21,6 @@ USE_CONSTANT_LH                = .FALSE.
 MLH_FILENAME                   = 'lh'
 USE_CONSTANT_LW                = .FALSE.
 MLW_FILENAME                   = 'lw'
-WS_AT_10M		               = .TRUE.
 /
 
 &OUTPUTS
