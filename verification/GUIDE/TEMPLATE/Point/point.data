@@ -34,13 +34,6 @@ DUMP_TIME_OF_ARRIVAL = .TRUE.
 CONVERT_TO_GEOTIFF   = .TRUE.
 /
 
-&COMPUTATIONAL_DOMAIN
-A_SRS = '+proj=utm +zone=35 +datum=WGS84 +units=m +no_defs'
-COMPUTATIONAL_DOMAIN_CELLSIZE = 30.000000000000000
-COMPUTATIONAL_DOMAIN_XLLCORNER = 0.0000000
-COMPUTATIONAL_DOMAIN_YLLCORNER = 0.0000000
-/
-
 &TIME_CONTROL
 SIMULATION_DT    = 1.0
 TARGET_CFL       = 0.2
@@ -59,6 +52,6 @@ T_IGN(1)      = 0.0
 /
 
 &MISCELLANEOUS
-PATH_TO_GDAL                   = '/home/nick/miniconda3/envs/elmfire/bin/'
+PATH_TO_GDAL                   = '/usr/bin/'
 SCRATCH                        = './scratch'
 /

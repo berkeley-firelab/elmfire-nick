@@ -29,15 +29,9 @@ OUTPUTS_DIRECTORY    = './outputs'
 DTDUMP = 259200.0
 DUMP_FLIN            = .TRUE.
 DUMP_SPREAD_RATE     = .TRUE.
+SPREAD_RATE_IN_M 	 = .TRUE. 
 DUMP_TIME_OF_ARRIVAL = .TRUE.
 CONVERT_TO_GEOTIFF   = .TRUE.
-/
-
-&COMPUTATIONAL_DOMAIN
-A_SRS = '+proj=utm +zone=35 +datum=WGS84 +units=m +no_defs'
-COMPUTATIONAL_DOMAIN_CELLSIZE = 30.000000000000000
-COMPUTATIONAL_DOMAIN_XLLCORNER = 0.0000000
-COMPUTATIONAL_DOMAIN_YLLCORNER = 0.0000000
 /
 
 &TIME_CONTROL
@@ -55,10 +49,10 @@ NUM_IGNITIONS = 1
 X_IGN(1) = 1890
 Y_IGN(1) = 3300
 T_IGN(1)      = 0.0
-DEBUG_LEVEL = 100
+FEEDBACK_LEVEL = 3
 /
 
 &MISCELLANEOUS
-PATH_TO_GDAL                   = '/home/nick/miniconda3/envs/elmfire/bin/'
+PATH_TO_GDAL                   = '/usr/bin/'
 SCRATCH                        = './scratch'
 /

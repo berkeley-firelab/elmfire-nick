@@ -24,6 +24,7 @@ MLW_FILENAME                   = 'lw'
 /
 
 &OUTPUTS
+SPREAD_RATE_IN_M     = .TRUE.
 OUTPUTS_DIRECTORY    = './outputs'
 DUMP_TIME_OF_ARRIVAL = .TRUE.
 CONVERT_TO_GEOTIFF = .TRUE.
@@ -31,13 +32,6 @@ CONVERT_TO_GEOTIFF = .TRUE.
 
 &SUPPRESSION
 ENABLE_EXTENDED_ATTACK = .TRUE.
-/
-
-&COMPUTATIONAL_DOMAIN
-A_SRS = '+proj=utm +zone=35 +datum=WGS84 +units=m +no_defs'
-COMPUTATIONAL_DOMAIN_CELLSIZE = 30.000000000000000
-COMPUTATIONAL_DOMAIN_XLLCORNER = 0.0000000
-COMPUTATIONAL_DOMAIN_YLLCORNER = 0.0000000
 /
 
 &TIME_CONTROL
@@ -59,7 +53,7 @@ RANDOMIZE_RANDOM_SEED = .TRUE.
 /
 
 &MISCELLANEOUS
-PATH_TO_GDAL                   = '/home/nick/miniconda3/envs/elmfire/bin/'
+PATH_TO_GDAL                   = '/usr/bin/'
 SCRATCH                        = './scratch'
 FUEL_MODEL_FILE				   = 'fuel_models.csv'
 /
