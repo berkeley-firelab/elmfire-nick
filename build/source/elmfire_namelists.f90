@@ -810,19 +810,20 @@ USE_SDI_LOG_FUNCTION        = .FALSE.
 ! Majid_bav::added below
 EXTENDED_ATTACK_MODEL              = 1          ! 0: legacy model; 1: new model.
 EXTENDED_ATTACK_TIME               = 3600       ! seconds
-FL_MAX_DIRECT_ATTACK               = 0.5
-SDI_MAX_DIRECT_ATTACK              = 1.0
-AVAILABLE_SUPPRESSION_CAPACITY     = 100        ! m/hr
-FIRE_LINE_THICKNESS                = 1
+FL_MAX_DIRECT_ATTACK               = 8.0        ! ft
+SDI_MAX_DIRECT_ATTACK              = 40.0       ! 0 to 318 USDA data = SDI*100
+AVAILABLE_SUPPRESSION_CAPACITY     = 2000       ! m/hr
+FIRE_LINE_THICKNESS                = 1          ! num cells
 
-DELTA_ROS                          = 5
-DELTA_FL                           = 1
-DELTA_SDI                          = 0.5
-DELTA_PCL                          = 0.2
-
-IF (EXTENDED_ATTACK_MODEL .EQ. 1) USE_SDI = .TRUE.
+DELTA_ROS                          = 10         ! ft/min
+DELTA_FL                           = 2          ! ft
+DELTA_SDI                          = 10         ! 0 to 318 USDA data = SDI*100
+DELTA_PCL                          = 10         ! 0 to 100 USDA data = PCL*100
 
 READ(LUINPUT,NML=SUPPRESSION,IOSTAT=IOS)
+
+IF (ENABLE_EXTENDED_ATTACK .AND. EXTENDED_ATTACK_MODEL .EQ. 1) USE_SDI = .TRUE.
+
 IF (IOS > 0) THEN
    WRITE(*,*) 'Error: Problem with namelist group &SUPPRESSION.'
    STOP
