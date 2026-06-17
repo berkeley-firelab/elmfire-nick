@@ -1502,13 +1502,27 @@ DO WHILE (T .le. totalDuration)
                CALL CALCULATE_STS
                CALL SORT_STS
                CALL DIRECT_ATTACK(T, IT_EA, rank_finished, DT, ICASE, IDUMPCOUNT, NDUMPS, TSTOP)
-
-               ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"STS",T,"STS",1)
-               ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"SEGMENT",T,"SEGMENT",1)
+               
+               CALL LL_DUMP_ROUTINE(LIST_TAGGED,"time_suppressed",T,"time_suppressed",1)
+               CALL LL_DUMP_ROUTINE(LIST_TAGGED,"ROS",T,"ROS",1)
+               CALL LL_DUMP_ROUTINE(LIST_TAGGED,"STS",T,"STS",1)
+               CALL LL_DUMP_ROUTINE(LIST_TAGGED,"SEGMENT",T,"SEGMENT",1)
+               CALL LL_DUMP_ROUTINE(LIST_TAGGED,"time_of_arrival",T,"time_of_arrival",1)
 
                DEALLOCATE(SUPPRESSION_TYPE_SCORE)
                DEALLOCATE(SUPPRESSION_TYPE_SCORE_RANK)
+
+               
+               C => LIST_TAGGED%HEAD
+               DO I = 1, LIST_TAGGED%NUM_NODES
+                  C%FIRE_LINE = .FALSE.
+                  C%SEGMENT_GROUP = -1
+                  C => C%NEXT
+               ENDDO
+
                T_LAST_EXTENDED_ATTACK = T
+               CALL UNTAG_CELLS(NX,NY,TIME_OF_ARRIVAL,T,SURFACE_FIRE)
+               
             ENDIF
          ELSE
             WRITE(*,*) 'Error: "EXTENDED_ATTACK_MODEL" should be 0 or 1 in namelist!'

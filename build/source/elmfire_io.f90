@@ -1995,6 +1995,8 @@ C => L%HEAD
 DO I = 1, L%NUM_NODES
    SELECT CASE (TRIM(QUANTITY))
       !Majid_bav: added this
+      CASE ('ROS')
+         C%DUMPME = C%VELOCITY
       CASE ('STS')
          C%DUMPME = C%STS
       CASE ('SEGMENT')
