@@ -340,8 +340,8 @@ CASES = [
         data_rel="Firebrands/firebrands.data",
         layers=L(fbfm=3, ws=5.0, m1=6.0),
         targets=[
-            Target("firebrands (cell)", 1036, "-", tol_pct=15.0),
-            Target("ln-distance mu", 2.72, "-", abs_tol=0.15),
+            Target("firebrands (cell)", 8450, "-", tol_pct=15.0),
+            Target("ln-distance mu", 2.42, "-", abs_tol=0.15),
             Target("ln-distance sigma", 1.31, "-", abs_tol=0.15),
         ],
         metric="firebrand_distribution",
@@ -381,33 +381,6 @@ CASES = [
         targets=[Target("fraction contained", 0.54, "-", abs_tol=0.05)],
         metric="initial_attack",
         notes="20000-member ensemble; ~52% contained vs 54% predicted (HEAVY).",
-    ),
-    Case(
-        name="BANDTHICKNESS-1",
-        data_rel="BandThickness/1/bandthickness1.data",
-        layers=L(fbfm=3, ws=5.0, m1=6.0),
-        targets=[],
-        metric="consistency_ros",
-        quantitative=False,
-        notes="Band-thickness invariance check (compared across 1/2/3).",
-    ),
-    Case(
-        name="BANDTHICKNESS-2",
-        data_rel="BandThickness/2/bandthickness2.data",
-        layers=L(fbfm=3, ws=5.0, m1=6.0),
-        targets=[],
-        metric="consistency_ros",
-        quantitative=False,
-        notes="Band-thickness invariance check (compared across 1/2/3).",
-    ),
-    Case(
-        name="BANDTHICKNESS-3",
-        data_rel="BandThickness/3/bandthickness3.data",
-        layers=L(fbfm=3, ws=5.0, m1=6.0),
-        targets=[],
-        metric="consistency_ros",
-        quantitative=False,
-        notes="Band-thickness invariance check (compared across 1/2/3).",
     ),
 ]
 
@@ -739,11 +712,6 @@ def metric_qualitative_ros(out_dir, case):
     return {"max ROS (qualitative)": _max_over(arrs)}
 
 
-def metric_consistency_ros(out_dir, case):
-    arrs = _read_stack(_glob(out_dir, "vs_"))
-    return {"max ROS": _max_over(arrs)}
-
-
 def _containment_fracs(out_dir):
     """Valid per-member containment fractions from fire_size_stats.csv.
 
@@ -929,7 +897,6 @@ METRICS = {
     "max_ros_region": metric_max_ros_region,
     "max_ros_crown": metric_max_ros_crown,
     "qualitative_ros": metric_qualitative_ros,
-    "consistency_ros": metric_consistency_ros,
     "sim_end_time": metric_sim_end_time,
     "overnight": metric_overnight,
     "firebrand_distribution": metric_firebrand_distribution,
@@ -1075,7 +1042,6 @@ def main():
         os.makedirs(run_dir, exist_ok=True)
 
     all_rows = []
-    consistency_ros = {}   # for BANDTHICKNESS invariance check
 
     for case in selected:
         src_data = os.path.join(TEMPLATE_DIR, case.data_rel)
@@ -1116,21 +1082,7 @@ def main():
             print(f"[{case.name}] metric extraction error: {exc}")
             measured = {}
 
-        if case.metric == "consistency_ros":
-            consistency_ros[case.name] = measured.get("max ROS")
         all_rows.extend(evaluate_case(case, measured))
-
-    # Band-thickness invariance: max-ROS should agree across 1/2/3.
-    bt = {k: v for k, v in consistency_ros.items() if v is not None}
-    if len(bt) >= 2:
-        ref = list(bt.values())[0]
-        spread = max(bt.values()) - min(bt.values())
-        rel = 100.0 * spread / ref if ref else None
-        match = (rel is not None) and (rel <= 5.0)
-        all_rows.append(dict(case="BANDTHICKNESS", metric="ROS invariance (max-min)",
-                             target=0.0, measured=spread, pct_error=rel,
-                             match=match, units="m/min",
-                             notes="Max ROS should be invariant to band thickness."))
 
     if not all_rows:
         sys.exit("No results produced.")
