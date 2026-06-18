@@ -1,13 +1,6 @@
 &INPUTS
 FUELS_AND_TOPOGRAPHY_DIRECTORY = './inputs'
-ASP_FILENAME                   = 'asp'
-CBD_FILENAME                   = 'cbd'
-CBH_FILENAME                   = 'cbh'
-CC_FILENAME                    = 'cc'
-CH_FILENAME                    = 'ch'
-DEM_FILENAME                   = 'dem'
-FBFM_FILENAME                  = 'fbfm13'
-SLP_FILENAME                   = 'slp'
+LANDSCAPE_FILENAME             = 'landscape'
 ADJ_FILENAME                   = 'adj'
 PHI_FILENAME                   = 'phi'
 DT_METEOROLOGY                 = 3600.0
@@ -18,9 +11,9 @@ M1_FILENAME                    = 'm1'
 M10_FILENAME                   = 'm10'
 M100_FILENAME                  = 'm100'
 USE_CONSTANT_LH                = .TRUE.
-MLH_FILENAME                   = 'lh'
+LH_MOISTURE_CONTENT            = 60.0
 USE_CONSTANT_LW                = .TRUE.
-MLW_FILENAME                   = 'lw'
+LW_MOISTURE_CONTENT            = 90.0
 /
 
 &OUTPUTS
@@ -38,8 +31,6 @@ SIMULATION_DT    = 1.0
 TARGET_CFL       = 0.2
 SIMULATION_TSTOP = 259200.0
 USE_DIURNAL_ADJUSTMENT_FACTOR = .TRUE.
-LATITUDE 	     = 0
-LONGITUDE 		 = 0
 HOUR_OF_YEAR     = 2890
 CURRENT_YEAR     = 2025
 FORECAST_START_HOUR = 10
