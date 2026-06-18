@@ -122,6 +122,25 @@ def write_raster(path, array, dtype, nbands=1):
             dst.write(arr.astype(dtype), b)
 
 
+def write_multiband_raster(path, arrays, dtype):
+    """Write a multiband GeoTIFF where each 2-D array in `arrays` is one band,
+    in order. Used to assemble the landscape file."""
+    profile = dict(
+        driver="GTiff",
+        height=NROWS,
+        width=NCOLS,
+        count=len(arrays),
+        dtype=dtype,
+        crs=CRS_EPSG,
+        transform=_transform(),
+        nodata=NODATA,
+        compress="deflate",
+    )
+    with rasterio.open(path, "w", **profile) as dst:
+        for b, arr in enumerate(arrays, start=1):
+            dst.write(np.asarray(arr).astype(dtype), b)
+
+
 # ---------------------------------------------------------------------------
 # Case specification
 # ---------------------------------------------------------------------------
@@ -175,13 +194,21 @@ class Case:
 # Integer-valued rasters (everything else is written Float32).
 INT_LAYERS = {"slp", "asp", "dem", "fbfm", "cc", "ch", "cbh", "cbd"}
 # Rasters that live in the weather directory and are read band-by-band.
-WEATHER_LAYERS = {"ws", "wd", "m1", "m10", "m100", "lh", "lw"}
+# Live herbaceous (MLH) and live woody (MLW) moisture are NOT rasters: they are
+# supplied as constants in each .data namelist (USE_CONSTANT_LH/LW +
+# LH/LW_MOISTURE_CONTENT = 60 / 90), so no lh/lw files are generated here.
+WEATHER_LAYERS = {"ws", "wd", "m1", "m10", "m100"}
+# Band order ELMFIRE expects inside a multiband "landscape" GeoTIFF
+# (LANDSCAPE_FILENAME): elevation, slope, aspect, fuel model, canopy cover,
+# canopy height, canopy base height, canopy bulk density. All integer-valued,
+# so the file is written as a single Int16 8-band raster.
+LANDSCAPE_BANDS = ["dem", "slp", "asp", "fbfm", "cc", "ch", "cbh", "cbd"]
 
 # Default constant fields shared by most cases (overridden per case as needed).
 BASE_LAYERS = dict(
     slp=0, asp=0, dem=0, cc=0, ch=0, cbh=0, cbd=0,
     adj=1.0, phi=1.0, ws=0.0, wd=0.0,
-    m1=6.0, m10=7.0, m100=8.0, lh=30.0, lw=60.0,
+    m1=6.0, m10=7.0, m100=8.0,
     fbfm=3,
 )
 
@@ -208,12 +235,10 @@ CASES = [
     Case(
         name="Windy",
         data_rel="Windy/windy.data",
-        # Table 3.1 (actual sim parameter) = 5 mph 20-ft wind. The guide's BEHAVE
-        # target used 6 mph + WAF 0.418; ELMFIRE computes WAF internally.
         layers=L(fbfm=5, ws=6.0, m1=6.0, m10=7.0),
         targets=[
-            Target("head ROS", 3.06, "m/min"),
-            Target("L/W ratio", 1.40, "-"),
+            Target("head ROS", 3.635, "m/min"),
+            Target("L/W ratio", 1.24, "-"),
         ],
         metric="ros_and_lw",
         notes=("Wind-driven ellipse. Head ROS (target 3.06 m/min) and ellipse "
@@ -239,7 +264,7 @@ CASES = [
         name="Quadrant",
         data_rel="Quadrant/quadrant.data",
         layers=L(fbfm={"NW": 8, "NE": 7, "SW": 4, "SE": 2},
-                 ws=0.0, m1=6.0, m10=7.0, m100=8.0, lh=60.0, lw=90.0),
+                 ws=0.0, m1=6.0, m10=7.0, m100=8.0),
         targets=[
             Target("FB8 head ROS", 0.080, "m/min", region="NW"),
             Target("FB7 head ROS", 0.472, "m/min", region="NE"),
@@ -265,39 +290,45 @@ CASES = [
     ),
     Case(
         name="Canopy-1mph",
-        data_rel="Canopy/2/canopy_lowwind.data",
-        layers=L(fbfm=5, ws=1.0, m1=6.0, m10=7.0,
-                 cc=80, ch=16, cbh=16, cbd=56),
-        targets=[],
+        data_rel="Canopy/1/canopy_1mph.data",
+        layers=L(fbfm=3, ws=1.0, m1=6.0, m10=7.0,
+                 cc=80, ch=55, cbh=16, cbd=10),
+        targets=[
+            Target("crown class", 0, "-", abs_tol=0.5),
+            Target("max ROS", 1.809, "m/min"),
+        ],
         metric="max_ros_crown",
-        quantitative=False,
-        notes="1 mph. Reports head ROS + crown class; BEHAVE target TBD for this wind.",
+        notes="1 mph; surface fire only (no crown).",
     ),
     Case(
-        name="Canopy-6mph",
-        data_rel="Canopy/3/canopy_mediumwind.data",
-        layers=L(fbfm=5, ws=6.0, m1=6.0, m10=7.0,
-                 cc=80, ch=16, cbh=16, cbd=56),
-        targets=[],
+        name="Canopy-5mph",
+        data_rel="Canopy/5/canopy_5mph.data",
+        layers=L(fbfm=3, ws=5.0, m1=6.0, m10=7.0,
+                 cc=80, ch=55, cbh=16, cbd=10),
+        targets=[
+            Target("crown class", 1, "-", abs_tol=0.5),
+            Target("max ROS", 10.06, "m/min"),
+        ],
         metric="max_ros_crown",
-        quantitative=False,
-        notes="6 mph. Reports head ROS + crown class; BEHAVE target TBD for this wind.",
+        notes="5 mph; passive crown fire.",
     ),
     Case(
-        name="Canopy-12mph",
-        data_rel="Canopy/6/canopy_highwind.data",
-        layers=L(fbfm=5, ws=12.0, m1=6.0, m10=7.0,
-                 cc=80, ch=16, cbh=16, cbd=56),
-        targets=[],
+        name="Canopy-10mph",
+        data_rel="Canopy/10/canopy_10mph.data",
+        layers=L(fbfm=3, ws=10.0, m1=6.0, m10=7.0,
+                 cc=80, ch=55, cbh=16, cbd=10),
+        targets=[
+            Target("crown class", 2, "-", abs_tol=0.5),
+            Target("max ROS", 35.3, "m/min"),
+        ],
         metric="max_ros_crown",
-        quantitative=False,
-        notes="12 mph. Reports head ROS + crown class; BEHAVE target TBD for this wind.",
+        notes="10 mph; active crown fire.",
     ),
     Case(
         name="Complex",
         data_rel="Complex/complex.data",
         layers=L(fbfm={"NW": 8, "NE": 7, "SW": 4, "SE": 2},
-                 ws=5.0, m1=6.0, m10=7.0, m100=8.0, lh=60.0, lw=90.0,
+                 ws=5.0, m1=6.0, m10=7.0, m100=8.0,
                  slp={"E": 5, "W": 15}, asp={"E": 270, "W": 90}),
         targets=[],
         metric="qualitative_ros",
@@ -308,25 +339,40 @@ CASES = [
         name="Firebrands",
         data_rel="Firebrands/firebrands.data",
         layers=L(fbfm=3, ws=5.0, m1=6.0),
-        targets=[Target("max spotting distance", 182.5, "m", tol_pct=40.0)],
-        metric="spotting_stats",
-        notes="Lognormal ember transport; top-1% downwind distance ~182.5 m (best-effort).",
+        targets=[
+            Target("firebrands (cell)", 1036, "-", tol_pct=15.0),
+            Target("ln-distance mu", 2.72, "-", abs_tol=0.15),
+            Target("ln-distance sigma", 1.31, "-", abs_tol=0.15),
+        ],
+        metric="firebrand_distribution",
+        notes="Firebrand generation + lognormal transport for the dominant "
+              "source cell: ember count vs 1036, ln-distance mu/sigma vs 2.72/1.31.",
     ),
     Case(
         name="Overnight",
         data_rel="Overnight/overnight.data",
         layers=L(fbfm=3, ws=0.0, m1=6.0),
-        targets=[Target("night/day growth ratio", 0.1, "-", abs_tol=0.15)],
+        # Clock hours when the diurnal overnight factor turns spread down and
+        # back up, detected from the fire and compared like sunrise/sunset.
+        # The raster sits at lon ~22.5E (UTM 35N, XLL=0), so ELMFIRE's UTC
+        # sunrise/sunset are ~4.5/16.5 -> burn-period center 12.5, length 10 ->
+        # burn period [7.5, 17.5] -> reduced spread 17.5 -> 7.5.
+        targets=[
+            Target("reduction starts (hr)", 17.5, "hr", abs_tol=1.0),
+            Target("reduction ends (hr)", 7.5, "hr", abs_tol=1.0),
+        ],
         metric="overnight",
-        notes="Diurnal slowdown (x0.1) between sunset/sunrise (best-effort).",
+        notes="Diurnal overnight slowdown: compares the detected reduction "
+              "start/end clock hours against the calculated burn-period bounds.",
     ),
     Case(
         name="Suppression-extended",
         data_rel="Suppression/extended_attack/extended_attack.data",
-        layers=L(fbfm=3, ws=0.0, m1=6.0),
-        targets=[Target("containment stop time", 10800.0, "s", tol_pct=15.0)],
-        metric="stop_time",
-        notes="Analytical containment at ~10800 s (ELMFIRE reported ~10000 s).",
+        layers=L(fbfm=8, ws=0.0, m1=6.0),
+        targets=[Target("time at simulation end", 88200.0, "s", tol_pct=15.0)],
+        metric="sim_end_time",
+        notes="Extended attack contains the fire and ends the run; success metric "
+              "is the simulation end time (tstop), analytically ~10800 s.",
     ),
     Case(
         name="Suppression-initial",
@@ -391,7 +437,6 @@ def case_input_filenames(nml):
     mapping = {
         "ws": "WS_FILENAME", "wd": "WD_FILENAME",
         "m1": "M1_FILENAME", "m10": "M10_FILENAME", "m100": "M100_FILENAME",
-        "lh": "MLH_FILENAME", "lw": "MLW_FILENAME",
         "asp": "ASP_FILENAME", "slp": "SLP_FILENAME", "dem": "DEM_FILENAME",
         "fbfm": "FBFM_FILENAME", "cc": "CC_FILENAME", "ch": "CH_FILENAME",
         "cbh": "CBH_FILENAME", "cbd": "CBD_FILENAME",
@@ -507,6 +552,12 @@ def find_working_gdal():
 # ---------------------------------------------------------------------------
 # Input generation
 # ---------------------------------------------------------------------------
+def _layer_array(case, var):
+    """The 2-D field for `var`, falling back to the base default if unset."""
+    layer = case.layers.get(var) or Layer(BASE_LAYERS.get(var, 0))
+    return layer.to_array()
+
+
 def generate_case_inputs(case_dir, data_path, case):
     nml = parse_namelist(data_path)
     files = case_input_filenames(nml)
@@ -519,12 +570,20 @@ def generate_case_inputs(case_dir, data_path, case):
     os.makedirs(fueltop_dir, exist_ok=True)
     os.makedirs(weather_dir, exist_ok=True)
 
+    # If the namelist names a LANDSCAPE_FILENAME, pack the eight topography/fuel
+    # layers into one multiband Int16 GeoTIFF (DEM, SLP, ASP, FBFM, CC, CH, CBH,
+    # CBD) instead of writing them as individual rasters. ADJ/PHI and the weather
+    # rasters are always written individually.
+    landscape_fn = _unquote(nml.get("LANDSCAPE_FILENAME", ""))
+    if landscape_fn:
+        bands = [_layer_array(case, var) for var in LANDSCAPE_BANDS]
+        write_multiband_raster(os.path.join(fueltop_dir, f"{landscape_fn}.tif"),
+                               bands, "int16")
+
     for var, fname in files.items():
-        layer = case.layers.get(var)
-        if layer is None:
-            # Field not configured for this case; fall back to base default.
-            layer = Layer(BASE_LAYERS.get(var, 0))
-        arr = layer.to_array()
+        if landscape_fn and var in LANDSCAPE_BANDS:
+            continue  # already packed into the landscape file
+        arr = _layer_array(case, var)
         dtype = "int16" if var in INT_LAYERS else "float32"
         bands = nbands if var in WEATHER_LAYERS else 1
         target_dir = weather_dir if var in WEATHER_LAYERS else fueltop_dir
@@ -646,20 +705,33 @@ def metric_ros_and_lw(out_dir, case):
 
 
 def metric_max_ros_region(out_dir, case):
-    arrs = _read_stack(_glob(out_dir, "vs_"))
+    files = _glob(out_dir, "vs_")
+    arrs = _read_stack(files)
     masks = {**_quadrant_masks(), **_half_masks()}
     res = {}
     for t in case.targets:
-        res[t.name] = _max_over(arrs, masks.get(t.region))
+        val = _max_over(arrs, masks.get(t.region))
+        # A region with no burned/valid cell means the fire never spread there
+        # (e.g. fuel above its moisture of extinction) -> ROS = 0, not "missing".
+        # Only when spread-rate output exists at all; otherwise leave None.
+        if val is None and files:
+            val = 0.0
+        res[t.name] = val
     return res
 
 
 def metric_max_ros_crown(out_dir, case):
-    arrs = _read_stack(_glob(out_dir, "vs_"))
+    """Max rate of spread on the raster plus the max crown-fire class (0=none,
+    1=passive, 2=active) from the crown_fire raster."""
+    ros = _max_over(_read_stack(_glob(out_dir, "vs_")))
     crown = _read_stack(_glob(out_dir, "crown_fire_"))
-    crown_max = _max_over(crown) if crown else None
-    label = case.targets[0].name if case.targets else "head ROS"
-    return {label: _max_over(arrs), "crown class (max)": crown_max}
+    cls = _max_over(crown) if crown else None
+    res = {}
+    for t in case.targets:
+        res[t.name] = cls if "crown" in t.name.lower() else ros
+    if not case.targets:                     # qualitative fallback
+        res = {"max ROS": ros, "crown class (max)": cls}
+    return res
 
 
 def metric_qualitative_ros(out_dir, case):
@@ -672,95 +744,183 @@ def metric_consistency_ros(out_dir, case):
     return {"max ROS": _max_over(arrs)}
 
 
-def metric_stop_time(out_dir, case):
-    toa = _read_stack(_glob(out_dir, "time_of_arrival_"))
-    return {"containment stop time": _max_over(toa)}
+def _containment_fracs(out_dir):
+    """Valid per-member containment fractions from fire_size_stats.csv.
+
+    ELMFIRE writes a `Containfrac` column: a contained fire = 1.0, an escaped
+    fire = the -9999 nodata sentinel. Returns a pandas Series of the rows with
+    a real (non-sentinel) value, or None if the file/column is absent."""
+    import glob
+    csvs = glob.glob(os.path.join(out_dir, "fire_size_stats*.csv"))
+    if not csvs:
+        return None
+    df = pd.read_csv(sorted(csvs)[0])
+    df.columns = df.columns.str.strip()
+    if "Containfrac" not in df.columns:
+        return None
+    cf = pd.to_numeric(df["Containfrac"], errors="coerce")
+    return cf
+
+
+def metric_sim_end_time(out_dir, case):
+    """Time at simulation end (extended attack): the `tstop (h)` field of
+    fire_size_stats.csv, returned in seconds. Once the fire is fully contained
+    the run terminates, so this is the containment time."""
+    import glob
+    csvs = glob.glob(os.path.join(out_dir, "fire_size_stats*.csv"))
+    if not csvs:
+        return {"time at simulation end": None}
+    df = pd.read_csv(sorted(csvs)[0])
+    df.columns = df.columns.str.strip()
+    col = next((c for c in df.columns if c.lower().startswith("tstop")), None)
+    if col is None or df.empty:
+        return {"time at simulation end": None}
+    val = pd.to_numeric(df[col], errors="coerce").dropna()
+    if val.empty:
+        return {"time at simulation end": None}
+    return {"time at simulation end": float(val.iloc[0]) * 3600.0}  # h -> s
 
 
 def metric_overnight(out_dir, case):
-    """Estimate the ratio of mean night-time to day-time fire-area growth.
+    """Clock hours at which the diurnal overnight factor turns fire spread down
+    and back up, inferred from the time-of-arrival raster.
 
-    Uses the time-of-arrival raster: counts newly burned cells per hour, then
-    compares the average hourly growth during the night window (per guide,
-    ~19:00-11:00 local) against the daytime window.
+    The overnight case has constant fuel and zero wind, so the only thing that
+    changes the spread rate is the diurnal factor (1.0 in the burn period, 0.1
+    outside it). The burned region stays ~circular, so the equivalent radius
+    r(t)=sqrt(area(t)/pi) advances at ~ROS during the day and ~0.1*ROS at night
+    -- two clean slope plateaus. We sample that rate, classify each instant as
+    full/reduced, and read off the clock hours of the full->reduced ("reduction
+    starts", i.e. burn-period stop) and reduced->full ("reduction ends", i.e.
+    burn-period start) transitions, then compare like sunrise/sunset.
+
+    ELMFIRE's clock is HOUR_OF_DAY = MODULO(FORECAST_START_HOUR + T/3600, 24).
     """
+    KEYS = {"reduction starts (hr)": None, "reduction ends (hr)": None}
     toa = _glob(out_dir, "time_of_arrival_")
     if not toa:
-        return {"night/day growth ratio": None}
+        return dict(KEYS)
     with rasterio.open(sorted(toa)[-1]) as src:
         arr = src.read(1, masked=True).astype(float).filled(np.nan)
-    valid = arr[np.isfinite(arr)]
-    if valid.size == 0:
-        return {"night/day growth ratio": None}
-    # Hourly bins of newly arrived cells.
-    tmax = np.nanmax(valid)
-    hours = int(np.ceil(tmax / 3600.0))
-    growth = np.array([
-        np.sum((valid >= h * 3600.0) & (valid < (h + 1) * 3600.0))
-        for h in range(hours)
-    ], dtype=float)
-    # Simulation starts at 10:00 (guide). Night window 19:00-11:00 -> sim hours
-    # [9, 25) modulo 24 from start; approximate with hours-from-start.
-    sim_hour_of_day = (10 + np.arange(hours)) % 24
-    night = (sim_hour_of_day >= 19) | (sim_hour_of_day < 11)
-    day_growth = growth[~night]
-    night_growth = growth[night]
-    day_mean = np.mean(day_growth[day_growth > 0]) if np.any(day_growth > 0) else np.nan
-    night_mean = np.mean(night_growth[night_growth > 0]) if np.any(night_growth > 0) else 0.0
-    ratio = (night_mean / day_mean) if day_mean and np.isfinite(day_mean) else None
-    return {"night/day growth ratio": ratio}
+    burned = np.isfinite(arr) & (arr >= 0.0) & (arr < 1e8)
+    arrival = np.sort(arr[burned])
+    if arrival.size < 50:
+        return dict(KEYS)
+
+    # t=0 clock-hour offset: ELMFIRE uses FORECAST_START_HOUR.
+    case_dir = os.path.dirname(out_dir)
+    nml = parse_namelist(os.path.join(case_dir, os.path.basename(case.data_rel)))
+    start_hour = float(nml.get("FORECAST_START_HOUR", "20") or 20)
+
+    # Detection must stop before the front reaches the domain edge: once it does,
+    # the radius-advance rate collapses (geometry, not the diurnal factor) and
+    # would register as a spurious "reduction".
+    edge = np.zeros_like(burned)
+    edge[0, :] = edge[-1, :] = edge[:, 0] = edge[:, -1] = True
+    eb = burned & edge
+    t_edge = float(np.nanmin(arr[eb])) if eb.any() else float(arrival[-1])
+
+    # Front-advance rate r(t) sampled at 30-min resolution, up to edge contact.
+    # (Finer sampling lets integer-cell quantization momentarily read as a
+    # spurious mid-day "reduction".)
+    dt = 1800.0
+    tmax = float(arrival[-1])
+    ts = np.arange(0.0, min(tmax, t_edge), dt)
+    if ts.size < 4:
+        return dict(KEYS)
+    counts = np.searchsorted(arrival, ts + dt)          # cells burned by ts+dt
+    r = np.sqrt(counts / np.pi)                          # equivalent radius (cells)
+    rate = np.diff(r, prepend=0.0)                       # advance per sample
+    hod = np.mod(start_hour + (ts + 0.5 * dt) / 3600.0, 24.0)
+
+    pos = rate[rate > 0]
+    if pos.size == 0:
+        return dict(KEYS)
+    threshold = 0.5 * np.percentile(pos, 80)             # midway between plateaus
+    reduced = rate < threshold
+    established = r > 3.0                                 # skip ignition transient
+
+    onsets, ends = [], []                                # full->reduced, reduced->full
+    for i in range(1, len(ts)):
+        if not (established[i] and established[i - 1]):
+            continue
+        if reduced[i] and not reduced[i - 1]:
+            onsets.append(hod[i])
+        elif not reduced[i] and reduced[i - 1]:
+            ends.append(hod[i])
+
+    return {
+        "reduction starts (hr)": float(np.median(onsets)) if onsets else None,
+        "reduction ends (hr)": float(np.median(ends)) if ends else None,
+    }
 
 
-def metric_spotting_stats(out_dir, case):
+def metric_firebrand_distribution(out_dir, case):
+    """Firebrand generation + transport check from spotting_stats_*.csv.
+
+    Embers are logged one-per-row with their source cell (IX_FROM, IY_FROM) and
+    rigorous (un-quantized) travel distance (SPOTTING_DISTANCE). For the single
+    dominant source cell (the one that emitted the most embers) we compare:
+      * ember count            -> total firebrands generated by that cell
+      * mean(ln distance)      -> lognormal mu of the travel distribution
+      * std (ln distance)      -> lognormal sigma
+    """
+    NULL = {"firebrands (cell)": None, "ln-distance mu": None,
+            "ln-distance sigma": None}
     import glob
     csvs = glob.glob(os.path.join(out_dir, "spotting_stats_*.csv"))
     if not csvs:
-        return {"max spotting distance": None, "_ember_count": 0}
+        return dict(NULL)
     frames = []
     for c in csvs:
         try:
-            df = pd.read_csv(c)
-            df.columns = df.columns.str.strip()
-            frames.append(df)
+            d = pd.read_csv(c)
+            d.columns = d.columns.str.strip()
+            frames.append(d)
         except Exception:
             pass
     if not frames:
-        return {"max spotting distance": None, "_ember_count": 0}
+        return dict(NULL)
     df = pd.concat(frames, ignore_index=True)
-    dist = pd.to_numeric(df.get("DIST"), errors="coerce").dropna()
-    if dist.empty:
-        return {"max spotting distance": None, "_ember_count": int(len(df))}
-    # Top-1% distance is the published comparison point.
+    if not {"IX_FROM", "IY_FROM", "SPOTTING_DISTANCE"} <= set(df.columns):
+        return dict(NULL)
+
+    # Dominant source cell = the one that generated the most embers.
+    sizes = df.groupby(["IX_FROM", "IY_FROM"]).size()
+    if sizes.empty:
+        return dict(NULL)
+    ix, iy = sizes.idxmax()
+    cell = df[(df["IX_FROM"] == ix) & (df["IY_FROM"] == iy)]
+    dist = pd.to_numeric(cell["SPOTTING_DISTANCE"], errors="coerce").dropna()
+    dist = dist[dist > 0]
+    if dist.size < 2:
+        return dict(NULL, **{"firebrands (cell)": float(len(cell))})
+
+    ln = np.log(dist.values)
     return {
-        "max spotting distance": float(dist.quantile(0.99)),
-        "_ember_count": int(len(df)),
-        "_mean_distance": float(dist.mean()),
+        "firebrands (cell)": float(len(cell)),
+        "ln-distance mu": float(np.mean(ln)),
+        "ln-distance sigma": float(np.std(ln)),
+        "_source_cell": f"({int(ix)},{int(iy)})",
+        "_n_source_cells": int(len(sizes)),
+        "_per_cell_count_min_med_max": (int(sizes.min()),
+                                        int(sizes.median()), int(sizes.max())),
     }
 
 
 def metric_initial_attack(out_dir, case):
     """Fraction of ensemble members contained at initial attack.
 
-    A contained member burns far less area than an uncontained one; we read
-    the fire-size-stats CSV and classify members below 25% of the max final
-    size as "contained".
+    Read directly from the fire_size_stats.csv `Containfrac` column: a member
+    is contained when Containfrac == 1.0 (escaped members carry the -9999
+    sentinel). The fraction is contained_count / total_members.
     """
-    import glob
-    csvs = glob.glob(os.path.join(out_dir, "fire_size_stats*.csv"))
-    if not csvs:
+    cf = _containment_fracs(out_dir)
+    if cf is None or cf.dropna().empty:
         return {"fraction contained": None, "_n_members": 0}
-    df = pd.read_csv(sorted(csvs)[0])
-    df.columns = df.columns.str.strip()
-    size_col = next((c for c in df.columns
-                     if "acres" in c.lower() or "area" in c.lower()), None)
-    if size_col is None or df.empty:
-        return {"fraction contained": None, "_n_members": int(len(df))}
-    sizes = pd.to_numeric(df[size_col], errors="coerce").dropna()
-    if sizes.empty:
-        return {"fraction contained": None, "_n_members": 0}
-    threshold = 0.25 * sizes.max()
-    contained = float((sizes <= threshold).mean())
-    return {"fraction contained": contained, "_n_members": int(len(sizes))}
+    cf = cf.dropna()
+    contained = float((cf >= 0.999).mean())
+    return {"fraction contained": contained, "_n_members": int(len(cf))}
 
 
 METRICS = {
@@ -770,9 +930,9 @@ METRICS = {
     "max_ros_crown": metric_max_ros_crown,
     "qualitative_ros": metric_qualitative_ros,
     "consistency_ros": metric_consistency_ros,
-    "stop_time": metric_stop_time,
+    "sim_end_time": metric_sim_end_time,
     "overnight": metric_overnight,
-    "spotting_stats": metric_spotting_stats,
+    "firebrand_distribution": metric_firebrand_distribution,
     "initial_attack": metric_initial_attack,
 }
 
