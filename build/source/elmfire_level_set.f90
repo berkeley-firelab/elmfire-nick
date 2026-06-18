@@ -529,10 +529,6 @@ DO WHILE (T .le. totalDuration)
             CALL CFFDRS_SPREAD_RATE(LIST_BURNED, C, daily_bui(DAY_OF_SIM))
          ENDIF
 
-         ! Adjust spread rate for passive and active crown fire (Cruz):
-         ! Note that this adjusts spread rate in not only burned cells but nearby cells
-         ! that are "about to burn"
-         
          DO ISTEP=1,2
             ! Calcaulate components of normal vector
             CALL CALC_NORMAL_VECTORS (ISTEP, HALFRCELLSIZE)
@@ -540,6 +536,7 @@ DO WHILE (T .le. totalDuration)
             ! Calculate x and y components of velocity from elliptical spread dimensions
             CALL UX_AND_UY_ELLIPTICAL(LIST_BURNED, 1.0, ISTEP, DT)
             
+            !Apply canopy fire and other parts that depend on directional ROS (instead of max head ros)
             call UPDATE_LOCAL_SPREAD_PROPERTIES(LIST_BURNED, C)
          ENDDO
          
@@ -1371,15 +1368,15 @@ DO WHILE (T .le. totalDuration)
          ELSE
             SUPP(IT_EA)%SDIBAR = 0
          ENDIF
-         IF ( ABS(SUPP(IT_EA)%DADT) .LT. 1E-6 ) THEN
-            SUPP(IT_EA)%DC_PER_DAY = 0.
+         !IF ( ABS(SUPP(IT_EA)%DADT) .LT. 1E-6 ) THEN
+         !   SUPP(IT_EA)%DC_PER_DAY = 0.
+         !ELSE
+         IF (USE_SDI_LOG_FUNCTION) THEN
+            SUPP(IT_EA)%DC_PER_DAY = 0.01 * DIURNAL_ADJUSTMENT_FACTOR * MAX_CONTAINMENT_PER_DAY * (1. - LOG10(SUPP(IT_EA)%DADT) / LOG10(AREA_NO_CONTAINMENT_CHANGE) )
          ELSE
-            IF (USE_SDI_LOG_FUNCTION) THEN
-               SUPP(IT_EA)%DC_PER_DAY = 0.01 * DIURNAL_ADJUSTMENT_FACTOR * MAX_CONTAINMENT_PER_DAY * (1. - LOG10(SUPP(IT_EA)%DADT) / LOG10(AREA_NO_CONTAINMENT_CHANGE) )
-            ELSE
-               SUPP(IT_EA)%DC_PER_DAY = 0.01 * DIURNAL_ADJUSTMENT_FACTOR * MAX_CONTAINMENT_PER_DAY * (1. - SUPP(IT_EA)%DADT        / AREA_NO_CONTAINMENT_CHANGE       )
-            ENDIF
+            SUPP(IT_EA)%DC_PER_DAY = 0.01 * DIURNAL_ADJUSTMENT_FACTOR * MAX_CONTAINMENT_PER_DAY * (1. - SUPP(IT_EA)%DADT        / AREA_NO_CONTAINMENT_CHANGE       )
          ENDIF
+         !ENDIF
          IF (SUPP(IT_EA)%DC_PER_DAY .GT. 0.) THEN
             SUPP(IT_EA)%DC_PER_DAY = SUPP(IT_EA)%DC_PER_DAY * EXP(-B_SDI * SUPP(IT_EA)%SDIBAR)
          ELSE
@@ -1389,6 +1386,8 @@ DO WHILE (T .le. totalDuration)
          SUPP(IT_EA)%TARGET_CONTAINMENT = SUPP(IT_EA-1)%TARGET_CONTAINMENT  + SUPP(IT_EA)%DC_PER_DAY * DT_DAY
          IF (SUPP(IT_EA)%TARGET_CONTAINMENT .GT. 1. ) SUPP(IT_EA)%TARGET_CONTAINMENT = 1.
          IF (SUPP(IT_EA)%TARGET_CONTAINMENT .LT. 0. ) SUPP(IT_EA)%TARGET_CONTAINMENT = 0.
+
+         print *, T, ACRES, SUPP(IT_EA)%TARGET_CONTAINMENT, SUPP(IT_EA)%DC_PER_DAY, SUPP(IT_EA)%DADT
          
          CALL CENTROID(IT_EA)
          CALL CONTAINMENT(IT_EA,T)
@@ -2143,7 +2142,7 @@ IF (ISTEP .EQ. 1) THEN
                ! Determine effective mid flame wind speed (not needed for CFFDRS)
                WSMFEFF = FUEL_MODEL_TABLE_2D(C%IFBFM,30)%WSMFEFF_COEFF * PHIMAG ** FUEL_MODEL_TABLE_2D(C%IFBFM,30)%B_COEFF_INVERSE
                IF (C%FLIN_SURFACE .LT. C%CRITICAL_FLIN .OR. CROWN_FIRE_MODEL .LE. 0) WSMFEFF = MIN(WSMFEFF, 0.9*KWPM2_TO_BTUPFT2MIN*C%IR)
-               C%LOW = MIN( 0.936*EXP(0.2566*WSMFEFF*WSMFEFF_LOW_MULT) + 0.461*EXP(-0.1548*WSMFEFF*WSMFEFF_LOW_MULT) - 0.397, MAX_LOW)
+               C%LOW = MIN( 0.936*EXP(0.1147*WSMFEFF*WSMFEFF_LOW_MULT) + 0.461*EXP(-0.0692*WSMFEFF*WSMFEFF_LOW_MULT) - 0.397, MAX_LOW)
             endif
             
             IF (C%LOW .GT. 0.999 .AND. C%LOW .LT. 1.001) THEN
@@ -2572,7 +2571,7 @@ DO
 
 ! Remove stale vegetative WUI cells after their transient HRR has ended:
    ! TOTAL_HEAT_FLUX = TRANSIENT_DFC_WUI(IXLOC,IYLOC)+TRANSIENT_RADIATION_WUI(IXLOC,IYLOC)
-   ! IF (TOTAL_HEAT_FLUX .LE. CRITICAL_HF_WUI .AND. TIME_OF_ARRIVAL(IXLOC,IYLOC) .GT. 0. .AND. T-TIME_OF_ARRIVAL(IXLOC,IYLOC) .GT. 3000. ) THEN
+   ! IF (TOTAL_HEAT_FLUX .LE. CRITICL_HF_WUI .AND. TIME_OF_ARRIVAL(IXLOC,IYLOC) .GT. 0. .AND. T-TIME_OF_ARRIVAL(IXLOC,IYLOC) .GT. 3000. ) THEN
    IF (C%IFBFM .NE. 91 .AND. C%HRR_TRANSIENT .LE. 0. .AND. &
        TIME_OF_ARRIVAL(IXLOC, IYLOC) .GT. 0. .AND. T-TIME_OF_ARRIVAL(IXLOC, IYLOC) .GT. 5000. ) THEN
       TAGGED_WUI    (IXLOC,IYLOC) = .FALSE.

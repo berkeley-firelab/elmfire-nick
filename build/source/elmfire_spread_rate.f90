@@ -21,13 +21,10 @@ TYPE (NODE), POINTER, INTENT(INOUT) :: DUMMY_NODE
 !Local variables:
 INTEGER :: I, ILH, NUM_NODES, IX, IY
 REAL :: WS_LIMIT, WSMF_LIMITED, PHIS_MAX, MOMEX2, MOMEX3, MEX_LIVE, M_DEAD, M_LIVE,ETAM_DEAD, ETAM_LIVE, &
-        RHOBEPSQIG_DEAD, RHOBEPSQIG_LIVE, RHOBEPSQIG, IR_DEAD, IR_LIVE, MOMEX, SUM_MPRIMENUMER, CAC, CBD_EFF, CROS, CROSA, R0, &
-        WS10KMPH
+        RHOBEPSQIG_DEAD, RHOBEPSQIG_LIVE, RHOBEPSQIG, IR_DEAD, IR_LIVE, MOMEX, SUM_MPRIMENUMER
 REAL, DIMENSION(1:6) :: M, QIG, FEPSQIG, FMC, FMEX, MPRIMENUMER
 TYPE (FUEL_MODEL_TABLE_TYPE) :: FMT
 TYPE(NODE), POINTER :: C
-REAL, PARAMETER :: BTUPFT2MIN_TO_KWPM2 = 1.055/(60. * 0.3048 * 0.3048)
-REAL, PARAMETER :: MPH_20FT_TO_KMPH_10M = 1.609 / 0.87 
 
 IF (ASSOCIATED (DUMMY_NODE) ) THEN
    NUM_NODES = 1
@@ -127,35 +124,6 @@ DO I = 1, NUM_NODES
    C%HPUA_SURFACE = C%IR * FMT%TR * 60. ! kJ/m2
    C%FLIN_DMS_SURFACE = FMT%TR * C%IR * C%VELOCITY_DMS_SURFACE * 0.3048 ! kW/m
    
-! Crown fire   
-   IF (C%VS0 .GT. 0. .AND. CBD%R4(IX,IY,1) .GT. 1E-3 .AND. CC%R4(IX,IY,1) .GT. 1E-3) THEN   
-      
-      CALL CROWN_CRITICAL_FLIN(C)
-
-      CROS = 0.
-      CBD_EFF  = MAX(CBD%R4(IX,IY,1) + PERTURB_CBD, 0.01)
-      WS10KMPH = C%WS20_NOW * MPH_20FT_TO_KMPH_10M
-      CROSA    = CROWN_FIRE_ADJ * 11.02 * WS10KMPH**0.9 * CBD_EFF**0.19 * EXP(-0.17*100.0*C%M1) / 0.3048 ! ft / min
-      CROSA    = MIN(CROSA,CROWN_FIRE_SPREAD_RATE_LIMIT) ! ft/min
-      R0       = (3.0 / CBD_EFF) / 0.3048 !ft/min
-      CAC      = CROSA / R0
-      IF (CAC .GT. 1) THEN !Active crown fire
-         IF (CC%R4(IX,IY,1) .GE. CRITICAL_CANOPY_COVER) THEN 
-            C%CROWN_FIRE = 2
-            CROS = CROSA
-            C%PHIW_CROWN = MIN(MAX(CROS / MAX(C%VS0, 0.001) - 1.0, 0.0), 200.0)
-         ELSE
-            C%CROWN_FIRE = 1
-         ENDIF
-      ELSE ! Passive crown fire
-         C%CROWN_FIRE = 1
-         IF (CC%R4(IX,IY,1) .GE. CRITICAL_CANOPY_COVER) THEN
-            CROS = CROSA * EXP(-CAC)
-            C%PHIW_CROWN = MIN(MAX(CROS / MAX(C%VS0,0.001) - 1.0, 0.0), 200.0)
-         ENDIF
-      ENDIF
-   endif
-
    C => C%NEXT
 ENDDO
 
@@ -333,7 +301,7 @@ TYPE (NODE), POINTER, INTENT(INOUT) :: DUMMY_NODE
 
 TYPE(NODE), POINTER :: C
 INTEGER :: I, NUM_NODES, IX, IY, RSO
-REAL :: FME, RSC
+REAL :: FME, RSC, CROS, CBD_EFF, WS10KMPH, CROSA, R0, CAC
 
 IF (ASSOCIATED (DUMMY_NODE) ) THEN
    NUM_NODES = 1
@@ -346,10 +314,22 @@ ENDIF
 DO I = 1, NUM_NODES
    IX = C%IX
    IY = C%IY
-   if (trim(SURFACE_SPREAD_MODEL) .eq. "CFFDRS") then
-      IF (C%VS0 .GT. 0. .AND. CBD%R4(IX,IY,1) .GT. 1E-3 .AND. CC%R4(IX,IY,1) .GT. 1E-3) THEN   
-         
-         CALL CROWN_CRITICAL_FLIN(C)
+
+   if (C%IFBFM .eq. 6 .and. C%CROWN_FIRE .gt. 0) then ! C-6 special condition 
+      FME = 1000*((1.5-0.00275*C%FMC)**4.0)/(460+(25.9*C%FMC))
+      RSC = 60*(1-exp(-0.0497*C%ISI))*FME/0.778
+      C%VELOCITY = C%VELOCITY + C%CFB*(RSC - C%VELOCITY/3.28) * 3.28 !ft/min
+   endif
+
+   if (trim(SURFACE_SPREAD_MODEL) .eq. "CFFDRS") C%FLIN_SURFACE = 300 * (C%SFC + C%CFC) * C%VELOCITY / 3.28
+
+   CALL CROWN_CRITICAL_FLIN(C)
+
+   if (C%FLIN_SURFACE .lt. C%CRITICAL_FLIN .or. CROWN_FIRE_MODEL .le. 0) then 
+      C%CROWN_FIRE = 0
+      C%FLIN_CANOPY = 0
+   else IF (C%VS0 .GT. 0. .AND. CBD%R4(IX,IY,1) .GT. 1E-3 .AND. CC%R4(IX,IY,1) .GT. 1E-3) THEN   
+      if (trim(SURFACE_SPREAD_MODEL) .eq. "CFFDRS") then
          RSO = C%CRITICAL_FLIN /(300*C%SFC)
          C%CFB = MAX(0.0,1-exp(-0.23*(C%VELOCITY/3.28-RSO)))
          
@@ -365,25 +345,33 @@ DO I = 1, NUM_NODES
          ELSE
             C%CFC = FUEL_MODEL_TABLE_FBP(C%IFBFM)%CFL*C%CFB
          ENDIF
+
+      else if (trim(SURFACE_SPREAD_MODEL) .eq. "ROTHERMEL") then 
+         C%FLIN_CANOPY = C%HPUA_CANOPY * C%VELOCITY * 5.08E-3
+         CROS = 0.
+         CBD_EFF  = MAX(CBD%R4(IX,IY,1) + PERTURB_CBD, 0.01)
+         WS10KMPH = C%WS20_NOW * MPH_20FT_TO_KMPH_10M
+         CROSA    = CROWN_FIRE_ADJ * 11.02 * WS10KMPH**0.9 * CBD_EFF**0.19 * EXP(-0.17*100.0*C%M1) / 0.3048 ! ft / min
+         CROSA    = MIN(CROSA,CROWN_FIRE_SPREAD_RATE_LIMIT) ! ft/min
+         R0       = (3.0 / CBD_EFF) / 0.3048 !ft/min
+         CAC      = CROSA / R0
+         IF (CAC .GT. 1) THEN !Active crown fire
+            IF (CC%R4(IX,IY,1) .GE. CRITICAL_CANOPY_COVER) THEN 
+               C%CROWN_FIRE = 2
+               CROS = CROSA
+               C%PHIW_CROWN = MIN(MAX(CROS / MAX(C%VS0, 0.001) - 1.0, 0.0), 200.0)
+            ELSE
+               C%CROWN_FIRE = 1
+            ENDIF
+         ELSE ! Passive crown fire
+            C%CROWN_FIRE = 1
+            IF (CC%R4(IX,IY,1) .GE. CRITICAL_CANOPY_COVER) THEN
+               CROS = CROSA * EXP(-CAC)
+               C%PHIW_CROWN = MIN(MAX(CROS / MAX(C%VS0,0.001) - 1.0, 0.0), 200.0)
+            ENDIF
+         ENDIF
       endif
-      if (C%IFBFM .eq. 6 .and. C%CROWN_FIRE .gt. 0) then ! C-6 special condition 
-         FME = 1000*((1.5-0.00275*C%FMC)**4.0)/(460+(25.9*C%FMC))
-         RSC = 60*(1-exp(-0.0497*C%ISI))*FME/0.778
-         C%VELOCITY = C%VELOCITY + C%CFB*(RSC - C%VELOCITY/3.28) * 3.28 !ft/min
-      endif
-      ! print *, C%SFC, C%CFC, C%CFB, C%VELOCITY / 3.28
    endif
-   
-   if (trim(SURFACE_SPREAD_MODEL) .eq. "CFFDRS") C%FLIN_SURFACE = 300 * (C%SFC + C%CFC) * C%VELOCITY / 3.28
-   
-   
-   if (C%FLIN_SURFACE .lt. C%CRITICAL_FLIN) then 
-      C%CROWN_FIRE = 0
-      C%FLIN_CANOPY = 0
-   else
-      if (trim(SURFACE_SPREAD_MODEL) .eq. "ROTHERMEL") C%FLIN_CANOPY = C%HPUA_CANOPY * C%VELOCITY * 5.08E-3
-   endif
-   ! print *, C%FLIN_SURFACE, C%FLIN_CANOPY
 
    C%FLAME_LENGTH = (0.0775 / 0.3048) * (C%FLIN_SURFACE + C%FLIN_CANOPY) ** 0.46
    C%HRRPUA = (C%FLIN_SURFACE + C%FLIN_CANOPY) / ASP%CELLSIZE
@@ -921,9 +909,9 @@ DO IY=1,NY
 DO IX=1,NX 
    IF (FBFM%I2(IX,IY,1) .NE. 91) CYCLE
    IF (TIME_OF_ARRIVAL(IX,IY) .LT. 0.) CYCLE
-   ! CRITICAL_HF_WUI is the critical heat flux below which the fuel is considered to extinguish. This value is subject to changes and should be calibrated with real fire data.
+   ! CRITICL_HF_WUI is the critical heat flux below which the fuel is considered to extinguish. This value is subject to changes and should be calibrated with real fire data.
    TOTAL_HEAT_FLUX = TRANSIENT_DFC_WUI(IX,IY)+TRANSIENT_RADIATION_WUI(IX,IY)
-   IF (TOTAL_HEAT_FLUX .LE. CRITICAL_HF_WUI ) THEN 
+   IF (TOTAL_HEAT_FLUX .LE. CRITICL_HF_WUI ) THEN
       HRR_TRANSIENT = 0.
    ELSE
       HRR_TRANSIENT = HRR_TRANSIENT_MAP(IX,IY)
