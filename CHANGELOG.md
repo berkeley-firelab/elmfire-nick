@@ -76,6 +76,7 @@ Please create issues with your errors, requests or observations so they can be w
 ### Developer / Internal
 These changes are implementation details with no direct user-facing input or behavior change; they are listed for developers working on the source.
 
+- Added a quick compile option (./make_gnu.sh -f) that only compiles the basic elmfire executable.
 - Added WU-E gridded state arrays for transient and accumulated fields: `HRR_TRANSIENT_MAP`, `TOTAL_DFC_WUI`, `TOTAL_RADIATION_WUI`, `TRANSIENT_DFC_WUI`, `TRANSIENT_RADIATION_WUI`, `FUEL_LOAD_REMAIN`, and `ELLIPSE_PROPERTY_MAP`.
 - Added gridded interface-model state arrays `TEST_INTERFACE_WUI` and `WTU_SPREAD_WUI` to carry threshold interface effects from the WU-E heat-flux calculation back into linked-list node updates.
 - Added `LIST_WUI_BURNING`, `TAG_WUI`, and `UNTAG_CELLS_WUI` to track WUI cells that need transient HRR and heat-flux updates.
