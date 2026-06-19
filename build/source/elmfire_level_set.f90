@@ -1494,7 +1494,7 @@ DO WHILE (T .le. totalDuration)
                CALL SEGMENT_FIRELINE
                CALL CALCULATE_STS
                CALL SORT_STS
-               CALL DIRECT_ATTACK(T, IT_EA, rank_finished, DT, ICASE, IDUMPCOUNT, NDUMPS, TSTOP)
+               CALL DIRECT_ATTACK(T, IT_EA, rank_finished, DT, ICASE, TSTOP)
                
                CALL LL_DUMP_ROUTINE(LIST_TAGGED,"time_suppressed",T,"time_suppressed",1)
                CALL LL_DUMP_ROUTINE(LIST_TAGGED,"ROS",T,"ROS",1)

@@ -662,13 +662,13 @@ END SUBROUTINE SORT_STS
 
 
 ! *****************************************************************************
-SUBROUTINE DIRECT_ATTACK(T, IT, rank_finished, DT, ICASE, IDUMPCOUNT, NDUMPS, TSTOP)
+SUBROUTINE DIRECT_ATTACK(T, IT, rank_finished, DT, ICASE, TSTOP)
 ! *****************************************************************************
 REAL(8), INTENT(IN) :: T
 INTEGER, INTENT(IN) :: IT
 INTEGER, INTENT(IN) :: ICASE
 REAL, INTENT(INOUT)    :: DT, TSTOP
-INTEGER, INTENT(INOUT) :: rank_finished, IDUMPCOUNT, NDUMPS
+INTEGER, INTENT(INOUT) :: rank_finished
 TYPE(NODE), POINTER :: C
 INTEGER :: I, J, J2, J3, N_CELL_AVAIL
 REAL :: CAP_0, L_CAP, L_AVAIL
@@ -831,7 +831,6 @@ IF (SUPP(IT)%CONTAINMENT .GE. 0.99) THEN
    STATS_FINAL_CONTAINMENT_FRAC(ICASE) = 1.0
    STATS_SIMULATION_TSTOP_HOURS(ICASE) = T / 3600.0
    TSTOP = T
-   IDUMPCOUNT = NDUMPS
 ENDIF
 
 ! *****************************************************************************
