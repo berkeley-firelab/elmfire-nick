@@ -814,7 +814,7 @@ USE_SDI_LOG_FUNCTION        = .FALSE.
 
 
 ! Majid_bav::added below
-EXTENDED_ATTACK_MODEL              = 1          ! 0: legacy model; 1: new model.
+EXTENDED_ATTACK_MODEL              = 0          ! 0: legacy model; 1: new model.
 EXTENDED_ATTACK_TIME               = 3600       ! seconds
 FL_MAX_DIRECT_ATTACK               = 8.0        ! ft
 SDI_MAX_DIRECT_ATTACK              = 40.0       ! 0 to 318 USDA data = SDI*100
