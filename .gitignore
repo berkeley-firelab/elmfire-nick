@@ -72,10 +72,22 @@ runs/risk/template/config
 # ============================================================
 examples/CalibrateMemopt/
 examples/long/
-examples/*/outputs/
-examples/*/scratch/
-examples/*/*/outputs/
-examples/*/*/scratch/
+# Keep the outputs/ and scratch/ folders for examples (via .gitkeep) but
+# ignore their contents. The bare `outputs`/`scratch` rules above exclude the
+# directories globally, so re-include the example dirs, then re-exclude their
+# contents while preserving the .gitkeep placeholders.
+!examples/*/outputs/
+!examples/*/scratch/
+!examples/*/*/outputs/
+!examples/*/*/scratch/
+examples/*/outputs/*
+examples/*/scratch/*
+examples/*/*/outputs/*
+examples/*/*/scratch/*
+!examples/*/outputs/.gitkeep
+!examples/*/scratch/.gitkeep
+!examples/*/*/outputs/.gitkeep
+!examples/*/*/scratch/.gitkeep
 examples/smoke/smoke/gdas1.jul25.w1
 examples/smoke/MESSAGE.*
 examples/smoke/VMSDIST.*

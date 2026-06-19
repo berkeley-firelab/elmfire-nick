@@ -1,5 +1,5 @@
-FROM ubuntu:22.04 AS intermediate
-ENV DEBIAN_FRONTEND noninteractive
+FROM ubuntu:24.04 AS intermediate
+ENV DEBIAN_FRONTEND=noninteractive
 
 RUN mkdir -p /elmfire/elmfire /scratch/elmfire && \
     apt-get update -y && \
@@ -20,8 +20,8 @@ RUN mkdir -p /elmfire/elmfire /scratch/elmfire && \
         python3-pip \
         sudo \
         wget && \
-    pip3 install --no-cache-dir google-api-python-client python-dateutil && \
-    python3 -m pip install grpcio grpcio-tools && \
+    pip3 install --no-cache-dir --break-system-packages google-api-python-client python-dateutil && \
+    python3 -m pip install --no-cache-dir --break-system-packages grpcio grpcio-tools && \
     locale-gen en_US.UTF-8 && export LANG=en_US.UTF-8
 
 
@@ -39,7 +39,11 @@ RUN apt-get purge -y build-essential && \
 
 WORKDIR /elmfire
 
-ENV ELMFIRE_VER=2025.1002
+# Keep ELMFIRE_VER in sync with build/linux/make_gnu.sh (ELMFIRE_VER=...).
+# It is the version-suffixed binary name (elmfire_$ELMFIRE_VER) that the
+# bundled tutorial/example scripts invoke. The unsuffixed `elmfire` symlink
+# always points at the current build regardless of this value.
+ENV ELMFIRE_VER=1.1
 ENV ELMFIRE_BASE_DIR=/elmfire/elmfire
 ENV ELMFIRE_SCRATCH_BASE=/scratch/elmfire
 ENV ELMFIRE_INSTALL_DIR=$ELMFIRE_BASE_DIR/build/linux/bin

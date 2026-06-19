@@ -10,6 +10,9 @@ CONTAINS
 ! *****************************************************************************
 SUBROUTINE SET_MISC_PARAMETERS(R1)
 ! *****************************************************************************
+! Sets non-raster perturbed Monte Carlo parameters (wind direction/speed
+! fluctuation intensities) from the normalized random vector R1, advancing the
+! parameter index and recording the unscaled values in COEFFS_UNSCALED.
 
 REAL, DIMENSION(:) :: R1
 INTEGER :: I
@@ -40,17 +43,24 @@ logical :: BLDG_GOOD_INPUTS = .FALSE. !small hack to get extra error message for
 
 GOOD_INPUTS = GOOD_INPUTS .and. CHECK_FILEPATH_IS_SET(WEATHER_DIRECTORY, "WEATHER_DIRECTORY")
 GOOD_INPUTS = GOOD_INPUTS .and. CHECK_FILEPATH_IS_SET(FUELS_AND_TOPOGRAPHY_DIRECTORY, "FUELS_AND_TOPOGRAPHY_DIRECTORY")
-GOOD_INPUTS = GOOD_INPUTS .and. CHECK_FILEPATH_IS_SET(DEM_FILENAME, "DEM_FILENAME")
-GOOD_INPUTS = GOOD_INPUTS .and. CHECK_FILEPATH_IS_SET(SLP_FILENAME, "SLP_FILENAME")
-GOOD_INPUTS = GOOD_INPUTS .and. CHECK_FILEPATH_IS_SET(ASP_FILENAME, "ASP_FILENAME")
-GOOD_INPUTS = GOOD_INPUTS .and. CHECK_FILEPATH_IS_SET(FBFM_FILENAME, "FBFM_FILENAME")
-GOOD_INPUTS = GOOD_INPUTS .and. CHECK_FILEPATH_IS_SET(CC_FILENAME, "CC_FILENAME")
-GOOD_INPUTS = GOOD_INPUTS .and. CHECK_FILEPATH_IS_SET(CH_FILENAME, "CH_FILENAME")
-GOOD_INPUTS = GOOD_INPUTS .and. CHECK_FILEPATH_IS_SET(PHI_FILENAME, "CH_FILENAME")
-GOOD_INPUTS = GOOD_INPUTS .and. CHECK_FILEPATH_IS_SET(ADJ_FILENAME, "CH_FILENAME")
+! A landscape file supplies elevation, slope, aspect, fuel, canopy cover, canopy
+! height, canopy base height, and canopy bulk density as bands of one GeoTIFF, so
+! the individual layer filenames are not required (and not used) in that mode.
+if (USE_LANDSCAPE_FILE) then
+   GOOD_INPUTS = GOOD_INPUTS .and. CHECK_FILEPATH_IS_SET(LANDSCAPE_FILENAME, "LANDSCAPE_FILENAME")
+else
+   GOOD_INPUTS = GOOD_INPUTS .and. CHECK_FILEPATH_IS_SET(DEM_FILENAME, "DEM_FILENAME")
+   GOOD_INPUTS = GOOD_INPUTS .and. CHECK_FILEPATH_IS_SET(SLP_FILENAME, "SLP_FILENAME")
+   GOOD_INPUTS = GOOD_INPUTS .and. CHECK_FILEPATH_IS_SET(ASP_FILENAME, "ASP_FILENAME")
+   GOOD_INPUTS = GOOD_INPUTS .and. CHECK_FILEPATH_IS_SET(FBFM_FILENAME, "FBFM_FILENAME")
+   GOOD_INPUTS = GOOD_INPUTS .and. CHECK_FILEPATH_IS_SET(CC_FILENAME, "CC_FILENAME")
+   GOOD_INPUTS = GOOD_INPUTS .and. CHECK_FILEPATH_IS_SET(CH_FILENAME, "CH_FILENAME")
+endif
+GOOD_INPUTS = GOOD_INPUTS .and. CHECK_FILEPATH_IS_SET(PHI_FILENAME, "PHI_FILENAME")
+GOOD_INPUTS = GOOD_INPUTS .and. CHECK_FILEPATH_IS_SET(ADJ_FILENAME, "ADJ_FILENAME")
 if (trim(SURFACE_SPREAD_MODEL) .eq. "CFFDRS") then
    GOOD_INPUTS = GOOD_INPUTS .and. CHECK_FILEPATH_IS_SET(DAILY_WEATHER_FILENAME, "DAILY_WEATHER_FILENAME")
-else
+else if (.not. USE_LANDSCAPE_FILE) then
    GOOD_INPUTS = GOOD_INPUTS .and. CHECK_FILEPATH_IS_SET(CBH_FILENAME, "CBH_FILENAME")
    GOOD_INPUTS = GOOD_INPUTS .and. CHECK_FILEPATH_IS_SET(CBD_FILENAME, "CBD_FILENAME")
 endif
@@ -84,13 +94,6 @@ IF (USE_BLDG_SPREAD_MODEL) THEN
       if (.not. GOOD_INPUTS .and. BLDG_GOOD_INPUTS) WRITE(*,*) 'Alternatively set USE_CONSTANT_BLDG_SPREAD_MODEL_PARAMS = .TRUE.'
       BLDG_GOOD_INPUTS = .FALSE.
    ENDIF
-! ELSE
-!    ! BLDG_FOOTPRIN_FRAC is currently not used by the spotting models. 
-!    IF (ENABLE_SPOTTING .AND. (.NOT. USE_SUPERSEDED_SPOTTING) .and. .not. USE_CONSTANT_BLDG_SPREAD_MODEL_PARAMS) THEN
-!       if (GOOD_INPUTS) BLDG_GOOD_INPUTS = .TRUE.
-!       GOOD_INPUTS = GOOD_INPUTS .and. CHECK_FILEPATH_IS_SET(BLDG_FOOTPRINT_FRAC_FILENAME, "BLDG_FOOTPRINT_FRAC_FILENAME")
-!       if (.not. GOOD_INPUTS .and. BLDG_GOOD_INPUTS) WRITE(*,*) 'Alternatively set USE_CONSTANT_BLDG_SPREAD_MODEL_PARAMS = .TRUE.'
-!    ENDIF
 ENDIF
 
 if (.not. GOOD_INPUTS) then
@@ -101,6 +104,8 @@ endif
 contains 
 
 FUNCTION CHECK_FILEPATH_IS_SET(filename, testname)
+   ! Returns .TRUE. if filename is non-blank; otherwise prints an error naming
+   ! testname and returns .FALSE. Used to verify required &INPUTS paths are set.
    character(len=*), intent(in) :: filename, testname
    logical :: CHECK_FILEPATH_IS_SET
 
@@ -118,6 +123,9 @@ end subroutine CHECK_INPUT_FILEPATHS_SET
 ! *****************************************************************************
 SUBROUTINE CHECK_INPUTS(GOOD_INPUTS)
 ! *****************************************************************************
+! Validates namelist/raster inputs (raster dimension matches, weather-band and
+! time consistency, ignition locations, diurnal/spotting/building options) and
+! returns GOOD_INPUTS=.FALSE. with an error message for each problem found.
 
 LOGICAL, INTENT(OUT) :: GOOD_INPUTS
 integer :: I, ix_ign, iy_ign
@@ -207,9 +215,11 @@ endif
 if (ENABLE_SMOKE_OUTPUTS) then
    if (CURRENT_YEAR .lt. 0) then
       write (*,*) "[ERROR] CURRENT_YEAR needs to be specified with ENABLE_SMOKE_OUTPUTS"
+      GOOD_INPUTS = .FALSE.
    endif
    if (HOUR_OF_YEAR .lt. 0) then
       write (*,*) "[ERROR] HOUR_OF_YEAR needs to be specified with ENABLE_SMOKE_OUTPUTS"
+      GOOD_INPUTS = .FALSE.
    endif
 endif
 
@@ -239,7 +249,9 @@ if (ENABLE_SPOTTING) then
 ENDIF
 
 if (MODE .ne. 2) then
-   if (.not. CSV_FIXED_IGNITION_LOCATIONS .and. .not. RANDOM_IGNITIONS .and. count(T_LINE_IGN .ne. -1.0) .eq. 0 .and. count(T_IGN .ne. -1.0) .eq. 0) then
+   if (any(PHI0%R4 .gt. 0)) then
+      WRITE(*,*) "Using input Phi grid as ignition source"
+   else if (.not. CSV_FIXED_IGNITION_LOCATIONS .and. .not. RANDOM_IGNITIONS .and. count(T_LINE_IGN .ne. -1.0) .eq. 0 .and. count(T_IGN .ne. -1.0) .eq. 0) then
       WRITE(*,*) "[ERROR] No ignition point/time specified."
       GOOD_INPUTS = .FALSE.
    else
@@ -309,22 +321,14 @@ IF (USE_BLDG_SPREAD_MODEL) THEN
          ENDIF
    ENDIF
 
-! ELSE
-   ! BLDG_FOOTPRIN_FRAC is currently not used by the spotting models. 
-   ! IF (ENABLE_SPOTTING .AND. (.NOT. USE_SUPERSEDED_SPOTTING)) THEN
-   !    IF (.NOT. USE_CONSTANT_BLDG_SPREAD_MODEL_PARAMS) THEN
-   !       IF (TRIM(BLDG_FOOTPRINT_FRAC_FILENAME) .EQ. '' ) THEN
-   !          WRITE(*,*) 'Specify BLDG_FOOTPRINT_FRAC_FILENAME or set USE_CONSTANT_BLDG_SPREAD_MODEL_PARAMS = .TRUE.'
-   !          GOOD_INPUTS = .FALSE.
-   !       ENDIF
-   !    ENDIF
-   ! ENDIF
-
 ENDIF
 
 CONTAINS 
 
 FUNCTION CHECK_RASTER_DIMS(R1, R2, testname)
+   ! Returns .TRUE. if rasters R1 and R2 agree in rows/cols, cell size, corner
+   ! alignment and band count; otherwise prints a testname-labeled error and
+   ! returns .FALSE.
    type(RASTER_TYPE) , intent(in) :: R1, R2
    character(len=*), intent(in) :: testname
    logical :: CHECK_RASTER_DIMS
@@ -364,6 +368,9 @@ END SUBROUTINE CHECK_INPUTS
 ! *****************************************************************************
 SUBROUTINE INIT_LOOKUP_TABLES
 ! *****************************************************************************
+! Precomputes module lookup tables: trig arrays for slope/aspect and wind
+! direction, and the sheltered wind adjustment factor table indexed by canopy
+! cover and canopy height.
 
 INTEGER :: I, ICC, ICH
 REAL :: CC1, CH1
@@ -405,6 +412,9 @@ END SUBROUTINE INIT_LOOKUP_TABLES
 ! *****************************************************************************
 SUBROUTINE INIT_RASTERS
 ! *****************************************************************************
+! Computes derived rasters from the input rasters: wind adjustment factor
+! (WAF), 1-cos(slope) (OMCOSSLPRAD) and the ISNONBURNABLE mask from FBFM, and
+! optionally adds ADD_TO_IGNITION_MASK to burnable cells of the ignition mask.
 
 INTEGER :: IX, IY, J
 REAL :: ARG
@@ -459,6 +469,9 @@ END SUBROUTINE INIT_RASTERS
 ! *****************************************************************************
 SUBROUTINE SETUP_SHARED_MEMORY_1
 ! *****************************************************************************
+! Allocates MPI shared-memory windows for the weather and fuels/topography
+! rasters (sized per ARRAYSHAPE_*), queries them on non-host ranks, binds them
+! to Fortran pointers via C_F_POINTER, and fences/barriers across ranks.
 
 INTEGER :: IERR
 
@@ -692,6 +705,9 @@ END SUBROUTINE SETUP_SHARED_MEMORY_1
 ! *****************************************************************************
 SUBROUTINE SETUP_SHARED_MEMORY_2
 ! *****************************************************************************
+! Allocates and zero-initializes the MPI shared-memory STATS_* arrays (one
+! entry per case in NUM_CASES_TOTAL) that hold per-case output statistics, then
+! binds them to pointers and synchronizes across ranks.
 
 INTEGER :: IERR
 
@@ -813,7 +829,7 @@ ENDIF
 
 CALL MPI_BARRIER(MPI_COMM_WORLD, IERR)
 
-iF (DEBUG_LEVEL .GE. 10) PRINT *, "Shared memory (2) setup finished"
+iF (FEEDBACK_LEVEL .GE. 1) PRINT *, "Shared memory (2) setup finished"
 
 ! *****************************************************************************
 END SUBROUTINE SETUP_SHARED_MEMORY_2
@@ -822,6 +838,9 @@ END SUBROUTINE SETUP_SHARED_MEMORY_2
 ! *****************************************************************************
 SUBROUTINE CALC_WIND_ADJUSTMENT_FACTOR_EVERYWHERE(CC, CH, FBFM, WAF)
 ! *****************************************************************************
+! Fills the WAF raster (cloned from ADJ's header) with a per-cell wind
+! adjustment factor: canopy-cover based (Scott 2007) for the CFFDRS model, or a
+! sheltered/unsheltered blend from the lookup tables for the ROTHERMEL model.
 TYPE(RASTER_TYPE), INTENT(IN) :: CC, CH, FBFM
 TYPE(RASTER_TYPE), INTENT(INOUT) :: WAF
 REAL :: F, SHELTERED_WAF, UNSHELTERED_WAF, UNSHELTERED_FRAC
@@ -893,6 +912,9 @@ END SUBROUTINE CALC_WIND_ADJUSTMENT_FACTOR_EVERYWHERE
 ! *****************************************************************************
 SUBROUTINE ROTATE_ASP_AND_WD (ITYPE)
 ! *****************************************************************************
+! Rotates a directional raster by GRID_DECLINATION, wrapping into [0,360):
+! ITYPE=1 rotates the aspect raster (ASP), ITYPE=2 rotates all bands of the
+! wind direction raster (WD).
 
 INTEGER, INTENT(IN) :: ITYPE
 INTEGER :: IBAND, IROW, ICOL
@@ -902,8 +924,8 @@ SELECT CASE (ITYPE)
       DO IROW = 1, ASP%NROWS
       DO ICOL = 1, ASP%NCOLS
          ASP%R4(ICOL,IROW,1) = ASP%R4(ICOL,IROW,1) - GRID_DECLINATION
-         IF (ASP%R4(ICOL,IROW,1) .GT. 360.) ASP%R4(ICOL,IROW,IBAND) = ASP%R4(ICOL,IROW,IBAND) - 360.
-         IF (ASP%R4(ICOL,IROW,1) .LT.   0.) ASP%R4(ICOL,IROW,IBAND) = ASP%R4(ICOL,IROW,IBAND) + 360.
+         IF (ASP%R4(ICOL,IROW,1) .GT. 360.) ASP%R4(ICOL,IROW,1) = ASP%R4(ICOL,IROW,1) - 360.
+         IF (ASP%R4(ICOL,IROW,1) .LT.   0.) ASP%R4(ICOL,IROW,1) = ASP%R4(ICOL,IROW,1) + 360.
          CONTINUE
       ENDDO
       ENDDO
@@ -927,6 +949,9 @@ END SUBROUTINE ROTATE_ASP_AND_WD
 ! *****************************************************************************
 REAL FUNCTION CALC_WIND_ADJUSTMENT_FACTOR_SINGLE(CC, CH, FUEL_BED_HEIGHT)
 ! *****************************************************************************
+! Returns the wind adjustment factor (20-ft to midflame) for a single cell:
+! a sheltered value when canopy (CC, CH) is present, otherwise an unsheltered
+! value from the fuel bed height; returns 0 for missing/negative canopy cover.
 
 REAL, INTENT(IN) :: CC, CH, FUEL_BED_HEIGHT
 
@@ -968,6 +993,9 @@ END FUNCTION CALC_WIND_ADJUSTMENT_FACTOR_SINGLE
 ! *****************************************************************************
 SUBROUTINE WRITE_FUEL_MODEL_TABLE
 ! *****************************************************************************
+! When no FUEL_MODEL_FILE is supplied, writes a built-in default fuel model
+! table (ROTHERMEL or CFFDRS rows depending on SURFACE_SPREAD_MODEL) to
+! fuel_models.csv in the miscellaneous inputs directory.
 
 CHARACTER(400) :: FNOUTPUT
 INTEGER :: IOS
@@ -1002,7 +1030,6 @@ IF ( TRIM(FUEL_MODEL_FILE) .EQ. 'null') THEN
       WRITE (LUOUTPUT,'(A)') '14,FBFM14,.FALSE.,0.045913682,0.022956841,0,0,0,2000,2000,2000,0.2,25,8000'
       WRITE (LUOUTPUT,'(A)') '15,FBFM15,.FALSE.,0.027548209,0.009182736,0,0,0.059687787,2000,2000,1500,1.2,25,8000'
       WRITE (LUOUTPUT,'(A)') '101,GR1,.TRUE.,0.00459,0,0,0.01377,0,2200,2000,9999,0.4,15,8000'
-      WRITE (LUOUTPUT,'(A)') '102,GR2,.TRUE.,0.00459,0,0,0.04591,0,2000,1800,9999,1,15,8000'
       WRITE (LUOUTPUT,'(A)') '102,GR2,.TRUE.,0.00459,0,0,0.04591,0,2000,1800,9999,1,15,8000'
       WRITE (LUOUTPUT,'(A)') '103,GR3,.TRUE.,0.00459,0.01837,0,0.06887,0,1500,1300,9999,2,30,8000'
       WRITE (LUOUTPUT,'(A)') '104,GR4,.TRUE.,0.01148,0,0,0.08724,0,2000,1800,9999,2,15,8000'
@@ -1198,6 +1225,8 @@ END SUBROUTINE WRITE_FUEL_MODEL_TABLE
 ! *****************************************************************************
 SUBROUTINE READ_FUEL_MODEL_TABLE
 ! *****************************************************************************
+! Dispatches to the appropriate fuel model table reader based on
+! SURFACE_SPREAD_MODEL (ROTHERMEL or CFFDRS).
 if (trim(SURFACE_SPREAD_MODEL) .eq. "ROTHERMEL") then
    CALL READ_FUEL_MODEL_TABLE_ROTHERMEL
 else if (trim(SURFACE_SPREAD_MODEL) .eq. "CFFDRS") then
@@ -1211,6 +1240,9 @@ END SUBROUTINE READ_FUEL_MODEL_TABLE
 ! *****************************************************************************
 SUBROUTINE READ_FUEL_MODEL_TABLE_ROTHERMEL
 ! *****************************************************************************
+! Reads the Rothermel fuel model CSV and precomputes the 2-D fuel model table
+! (FUEL_MODEL_TABLE_2D, indexed by model number and live moisture) of derived
+! Rothermel spread coefficients; unused entries default to nonburnable (256).
 
 CHARACTER(400) :: FNINPUT
 INTEGER :: I, INUM, IOS, ILH
@@ -1376,6 +1408,9 @@ END SUBROUTINE READ_FUEL_MODEL_TABLE_ROTHERMEL
 ! *****************************************************************************
 SUBROUTINE READ_FUEL_MODEL_TABLE_CFFDRS
 ! *****************************************************************************
+! Reads the CFFDRS/FBP fuel model CSV into FUEL_MODEL_TABLE_FBP (rate-of-spread
+! coefficients a/b/c/q, BUI0, BE_max, CBH, CFL), warning on model numbers
+! outside the valid 1..1000 range.
 
 CHARACTER(400) :: FNINPUT
 INTEGER :: INUM, IOS
@@ -1404,7 +1439,11 @@ IOS = 0
 DO WHILE (IOS .EQ. 0)
    READ(LUINPUT,*,IOSTAT=IOS) INUM, FM%SHORTNAME, FM%a, FM%b, FM%c, FM%q, FM%BUI0, FM%BE_max, FM%CBH, FM%CFL
    IF (IOS .EQ. 0) THEN
-      FUEL_MODEL_TABLE_FBP(INUM) = FM
+      IF (INUM .GE. 1 .AND. INUM .LE. 1000) THEN
+         FUEL_MODEL_TABLE_FBP(INUM) = FM
+      ELSE
+         WRITE(*,*) '[WARNING] CFFDRS fuel model number out of range (1..1000), skipping: ', INUM
+      ENDIF
    ENDIF
 ENDDO
 CLOSE(LUINPUT)
@@ -1416,6 +1455,9 @@ END SUBROUTINE READ_FUEL_MODEL_TABLE_CFFDRS
 ! *****************************************************************************
 SUBROUTINE READ_WEATHER
 ! *****************************************************************************
+! Reads the CFFDRS daily weather CSV (date, midday temperature/humidity,
+! precipitation) in two passes, allocating and filling the weather_day,
+! T_midday, H_midday, precip and daily_bui module arrays.
 INTEGER :: N, I, K, IOS, MM, DD, YYYY
 CHARACTER(LEN=256) :: LINE 
 CHARACTER(len=:), allocatable :: FNINPUT
@@ -1424,6 +1466,10 @@ print *, "CFFDRS: READING WEATHER FILE"
 
 FNINPUT = TRIM(WEATHER_DIRECTORY) // TRIM(DAILY_WEATHER_FILENAME)
 OPEN(LUINPUT,FILE=TRIM(FNINPUT),FORM='FORMATTED',STATUS='OLD',IOSTAT=IOS)
+IF (IOS .NE. 0) THEN
+   WRITE(*,*) 'Problem opening daily weather file ', TRIM(FNINPUT)
+   STOP
+ENDIF
 ! --- pass 1: skip header, count rows ---
 READ(LUINPUT,'(A)',IOSTAT=IOS) LINE   ! header
 N = 0
@@ -1479,6 +1525,9 @@ END SUBROUTINE READ_WEATHER
 ! *****************************************************************************
 SUBROUTINE READ_BUILDING_FUEL_MODEL_TABLE
 ! *****************************************************************************
+! Reads the building fuel model CSV into BUILDING_FUEL_MODEL_TABLE (HRR timing,
+! fuel load, ignition/hardening parameters, etc.) for the WUI building spread
+! model, defaulting ignition probability and hardening factor to global values.
 
 CHARACTER(400) :: FNINPUT
 CHARACTER(80) :: SHORTNAME

@@ -9,6 +9,9 @@ CONTAINS
 ! *****************************************************************************
 SUBROUTINE READ_MISC
 ! *****************************************************************************
+! Reads the &MISCELLANEOUS namelist group, setting defaults for fuel model and
+! GDAL paths and scratch/input directories, and appends path separators to the
+! directory paths.
 
 INTEGER :: IOS
 
@@ -46,6 +49,9 @@ END SUBROUTINE READ_MISC
 ! *****************************************************************************
 SUBROUTINE READ_SMOKE
 ! *****************************************************************************
+! Reads the &SMOKE namelist group and sets defaults for smoke/PM emission
+! outputs (emission factors, calorific value, flaming/smoldering times,
+! output interval and enable flag).
 
 INTEGER :: IOS
 
@@ -77,6 +83,9 @@ END SUBROUTINE READ_SMOKE
 ! *****************************************************************************
 SUBROUTINE READ_INPUTS
 ! *****************************************************************************
+! Reads the &INPUTS namelist group and sets defaults for all raster filenames,
+! input/weather directories and units/option flags; also opens and counts the
+! optional TIMED_LOCATIONS_CSV, populating TIMED_LOCATIONS_TRACKER.
 
 INTEGER :: I, IOS
 INTEGER(8) :: I8DUMMY
@@ -95,7 +104,8 @@ SLP_FILENAME, ERC_FILENAME, M100_FILENAME, M10_FILENAME, M1_FILENAME, MLH_FILENA
 PYROMES_FILENAME, USE_BSQ_XML_HEADER, ROTATE_ASP, ROTATE_WD, WD_FILENAME, WS_FILENAME, USE_CONSTANT_FMC, &
 USE_CONSTANT_LH, USE_CONSTANT_LW, USE_EXISTING_BSQS, USE_LAND_VALUE, USE_POPULATION_DENSITY, USE_REAL_ESTATE_VALUE, &
 USE_TILED_IO, USE_BARRIERS, WEATHER_DIRECTORY, WS_AT_10M, WS_IN_KPH, VRT_INSTEAD_OF_TIF, SDI_FILENAME, TIMED_LOCATIONS_CSV, & 
-ONLY_READ_NEEDED_WX_BANDS, START_DC, START_DMC, DAILY_WEATHER_FILENAME, SURFACE_SPREAD_MODEL,&
+ONLY_READ_NEEDED_WX_BANDS, START_DC, START_DMC, DAILY_WEATHER_FILENAME, SURFACE_SPREAD_MODEL, &
+LANDSCAPE_FILENAME, &
 ! Majid_bav::added below
 PCL_FILENAME
 
@@ -126,6 +136,7 @@ FOLIAR_MOISTURE_CONTENT        = 90.0
 FUELS_AND_TOPOGRAPHY_DIRECTORY = ' '
 GRID_DECLINATION               = 0.0
 IGNITION_MASK_FILENAME         = ' '
+LANDSCAPE_FILENAME             = ' '
 LAND_VALUE_FILENAME            = ' '
 LH_MOISTURE_CONTENT            = 60.0
 LW_MOISTURE_CONTENT            = 60.0 
@@ -179,6 +190,11 @@ ENDIF
 FUELS_AND_TOPOGRAPHY_DIRECTORY = TRIM(FUELS_AND_TOPOGRAPHY_DIRECTORY) // PATH_SEPARATOR
 WEATHER_DIRECTORY              = TRIM(WEATHER_DIRECTORY             ) // PATH_SEPARATOR
 
+! A landscape file is a single multiband GeoTIFF holding (in band order) elevation,
+! slope, aspect, fuel model, canopy cover, canopy height, canopy base height, and
+! canopy bulk density. When specified, it is read instead of the individual rasters.
+USE_LANDSCAPE_FILE = (LEN_TRIM(LANDSCAPE_FILENAME) .GT. 0)
+
 PROCESS_TIMED_LOCATIONS = .FALSE.
 IF (TRIM(TIMED_LOCATIONS_CSV) .EQ. 'null' ) RETURN
 
@@ -224,6 +240,9 @@ END SUBROUTINE READ_INPUTS
 ! *****************************************************************************
 SUBROUTINE READ_OUTPUTS
 ! *****************************************************************************
+! Reads the &OUTPUTS namelist group and sets defaults for all DUMP_*/output
+! options; compacts the TIME_AT_BURNED_ACRES list to its used entries and
+! appends a path separator to OUTPUTS_DIRECTORY.
 
 INTEGER :: I, IOS
 REAL, ALLOCATABLE, DIMENSION (:) :: TABA ! Time at burned acres
@@ -240,8 +259,8 @@ DUMP_TRANSIENT_ACREAGE, DUMP_VELOCITY, DUMP_WD20, DUMP_CFFDRS_DEBUG, DUMP_WS20, 
 FULL_BINARY_OUTPUTS, NUM_EMBER_COUNT_BINS, NUM_VIRTUAL_STATIONS, &
 FLAME_LENGTH_BIN_LO, FLAME_LENGTH_BIN_HI, MINIMUM_AREA_FOR_BINARY_OUTPUTS, &
 NUM_FLAME_LENGTH_BINS, OUTPUTS_DIRECTORY, USE_EMBER_COUNT_BINS, USE_FLAME_LENGTH_BINS, &
-DUMP_SPOTTING_OUTPUTS, RUN_ID, DUMP_TOTAL_DFC_RECEIVED, DUMP_TOTAL_RAD_RECEIVED, DUMP_TRANSIENT_DFC, DUMP_TRANSIENT_RAD, DUMP_FUEL_CONSUMPTION, &
-DUMP_HRR_TRANSIENT, TIME_AT_BURNED_ACRES, USE_FOUR_DIGITS_IN_IWX_BAND, VIRTUAL_STATION_X, VIRTUAL_STATION_Y
+DUMP_SPOTTING_OUTPUTS, DUMP_EMBER_FLUX_TRANSIENT, DUMP_EMBER_IGNITION, RUN_ID, DUMP_TOTAL_DFC_RECEIVED, DUMP_TOTAL_RAD_RECEIVED, DUMP_TRANSIENT_DFC, DUMP_TRANSIENT_RAD, DUMP_FUEL_CONSUMPTION, &
+DUMP_HRR_TRANSIENT, TIME_AT_BURNED_ACRES, USE_FOUR_DIGITS_IN_IWX_BAND, VIRTUAL_STATION_X, VIRTUAL_STATION_Y, DUMP_EVERY_STEP
 
 IF (IRANK_WORLD .EQ. 0) WRITE(*,*) 'Reading &OUTPUTS namelist group'
 
@@ -253,6 +272,7 @@ CALCULATE_FLAME_LENGTH_STATS      = .FALSE.
 CALCULATE_TIMES_BURNED            = .FALSE.
 CONVERT_TO_GEOTIFF                = .TRUE. 
 DTDUMP                            = 3600.0
+DUMP_EVERY_STEP                   = .FALSE.
 DUMP_AFFECTED_LAND_VALUE          = .FALSE.
 DUMP_AFFECTED_POPULATION          = .FALSE.
 DUMP_AFFECTED_REAL_ESTATE_VALUE   = .FALSE.
@@ -339,6 +359,9 @@ END SUBROUTINE READ_OUTPUTS
 ! *****************************************************************************
 SUBROUTINE READ_TIME_CONTROL
 ! *****************************************************************************
+! Reads the &TIME_CONTROL namelist group and sets defaults for simulation
+! timing, time-step/CFL controls, meteorology interpolation intervals and
+! diurnal/burn-period parameters.
 
 INTEGER :: IOS
 
@@ -389,6 +412,10 @@ END SUBROUTINE READ_TIME_CONTROL
 ! *****************************************************************************
 SUBROUTINE READ_MONTE_CARLO
 ! *****************************************************************************
+! Reads the &MONTE_CARLO namelist group and sets defaults for ensemble,
+! ignition, ERC and raster-perturbation settings; validates perturbation
+! options, counts Monte Carlo variables/parameters, allocates COEFFS arrays and
+! sets the weather band start/stop/skip range.
 
 INTEGER :: IOS, IVARN
 
@@ -398,7 +425,8 @@ IGNITION_MASK_SCALE_FACTOR, METEOROLOGY_BAND_START, METEOROLOGY_BAND_STOP, METEO
 NUM_ENSEMBLE_MEMBERS, NUM_METEOROLOGY_TIMES, NUM_RASTERS_TO_PERTURB, PDF_LOWER_LIMIT, PDF_TYPE, PDF_UPPER_LIMIT, &
 PERCENT_OF_PIXELS_TO_IGNITE, RANDOM_IGNITIONS, RANDOM_IGNITIONS_TYPE, RASTER_TO_PERTURB, SEED, SPATIAL_PERTURBATION, &
 TEMPORAL_PERTURBATION, USE_ERC, USE_IGNITION_MASK, WIND_DIRECTION_FLUCTUATION_INTENSITY_MAX, &
-WIND_DIRECTION_FLUCTUATION_INTENSITY_MIN, WIND_SPEED_FLUCTUATION_INTENSITY_MAX, WIND_SPEED_FLUCTUATION_INTENSITY_MIN
+WIND_DIRECTION_FLUCTUATION_INTENSITY_MIN, WIND_SPEED_FLUCTUATION_INTENSITY_MAX, WIND_SPEED_FLUCTUATION_INTENSITY_MIN, &
+PDF_MEAN, PDF_SIGMA
 
 IF (IRANK_WORLD .EQ. 0) WRITE(*,*) 'Reading &MONTE_CARLO namelist group'
 
@@ -418,6 +446,8 @@ NUM_METEOROLOGY_TIMES                    = -1
 PDF_LOWER_LIMIT(:)                       = 0.
 PDF_TYPE(:)                              = 'null'
 PDF_UPPER_LIMIT(:)                       = 0.
+PDF_MEAN(:)                              = 0.
+PDF_SIGMA(:)                             = 0.
 PERCENT_OF_PIXELS_TO_IGNITE              = 5.0
 RANDOM_IGNITIONS                         = .FALSE.
 RANDOM_IGNITIONS_TYPE                    = 1
@@ -479,44 +509,19 @@ DO IVARN = 1, NUM_RASTERS_TO_PERTURB
       WRITE(*,200) 'Error, TEMPORAL_PERTURBATION must be STATIC or DYNAMIC. Variation: ', IVARN
       STOP
    ENDIF
-   IF (PDF_TYPE(IVARN) .NE. 'UNIFORM' ) THEN
-      WRITE(*,200) 'Error, PDF_TYPE must be UNIFORM. Variation: ', IVARN
+   IF (PDF_TYPE(IVARN) .NE. 'UNIFORM' .and. PDF_TYPE(IVARN) .NE. 'GAUSSIAN' .and. PDF_TYPE(IVARN) .NE. 'LOGNORMAL') THEN
+      WRITE(*,200) 'Error, PDF_TYPE must be UNIFORM, GAUSSIAN or LOGNORMAL. Variation: ', IVARN
       STOP
    ENDIF
       
-   IF (RASTER_TO_PERTURB(IVARN) .NE. 'ADJ'  ) THEN
-   IF (RASTER_TO_PERTURB(IVARN) .NE. 'CBD'  ) THEN
-   IF (RASTER_TO_PERTURB(IVARN) .NE. 'CBH'  ) THEN
-   IF (RASTER_TO_PERTURB(IVARN) .NE. 'CC'   ) THEN
-   IF (RASTER_TO_PERTURB(IVARN) .NE. 'CH'   ) THEN
-   IF (RASTER_TO_PERTURB(IVARN) .NE. 'FBFM' ) THEN
-   IF (RASTER_TO_PERTURB(IVARN) .NE. 'FMC'  ) THEN
-   IF (RASTER_TO_PERTURB(IVARN) .NE. 'M1'   ) THEN
-   IF (RASTER_TO_PERTURB(IVARN) .NE. 'M10'  ) THEN
-   IF (RASTER_TO_PERTURB(IVARN) .NE. 'M100' ) THEN
-   IF (RASTER_TO_PERTURB(IVARN) .NE. 'MLH'  ) THEN
-   IF (RASTER_TO_PERTURB(IVARN) .NE. 'MLW'  ) THEN
-   IF (RASTER_TO_PERTURB(IVARN) .NE. 'WAF'  ) THEN
-   IF (RASTER_TO_PERTURB(IVARN) .NE. 'WD'   ) THEN
-   IF (RASTER_TO_PERTURB(IVARN) .NE. 'WS'   ) THEN
-      WRITE(*,200) 'Error on variation ', IVARN, ' RASTER_TO_PERTURB must be one of: ' 
+   SELECT CASE (TRIM(RASTER_TO_PERTURB(IVARN)))
+   CASE ('ADJ','CBD','CBH','CC','CH','FBFM','FMC','M1','M10','M100','MLH','MLW','WAF','WD','WS')
+      ! valid - no action
+   CASE DEFAULT
+      WRITE(*,200) 'Error on variation ', IVARN, ' RASTER_TO_PERTURB must be one of: '
       WRITE(*,200) 'ADJ, CBD, CBH, CC, CH, FBFM, FMC, M1, M10, M100, MLH, MLW, WAF, WD, WS'
       STOP
-   ENDIF
-   ENDIF
-   ENDIF
-   ENDIF
-   ENDIF
-   ENDIF
-   ENDIF
-   ENDIF
-   ENDIF
-   ENDIF
-   ENDIF
-   ENDIF
-   ENDIF
-   ENDIF
-   ENDIF
+   END SELECT
       
    IF (TRIM(SPATIAL_PERTURBATION(IVARN)) .NE. 'PIXEL') THEN
       IF (TRIM(TEMPORAL_PERTURBATION(IVARN)) .EQ. 'STATIC') THEN
@@ -562,13 +567,15 @@ END SUBROUTINE READ_MONTE_CARLO
 ! *****************************************************************************
 SUBROUTINE READ_SIMULATOR
 ! *****************************************************************************
+! Reads the &SIMULATOR namelist group and sets defaults for run mode, crown
+! fire, ignition points/lines, wind fluctuations and runtime/feedback options
 
 INTEGER :: IOS
 
 NAMELIST /SIMULATOR/ &
 ALLOW_NONBURNABLE_PIXEL_IGNITION, BANDTHICKNESS, CRITICAL_CANOPY_COVER, &
-CROWN_FIRE_ADJ, CROWN_FIRE_MODEL, CROWN_FIRE_SPREAD_RATE_LIMIT, CROWN_RATIO, DEBUG_LEVEL, FEEDBACK_LEVEL, DT_WIND_FLUCTUATIONS, &
-ESTIMATE_URBAN_LOSSES, MAX_LOW, MAX_RUNTIME, MODE, MULTIPLE_HOSTS, NUM_IGNITIONS, NUM_NODES_OMP_THRESHOLD, &
+CROWN_FIRE_ADJ, CROWN_FIRE_MODEL, CROWN_FIRE_SPREAD_RATE_LIMIT, CROWN_RATIO, FEEDBACK_LEVEL, DT_WIND_FLUCTUATIONS, &
+ESTIMATE_URBAN_LOSSES, MAX_LOW, MAX_RUNTIME, MODE, MULTIPLE_HOSTS, NUM_IGNITIONS, &
 PHIS_ADJ, PHIW_ADJ, PLIGNRATE_MIN, RANDOMIZE_RANDOM_SEED,SURFACE_ACCELERATION_TIME_CONSTANT, T_IGN, &
 UNTAG_CELLS_TIMESTEP_INTERVAL, UNTAG_TYPE_2, UNTAG_TYPE_3, USE_PYROMES, &
 WIND_DIRECTION_FLUCTUATION_INTENSITY, WIND_FLUCTUATIONS, WIND_SPEED_FLUCTUATION_INTENSITY, X_IGN, Y_IGN, &
@@ -584,8 +591,7 @@ CROWN_FIRE_ADJ                       = 1.0
 CROWN_FIRE_MODEL                     = 1
 CROWN_FIRE_SPREAD_RATE_LIMIT         = 250.0
 CROWN_RATIO                          = 1.0
-DEBUG_LEVEL                          = 0
-FEEDBACK_LEVEL                       = '' ! options: 'Limited', 'Detailed', 'Extended'
+FEEDBACK_LEVEL                       = 0 ! options: 0, 1, 2, 3
 DT_WIND_FLUCTUATIONS                 = 15.0
 ESTIMATE_URBAN_LOSSES                = .FALSE.
 MAX_LOW                              = 8.0
@@ -593,7 +599,6 @@ MAX_RUNTIME                          = 999999.
 MODE                                 = 1 !1 = level set propagation; 2 = fire potential; 3 = both
 MULTIPLE_HOSTS                       = .FALSE.
 NUM_IGNITIONS                        = 0
-NUM_NODES_OMP_THRESHOLD              = 999999999
 PHIS_ADJ                             = 1E0
 PHIW_ADJ                             = 1E0
 PLIGNRATE_MIN                        = 0E0
@@ -609,7 +614,8 @@ WIND_SPEED_FLUCTUATION_INTENSITY     = 0.0
 X_IGN(:)                             = 0.0
 Y_IGN(:)                             = 0.0
 USE_PYROMES                          = .FALSE.
-WSMFEFF_LOW_MULT                     = 5.07955E-3
+!WSMFEFF_LOW_MULT                     = 5.07955E-3
+WSMFEFF_LOW_MULT                     = 60.0/5280.0
 WX_BILINEAR_INTERPOLATION            = .FALSE.
 WX_BANDS_KEPT_IN_MEM                 = 30
 CLEAN_SCRATCH                        = .FALSE.
@@ -625,16 +631,6 @@ IF (IOS > 0) THEN
     STOP
 ENDIF
 
-if (FEEDBACK_LEVEL .eq. 'Limited') then 
-   DEBUG_LEVEL = 10
-else if (FEEDBACK_LEVEL .eq. 'Detailed') then
-   DEBUG_LEVEL = 20
-else if (FEEDBACK_LEVEL .eq. 'Extended') then
-   DEBUG_LEVEL = 30
-else
-   print *, '[WARNING] FEEDBACK LEVEL NOT SET, DEFAULTING TO DEBUG_LEVEL'
-endif
-
 ! *****************************************************************************
 END SUBROUTINE READ_SIMULATOR
 ! *****************************************************************************
@@ -642,6 +638,9 @@ END SUBROUTINE READ_SIMULATOR
 ! *****************************************************************************
 SUBROUTINE READ_WUI
 ! *****************************************************************************
+! Reads the &WUI namelist group and sets defaults for the building (WUI) spread
+! model: building area/separation/fuel parameters, spread and interface model
+! types, hardening factor and band thickness.
 
 INTEGER :: IOS
 
@@ -679,6 +678,10 @@ END SUBROUTINE READ_WUI
 ! *****************************************************************************
 SUBROUTINE READ_SPOTTING
 ! *****************************************************************************
+! Reads the &SPOTTING namelist group and sets defaults for ember spotting
+! (generation/distance/accumulation/ignition models, spotting percentages,
+! ember counts and distances); sets NUM_PARAMETERS_SPOTTING and allocates
+! SPOTTING_STATS.
 
 INTEGER :: IOS
 
@@ -783,6 +786,9 @@ END SUBROUTINE READ_SPOTTING
 ! *****************************************************************************
 SUBROUTINE READ_SUPPRESSION
 ! *****************************************************************************
+! Reads the &SUPPRESSION namelist group and sets defaults for initial/extended
+! attack suppression and SDI (suppression difficulty index) containment
+! parameters.
 
 INTEGER :: IOS
 
@@ -836,6 +842,9 @@ END SUBROUTINE READ_SUPPRESSION
 ! *****************************************************************************
 SUBROUTINE READ_CALIBRATION
 ! *****************************************************************************
+! Opens the namelist input file and reads the &CALIBRATION namelist group,
+! setting defaults for per-pyrome adjustment factors, calibration constants and
+! duration PDF filenames/flags and the maximum fire duration.
 
 INTEGER :: IOS
 

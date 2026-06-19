@@ -12,6 +12,9 @@ CONTAINS
 ! *****************************************************************************
 SUBROUTINE SET_SPOTTING_PARAMETERS(R1)
 ! *****************************************************************************
+! Unscales the Monte Carlo sampling vector R1 (0-1 fractions) into the spotting
+! tuning parameters (mean/variance distance, wind & fireline exponents, max embers,
+! spotting percentages, ignition probability) and stores them in module variables.
 
 REAL, DIMENSION(:) :: R1
 INTEGER :: I
@@ -45,6 +48,10 @@ END SUBROUTINE SET_SPOTTING_PARAMETERS
 SUBROUTINE SPOTTING(IX0,IY0,WS20_NOW,FLIN, ICASE, DT_ELMFIRE, TIME_NOW, IGNMULT,  IFBFM, LIST_EMBER_TRACKER, MINIMUM_CURRENT_WX_BAND)
                     ! BLDG_FOOTPRINT_FRAC_LOCAL,FMC, WN_FUEL, 
 ! *****************************************************************************
+! Entry point for ember emission from a burning cell (IX0,IY0). Samples the number of
+! embers to launch and the lognormal spotting-distance parameters (mu/sigma) from the
+! local wind speed and fireline intensity, then either appends an ember source node to
+! LIST_EMBER_TRACKER (EULERIAN accumulation) or calls EMBER_TRAJECTORY (LAGRANGIAN).
 
 IMPLICIT NONE
 
@@ -199,43 +206,12 @@ EMPIRICAL_PDF_PARAMETERS(4) = SIGMA_CROSSWIND_LOCAL
 END FUNCTION EMPIRICAL_PDF_PARAMETERS
 ! *****************************************************************************
 
-! ! *****************************************************************************
-! FUNCTION EMBER_TO_EMIT_PER_CELL(WS, N0, CELLSIZE_ELM, AF, FMC, WN_FUEL, IFBFM, TAU_EMBERGEN, FLIN)
-! ! *****************************************************************************
-! ! Calculates spotting distance distribution based on Sardoy's model.
-! ! Takes as input local in speed and fireline intensity, reutrns MU and SIGMA
-! REAL, INTENT(IN) :: WS, N0, CELLSIZE_ELM, AF, FMC, WN_FUEL, TAU_EMBERGEN, FLIN
-! INTEGER*2, INTENT(IN) :: IFBFM
-! REAL, PARAMETER :: D_TRUNK        = 0.2 ! Trunk diameter, m
-! REAL, PARAMETER :: M_FIREBRAND    = 2.0e-4 ! firebrand mass, kg
-! REAL, PARAMETER :: G       = 9.81! Gravitional acceleration, m^2/s
-! REAL :: M_FUEL, U_WIND, N_EMBER, Y_FIREBRAND
-! REAL :: EMBER_TO_EMIT_PER_CELL
-
-! M_FUEL = CELLSIZE_ELM*CELLSIZE_ELM*WN_FUEL ! Available vegetation fuel mass in a cell, kg
-! U_WIND = WS*0.447 ! wind speed, m/s (This is 20-ft wind, to be verified)
-
-! IF (IFBFM .EQ. 91) THEN
-!     ! Lee and Davidson, 2010, ember from structure
-!     ! N_EMBER = 206.66*EXP(0.1876*U_WIND)*(CELLSIZE_ELM*CELLSIZE_ELM*AF)
-!     N_EMBER = FLIN * CELLSIZE_ELM * EMBER_GR_PER_MW_VEGE
-! ELSE
-!     ! Ju et al, 2023, ember from vegetation
-!     ! Y_FIREBRAND = 1.70*MAX(FMC,1E-6)**(-0.14)*(U_WIND/SQRT(G*D_TRUNK))**0.63+0.15
-!     ! N_EMBER = Y_FIREBRAND*M_FUEL/M_FIREBRAND
-!     N_EMBER = FLIN * CELLSIZE_ELM * EMBER_GR_PER_MW_BLDG
-! ENDIF
-
-! ! EMBER_TO_EMIT_PER_CELL = N_EMBER/MAX(N0*TAU_EMBERGEN,1E-6)
-! EMBER_TO_EMIT_PER_CELL = N_EMBER
-
-! ! *****************************************************************************
-! END FUNCTION EMBER_TO_EMIT_PER_CELL
-! ! *****************************************************************************
-
 ! *****************************************************************************
 FUNCTION EMBER_TO_EMIT_PER_CELL(CELLSIZE_ELM, IFBFM, FLIN, EMBER_GR_PER_MW_BLDG, EMBER_GR_PER_MW_VEGE)
 ! *****************************************************************************
+! Returns the number of embers generated per cell per second under the PER-MW model,
+! scaling fireline intensity FLIN by cell size and the per-MW ember rate (building rate
+! EMBER_GR_PER_MW_BLDG for IFBFM 91, else vegetation rate EMBER_GR_PER_MW_VEGE).
 ! Calculates spotting distance distribution based on Sardoy's model.
 ! Takes as input local in speed and fireline intensity, reutrns MU and SIGMA
 REAL, INTENT(IN) :: CELLSIZE_ELM, FLIN, EMBER_GR_PER_MW_BLDG, EMBER_GR_PER_MW_VEGE
@@ -280,6 +256,10 @@ TIME_NOW                   , &
 IGNMULT                    , &
 MINIMUM_CURRENT_WX_BAND)
 ! *****************************************************************************
+! LAGRANGIAN ember transport: launches NUM_EMBERS from X0_ELM, advecting each by the
+! time-interpolated 20-ft wind until it reaches its sampled lognormal spotting distance.
+! Records each landing in SPOTTING_STATS / EMBER_COUNT and, for the DIRECT ignition model,
+! flags positive ignitions stochastically from the per-cell ignition probability.
 
 INTEGER, INTENT(IN) :: NX_ELM, NY_ELM, NUM_EMBERS, IRANK_WORLD, ICASE, MINIMUM_CURRENT_WX_BAND
 INTEGER :: N_SPOT_FIRES
@@ -287,7 +267,7 @@ REAL, INTENT(IN) :: CELLSIZE_ELM, PIGN_ELM, MIN_SPOTTING_DISTANCE, MAX_SPOTTING_
                     SIGMA_DIST, MU_DIST, SIGMA_CROSSWIND_LOCAL, MU_CROSSWIND_LOCAL, IGNMULT
 REAL(8), intent(in) :: TIME_NOW
 
-REAL :: F_WIND, SPOTTING_DISTANCE, DIST, EPS, CROSSWIND_DEVIATION, UWIND_ABS, INV_UWIND_TIMES_CROSSWIND_DEVIATION
+REAL :: F_WIND, SPOTTING_DISTANCE, SPOTTING_DISTANCE_FULL, DIST, EPS, CROSSWIND_DEVIATION, UWIND_ABS, INV_UWIND_TIMES_CROSSWIND_DEVIATION
 
 CHARACTER(7) :: SEVEN_ICASE
 CHARACTER(400) :: FN
@@ -326,21 +306,23 @@ DO IEMBER = 1, NUM_EMBERS
 
 ! Get spotting distance
    CALL RANDOM_NUMBER(R0)
-   IF (SPOTTING_DISTANCE_MODEL .EQ. 'UNIFORM') THEN   
+   IF (SPOTTING_DISTANCE_MODEL .EQ. 'UNIFORM') THEN
       SPOTTING_DISTANCE = MIN_SPOTTING_DISTANCE + R0 * (MAX_SPOTTING_DISTANCE - MIN_SPOTTING_DISTANCE)
-   ELSE IF (SPOTTING_DISTANCE_MODEL .EQ. 'EMPIRICAL') THEN   
+      SPOTTING_DISTANCE_FULL = SPOTTING_DISTANCE
+   ELSE IF (SPOTTING_DISTANCE_MODEL .EQ. 'EMPIRICAL') THEN
       LOW  = LOGNORM_CDF(0.0, MU_DIST, SIGMA_DIST)
       HIGH = LOGNORM_CDF(X_MAX+CELLSIZE_ELM*0.5, MU_DIST, SIGMA_DIST)
       R0   = R0 * (HIGH - LOW) + LOW
       SPOTTING_DISTANCE = EXP(SQRT(2.) * SIGMA_DIST * ERFINV_LOCAL(2.*R0-1.) + MU_DIST)
-      ! print *, SPOTTING_DISTANCE
+      SPOTTING_DISTANCE_FULL = SPOTTING_DISTANCE  ! rigorous distance, before cell quantization
       SPOTTING_DISTANCE = NINT(SPOTTING_DISTANCE/CELLSIZE_ELM)*CELLSIZE_ELM
-   ELSE IF (SPOTTING_DISTANCE_MODEL .EQ. 'LOGNORMAL') THEN   
-      IF (R0 .GT. 0.5) THEN
-         SPOTTING_DISTANCE = EXP(SQRT(2.) * SIGMA_DIST * ERFINV(2.*R0-1.) + MU_DIST)
-      ELSE
-         SPOTTING_DISTANCE = EXP(MU_DIST - SQRT(2.) * SIGMA_DIST * ERFINV_LOCAL(1.-2.*R0))
-      ENDIF      
+   ELSE IF (SPOTTING_DISTANCE_MODEL .EQ. 'LOGNORMAL') THEN
+      ! ERFINV_LOCAL is odd, so a single evaluation covers both tails. Using it for the whole
+      ! range (rather than the truncated-polynomial ERFINV on the upper tail, which loses
+      ! accuracy as its argument approaches 1) keeps the sampled lognormal symmetric and
+      ! accurate at the long-distance edge.
+      SPOTTING_DISTANCE = EXP(SQRT(2.) * SIGMA_DIST * ERFINV_LOCAL(2.*R0-1.) + MU_DIST)
+      SPOTTING_DISTANCE_FULL = SPOTTING_DISTANCE
    ENDIF
 
    DIST = 0.
@@ -418,8 +400,8 @@ DO IEMBER = 1, NUM_EMBERS
          ENDIF
 
          ITLO_METEOROLOGY = MAX(1 + FLOOR((T+TIME_NOW) / DT_METEOROLOGY),1) - MINIMUM_CURRENT_WX_BAND + 1
-         ITLO_METEOROLOGY = MIN(ITLO_METEOROLOGY, WX_BANDS_KEPT_IN_MEM)
-         ITHI_METEOROLOGY = MIN(ITLO_METEOROLOGY + 1, WX_BANDS_KEPT_IN_MEM)
+         ITLO_METEOROLOGY = MIN(ITLO_METEOROLOGY, WX_BANDS_KEPT_IN_MEM, WS%NBANDS)
+         ITHI_METEOROLOGY = MIN(ITLO_METEOROLOGY + 1, WX_BANDS_KEPT_IN_MEM, WS%NBANDS)
          F_WIND = (T + TIME_NOW - REAL(ITLO_METEOROLOGY-1) * DT_METEOROLOGY) / DT_METEOROLOGY
          IF (ITLO_METEOROLOGY .EQ. ITHI_METEOROLOGY) F_WIND = 1.
 
@@ -487,9 +469,9 @@ DO IEMBER = 1, NUM_EMBERS
          INQUIRE(UNIT=LUSPOT+IRANK_WORLD,OPENED=LOPEN)
          IF (.NOT. LOPEN) THEN
             OPEN(LUSPOT+IRANK_WORLD,FILE=TRIM(FN),FORM='FORMATTED',STATUS='REPLACE',IOSTAT=IOS)
-            WRITE(LUSPOT+IRANK_WORLD,'(A)') 'IX_FROM, IY_FROM, IX_TO, IY_TO, TLAUNCH, TIGN'
+            WRITE(LUSPOT+IRANK_WORLD,'(A)') 'IX_FROM, IY_FROM, IX_TO, IY_TO, TLAUNCH, TIGN, SPOTTING_DISTANCE'
          ENDIF
-         WRITE(LUSPOT+IRANK_WORLD,'(4(I0,", "),2(F12.3,:,", "))') SPOTTING_STATS(NUM_TRACKED_EMBERS)%IX_FROM, SPOTTING_STATS(NUM_TRACKED_EMBERS)%IY_FROM, IX, IY, SPOTTING_STATS(NUM_TRACKED_EMBERS)%TLAUNCH, SPOTTING_STATS(NUM_TRACKED_EMBERS)%TIGN
+         WRITE(LUSPOT+IRANK_WORLD,'(4(I0,", "),3(F12.3,:,", "))') SPOTTING_STATS(NUM_TRACKED_EMBERS)%IX_FROM, SPOTTING_STATS(NUM_TRACKED_EMBERS)%IY_FROM, IX, IY, SPOTTING_STATS(NUM_TRACKED_EMBERS)%TLAUNCH, SPOTTING_STATS(NUM_TRACKED_EMBERS)%TIGN, SPOTTING_DISTANCE_FULL
       ENDIF
 
       IF (TRIM(IGNITION_MODEL) .EQ. 'DIRECT') THEN
@@ -525,6 +507,8 @@ CONTAINS
 ! *****************************************************************************
 REAL FUNCTION LOGNORM_CDF(X, MU_DIST, SIGMA_DIST)
 ! *****************************************************************************
+! Lognormal cumulative distribution F(X) for distance X given log-space mean MU_DIST
+! and standard deviation SIGMA_DIST; used to truncate/sample the spotting distance.
 
 REAL, INTENT(IN) :: X, MU_DIST, SIGMA_DIST
 REAL, PARAMETER :: SQRT_2 = 1.4142135623731
@@ -549,6 +533,10 @@ T_ELMFIRE                  , &
 DT_ELMFIRE                 , &
 MINIMUM_CURRENT_WX_BAND)
 ! *****************************************************************************
+! EULERIAN ember transport for one source node C: advects the source's mean trajectory
+! over [T_ELMFIRE, T_ELMFIRE+DT_ELMFIRE] and spreads its embers onto the EMBER_FLUX grid
+! using the lognormal downwind and (optional) crosswind landing-probability distributions,
+! updating EMBER_TOA and LIST_EMBER_DEPOSITED for newly reached cells.
 
 INTEGER, INTENT(IN) :: NX_ELM, NY_ELM, MINIMUM_CURRENT_WX_BAND
 REAL, INTENT(IN) :: CELLSIZE_ELM, DT_ELMFIRE
@@ -559,7 +547,7 @@ TYPE (NODE), POINTER, INTENT(INOUT) :: C
 
 !These also come from elmfire but have local analogs:
 
-REAL :: WD1TO, WD2TO, WDTO, WS20, T, DT, DIST_LAST, F_WIND, X_MAX, Y_MAX, P_LAND, P_LAND_CROSSWIND, LNORM_QUANTILE, &
+REAL :: WD1TO, WD2TO, WDTO, WS20, T, DT, G_PREV, G_CUR, F_WIND, X_MAX, Y_MAX, P_LAND, P_LAND_CROSSWIND, LNORM_QUANTILE, &
         NORM_QUANTILE, QUANTILE, NORM_FACTOR_CROSSWIND, NORM_FACTOR, X_CROSSWIND, Y_CROSSWIND, INV_UWIND_TIMES_CROSSWIND_DEVIATION, &
         UWIND_ABS, NUM_EMBERS, SIGMA_DIST, MU_DIST, SIGMA_CROSSWIND_LOCAL, MU_CROSSWIND_LOCAL
 REAL, DIMENSION(3) :: X, X0, UWIND, OFFSET
@@ -607,7 +595,10 @@ ELSE
    NORM_FACTOR_CROSSWIND = 1.0
 ENDIF
 
-DIST_LAST = C%DIST
+! Cache the cumulative lognormal CDF at the current distance. The per-step landing probability
+! below reuses it instead of recomputing ERF at both ends of every step interval (one ERF/step
+! instead of two), since each step's interval start equals the previous step's interval end.
+G_PREV = LOGNORM_CDF_CUM(C%DIST, MU_DIST, SIGMA_DIST)
 
 OFFSET(1:2) = X0(1:2)
 X   (:)   = X0(:) - OFFSET(:)
@@ -627,8 +618,8 @@ IY = MAX(IY,1) ; IY = MIN (IY,NY_ELM)
 IROW = IROW_ANALYSIS_F2C(IY)
 
 ITLO_METEOROLOGY = MAX(1 + FLOOR((C%TIME_ACTUAL) / DT_METEOROLOGY),1) - MINIMUM_CURRENT_WX_BAND + 1
-ITLO_METEOROLOGY = MIN(ITLO_METEOROLOGY, WX_BANDS_KEPT_IN_MEM)
-ITHI_METEOROLOGY = MIN(ITLO_METEOROLOGY + 1, WX_BANDS_KEPT_IN_MEM)
+ITLO_METEOROLOGY = MIN(ITLO_METEOROLOGY, WX_BANDS_KEPT_IN_MEM, WS%NBANDS)
+ITHI_METEOROLOGY = MIN(ITLO_METEOROLOGY + 1, WX_BANDS_KEPT_IN_MEM, WS%NBANDS)
 F_WIND = (C%TIME_ACTUAL  - REAL(ITLO_METEOROLOGY-1) * DT_METEOROLOGY) / DT_METEOROLOGY
 IF (ITLO_METEOROLOGY .EQ. ITHI_METEOROLOGY) F_WIND = 1.
 
@@ -673,8 +664,8 @@ DO WHILE (T .LT. DT_ELMFIRE)
       ENDIF
 
       ITLO_METEOROLOGY = MAX(1 + FLOOR((C%TIME_ACTUAL) / DT_METEOROLOGY),1) - MINIMUM_CURRENT_WX_BAND + 1
-      ITLO_METEOROLOGY = MIN(ITLO_METEOROLOGY, WX_BANDS_KEPT_IN_MEM)
-      ITHI_METEOROLOGY = MIN(ITLO_METEOROLOGY + 1, WX_BANDS_KEPT_IN_MEM)
+      ITLO_METEOROLOGY = MIN(ITLO_METEOROLOGY, WX_BANDS_KEPT_IN_MEM, WS%NBANDS)
+      ITHI_METEOROLOGY = MIN(ITLO_METEOROLOGY + 1, WX_BANDS_KEPT_IN_MEM, WS%NBANDS)
       F_WIND = (C%TIME_ACTUAL - REAL(ITLO_METEOROLOGY-1) * DT_METEOROLOGY) / DT_METEOROLOGY
       IF (ITLO_METEOROLOGY .EQ. ITHI_METEOROLOGY) F_WIND = 1.
 
@@ -719,7 +710,8 @@ DO WHILE (T .LT. DT_ELMFIRE)
    IY = CEILING ((X(2) + OFFSET(2)) / CELLSIZE_ELM)
    IY = MAX(IY,1) ; IY = MIN (IY,NY_ELM)
 
-   P_LAND = LOGNORM_CDF_DEFINITE(DIST_LAST,C%DIST, MU_DIST, SIGMA_DIST)/MAX(NORM_FACTOR,1E-6)
+   G_CUR  = LOGNORM_CDF_CUM(C%DIST, MU_DIST, SIGMA_DIST)
+   P_LAND = (G_CUR - G_PREV)/MAX(NORM_FACTOR,1E-6)
 
    UWIND_ABS = NORM2(UWIND(1:2))
 
@@ -792,7 +784,7 @@ DO WHILE (T .LT. DT_ELMFIRE)
       ENDIF
    ENDIF
 
-   DIST_LAST = C%DIST
+   G_PREV = G_CUR
    IF (C%TIME_ACTUAL .GT. T_ELMFIRE+DT_ELMFIRE) EXIT
 ENDDO
 
@@ -801,15 +793,32 @@ CONTAINS
 ! *****************************************************************************
 REAL FUNCTION LOGNORM_CDF_DEFINITE(X_START, X_END, MU_DIST, SIGMA_DIST)
 ! *****************************************************************************
+! Definite integral of the lognormal PDF over [X_START, X_END] (i.e. F(X_END)-F(X_START)),
+! giving the probability mass of a spotting distance falling within that interval.
 
 REAL, INTENT(IN) :: X_START, X_END,  MU_DIST, SIGMA_DIST
-REAL, PARAMETER :: SQRT_2 = 1.4142135623731
 
-LOGNORM_CDF_DEFINITE = 0.5*(1+ERF((LOG(MAX(X_END,1E-6))-MU_DIST)/SQRT_2/SIGMA_DIST)) - &
-             0.5*(1+ERF((LOG(MAX(X_START,1E-6))-MU_DIST)/SQRT_2/SIGMA_DIST))
+LOGNORM_CDF_DEFINITE = LOGNORM_CDF_CUM(X_END,   MU_DIST, SIGMA_DIST) - &
+                       LOGNORM_CDF_CUM(X_START, MU_DIST, SIGMA_DIST)
 
 ! *****************************************************************************
 END FUNCTION LOGNORM_CDF_DEFINITE
+! *****************************************************************************
+
+! *****************************************************************************
+REAL FUNCTION LOGNORM_CDF_CUM(X, MU_DIST, SIGMA_DIST)
+! *****************************************************************************
+! Cumulative lognormal CDF G(x). LOGNORM_CDF_DEFINITE(a,b) == LOGNORM_CDF_CUM(b) - LOGNORM_CDF_CUM(a);
+! factoring G(x) out lets the trajectory loop cache it across steps (one ERF per step instead of two).
+! The expression is identical to the two halves of LOGNORM_CDF_DEFINITE, so results are bit-for-bit unchanged.
+
+REAL, INTENT(IN) :: X, MU_DIST, SIGMA_DIST
+REAL, PARAMETER :: SQRT_2 = 1.4142135623731
+
+LOGNORM_CDF_CUM = 0.5*(1+ERF((LOG(MAX(X,1E-6))-MU_DIST)/SQRT_2/SIGMA_DIST))
+
+! *****************************************************************************
+END FUNCTION LOGNORM_CDF_CUM
 ! *****************************************************************************
 
 ! *****************************************************************************
@@ -959,6 +968,9 @@ END SUBROUTINE EMBER_IGNITION
 ! *****************************************************************************
 SUBROUTINE EMBER_CONSUMPTION(IX,IY,T_ELMFIRE, DT_ELMFIRE)
 ! *****************************************************************************
+! Firebrand pile burnout for cell (IX,IY): estimates the pile's effective lifetime from
+! De Beer's wind/heat-flux model and decrements the accumulated EMBER_FLUX at this time
+! step to account for embers that have burned out.
 ! Firebrand ignition model, based on the ember accumulation history
 USE ELMFIRE_VARS
 

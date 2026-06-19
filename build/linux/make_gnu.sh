@@ -1,7 +1,19 @@
 #!/bin/bash
 
+# Always operate from the directory this script lives in, so the relative
+# paths below (../Makefile_elmfire, etc.) resolve no matter where it's invoked.
+cd "$(dirname "$(readlink -f "$0")")"
+
 # ELMFIRE version:
-ELMFIRE_VER=2026.0519.memopt
+ELMFIRE_VER=1.1
+
+# Fast/debug build: compile only the main elmfire executable and skip the
+# gprof/block/perf/debug variants and elmfire_post. Enable with either:
+#   ./make_gnu.sh elmfire      (or: fast / --fast / -f)
+#   ELMFIRE_FAST=1 ./make_gnu.sh
+case "$1" in
+    elmfire|fast|--fast|-f) export ELMFIRE_FAST=1 ;;
+esac
 
 # ELMFIRE uses several environment variables for compilation. If the default
 # values specified on lines 14 - 16 below are not appropriate for your system,
@@ -37,6 +49,13 @@ cp -f elmfire $ELMFIRE_INSTALL_DIR/elmfire_$ELMFIRE_VER
 ln -fs $ELMFIRE_INSTALL_DIR/elmfire_$ELMFIRE_VER $ELMFIRE_INSTALL_DIR/elmfire$ELMFIRE_BIN_SUFFIX
 ln -fs $ELMFIRE_INSTALL_DIR/elmfire_$ELMFIRE_VER $ELMFIRE_INSTALL_DIR/elmfire$ELMFIRE_BIN_SUFFIX
 rm -f *.o *.mod elmfire
+
+if [ -n "${ELMFIRE_FAST}" ]; then
+    echo "FAST build: skipping gprof/block/perf/debug variants and elmfire_post"
+    cd ..
+    rm -f -r elmfire
+    exit 0
+fi
 
 echo "Making elmfire_gnu_mpi_gprof_linux"
 rm -f *.o *.mod elmfire_gprof

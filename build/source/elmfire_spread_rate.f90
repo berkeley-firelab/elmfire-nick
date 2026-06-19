@@ -21,13 +21,10 @@ TYPE (NODE), POINTER, INTENT(INOUT) :: DUMMY_NODE
 !Local variables:
 INTEGER :: I, ILH, NUM_NODES, IX, IY
 REAL :: WS_LIMIT, WSMF_LIMITED, PHIS_MAX, MOMEX2, MOMEX3, MEX_LIVE, M_DEAD, M_LIVE,ETAM_DEAD, ETAM_LIVE, &
-        RHOBEPSQIG_DEAD, RHOBEPSQIG_LIVE, RHOBEPSQIG, IR_DEAD, IR_LIVE, MOMEX, SUM_MPRIMENUMER, CAC, CBD_EFF, CROS, CROSA, R0, &
-        WS10KMPH
+        RHOBEPSQIG_DEAD, RHOBEPSQIG_LIVE, RHOBEPSQIG, IR_DEAD, IR_LIVE, MOMEX, SUM_MPRIMENUMER
 REAL, DIMENSION(1:6) :: M, QIG, FEPSQIG, FMC, FMEX, MPRIMENUMER
 TYPE (FUEL_MODEL_TABLE_TYPE) :: FMT
 TYPE(NODE), POINTER :: C
-REAL, PARAMETER :: BTUPFT2MIN_TO_KWPM2 = 1.055/(60. * 0.3048 * 0.3048)
-REAL, PARAMETER :: MPH_20FT_TO_KMPH_10M = 1.609 / 0.87 
 
 IF (ASSOCIATED (DUMMY_NODE) ) THEN
    NUM_NODES = 1
@@ -137,35 +134,6 @@ DO I = 1, NUM_NODES
    C%HPUA_SURFACE = C%IR * FMT%TR * 60. ! kJ/m2
    C%FLIN_DMS_SURFACE = FMT%TR * C%IR * C%VELOCITY_DMS_SURFACE * 0.3048 ! kW/m
    
-! Crown fire   
-   IF (C%VS0 .GT. 0. .AND. CBD%R4(IX,IY,1) .GT. 1E-3 .AND. CC%R4(IX,IY,1) .GT. 1E-3) THEN   
-      
-      CALL CROWN_CRITICAL_FLIN(C)
-
-      CROS = 0.
-      CBD_EFF  = MAX(CBD%R4(IX,IY,1) + PERTURB_CBD, 0.01)
-      WS10KMPH = C%WS20_NOW * MPH_20FT_TO_KMPH_10M
-      CROSA    = CROWN_FIRE_ADJ * 11.02 * WS10KMPH**0.9 * CBD_EFF**0.19 * EXP(-0.17*100.0*C%M1) / 0.3048 ! ft / min
-      CROSA    = MIN(CROSA,CROWN_FIRE_SPREAD_RATE_LIMIT) ! ft/min
-      R0       = (3.0 / CBD_EFF) / 0.3048 !ft/min
-      CAC      = CROSA / R0
-      IF (CAC .GT. 1) THEN !Active crown fire
-         IF (CC%R4(IX,IY,1) .GE. CRITICAL_CANOPY_COVER) THEN 
-            C%CROWN_FIRE = 2
-            CROS = CROSA
-            C%PHIW_CROWN = MIN(MAX(CROS / MAX(C%VS0, 0.001) - 1.0, 0.0), 200.0)
-         ELSE
-            C%CROWN_FIRE = 1
-         ENDIF
-      ELSE ! Passive crown fire
-         C%CROWN_FIRE = 1
-         IF (CC%R4(IX,IY,1) .GE. CRITICAL_CANOPY_COVER) THEN
-            CROS = CROSA * EXP(-CAC)
-            C%PHIW_CROWN = MIN(MAX(CROS / MAX(C%VS0,0.001) - 1.0, 0.0), 200.0)
-         ENDIF
-      ENDIF
-   endif
-
    C => C%NEXT
 ENDDO
 
@@ -176,6 +144,10 @@ END SUBROUTINE ROTHERMEL_SURFACE_SPREAD_RATE
 ! *****************************************************************************
 SUBROUTINE CFFDRS_SPREAD_RATE(L,DUMMY_NODE, BUI_c)
 ! *****************************************************************************
+! Applies the Canadian Forest Fire Behavior Prediction (CFFDRS/FBP) model to
+! compute surface rate of spread, fireline intensity, ISI, surface fuel
+! consumption, and length-to-width for each node in L (or a single DUMMY_NODE).
+! BUI_c is the daily Buildup Index used in the buildup-effect term.
 
 TYPE (DLL), INTENT(INOUT) :: L
 TYPE (NODE), POINTER, INTENT(INOUT) :: DUMMY_NODE
@@ -184,7 +156,7 @@ REAL, intent(in) :: BUI_c
 INTEGER :: NUM_NODES, aspect, I, IX, IY
 TYPE(NODE), POINTER :: C
 REAL :: M, FF, SF, RSF, ISF_c, WSE, WSE1, WSE2, WSX, WSY, &
-         FW, RSI_c, BE, ROS, FFMC, CF, slope, RSF_1, RSF_2, ISI_s, windy
+         FW, RSI_c, BE, ROS, FFMC, CF, slope, RSF_1, RSF_2, ISI_s
 
 IF (ASSOCIATED (DUMMY_NODE) ) THEN
    NUM_NODES = 1
@@ -278,11 +250,7 @@ DO I = 1, NUM_NODES
    C%RAZ = acos(WSY/C%WSV)/PIO180
    if (WSX .lt. 0) C%RAZ = 360 - C%RAZ
 
-   if (C%WSV .le. 40) then
-      FW = exp(0.05039*C%WSV)
-   else
-      FW = 12*(1-exp(-0.0818*(C%WSV-28)))
-   endif
+   FW = CFFDRS_FW(C%WSV)
 
    C%ISI = 0.208 * FF * FW
    ! ----------------- RATE OF SPREAD -------------------
@@ -314,25 +282,10 @@ DO I = 1, NUM_NODES
    C%IR = 0! kW/m2, CANADIAN FBP HAS NO PROVISION FOR RESIDENCE TIME OR HEAT PER UNIT AREA.
 
    ! ----------------- SLOPE AND WIND MAGNITUDES  -------------------
-  ! recalculate slope only ROS, in direction of max spread
+   ! recalculate slope only ROS, in direction of max spread
+   ! (the earlier windy/ISI_s recompute was dead - overwritten before use)
 
-   !these dont actually work right now, so the part where this is used is handled downstream.
-
-   windy = C%WS20_NOW*1.61*1.15 !* COS( ((C%WD20_NOW) - C%RAZ) * PIO180 )
-   if (windy .le. 40) then
-      FW = exp(0.05039*windy)
-   else
-      FW = 12*(1-exp(-0.0818*(windy-28)))
-   endif
-   ISI_s = 0.208 * FF * FW
-   !ROS = RSI(C%IFBFM, ISI_s, CF)*BE
-
-   WSE = WSE !* COS( ((ASPECT + 180.0) - C%RAZ) * PIO180 )
-   if (WSE .le. 40) then
-      FW = exp(0.05039*WSE)
-   else
-      FW = 12*(1-exp(-0.0818*(WSE-28)))
-   endif
+   FW = CFFDRS_FW(WSE)
    ISI_s = 0.208 * FF * FW
    RSF = RSI(C%IFBFM, ISI_s, CF)*BE
    
@@ -359,12 +312,16 @@ end subroutine CFFDRS_SPREAD_RATE
 ! *****************************************************************************
 subroutine UPDATE_LOCAL_SPREAD_PROPERTIES(L,DUMMY_NODE)
 ! *****************************************************************************
+! Finalizes crown-fire state and intensity for each node in L (or DUMMY_NODE)
+! using the already-computed surface velocity: computes crown fraction burned,
+! crown fuel consumption, total surface+canopy fireline intensity, flame
+! length, and HRRPUA. Handles both CFFDRS and Rothermel surface models.
 TYPE (DLL), INTENT(INOUT) :: L
 TYPE (NODE), POINTER, INTENT(INOUT) :: DUMMY_NODE
 
 TYPE(NODE), POINTER :: C
 INTEGER :: I, NUM_NODES, IX, IY, RSO
-REAL :: FME, RSC
+REAL :: FME, RSC, CROS, CBD_EFF, WS10KMPH, CROSA, R0, CAC
 
 IF (ASSOCIATED (DUMMY_NODE) ) THEN
    NUM_NODES = 1
@@ -377,10 +334,22 @@ ENDIF
 DO I = 1, NUM_NODES
    IX = C%IX
    IY = C%IY
-   if (trim(SURFACE_SPREAD_MODEL) .eq. "CFFDRS") then
-      IF (C%VS0 .GT. 0. .AND. CBD%R4(IX,IY,1) .GT. 1E-3 .AND. CC%R4(IX,IY,1) .GT. 1E-3) THEN   
-         
-         CALL CROWN_CRITICAL_FLIN(C)
+
+   if (C%IFBFM .eq. 6 .and. C%CROWN_FIRE .gt. 0) then ! C-6 special condition 
+      FME = 1000*((1.5-0.00275*C%FMC)**4.0)/(460+(25.9*C%FMC))
+      RSC = 60*(1-exp(-0.0497*C%ISI))*FME/0.778
+      C%VELOCITY = C%VELOCITY + C%CFB*(RSC - C%VELOCITY/3.28) * 3.28 !ft/min
+   endif
+
+   if (trim(SURFACE_SPREAD_MODEL) .eq. "CFFDRS") C%FLIN_SURFACE = 300 * (C%SFC + C%CFC) * C%VELOCITY / 3.28
+
+   CALL CROWN_CRITICAL_FLIN(C)
+
+   if (C%FLIN_SURFACE .lt. C%CRITICAL_FLIN .or. CROWN_FIRE_MODEL .le. 0) then 
+      C%CROWN_FIRE = 0
+      C%FLIN_CANOPY = 0
+   else IF (C%VS0 .GT. 0. .AND. CBD%R4(IX,IY,1) .GT. 1E-3 .AND. CC%R4(IX,IY,1) .GT. 1E-3) THEN   
+      if (trim(SURFACE_SPREAD_MODEL) .eq. "CFFDRS") then
          RSO = C%CRITICAL_FLIN /(300*C%SFC)
          C%CFB = MAX(0.0,1-exp(-0.23*(C%VELOCITY/3.28-RSO)))
          
@@ -396,25 +365,33 @@ DO I = 1, NUM_NODES
          ELSE
             C%CFC = FUEL_MODEL_TABLE_FBP(C%IFBFM)%CFL*C%CFB
          ENDIF
+
+      else if (trim(SURFACE_SPREAD_MODEL) .eq. "ROTHERMEL") then 
+         C%FLIN_CANOPY = C%HPUA_CANOPY * C%VELOCITY * 5.08E-3
+         CROS = 0.
+         CBD_EFF  = MAX(CBD%R4(IX,IY,1) + PERTURB_CBD, 0.01)
+         WS10KMPH = C%WS20_NOW * MPH_20FT_TO_KMPH_10M
+         CROSA    = CROWN_FIRE_ADJ * 11.02 * WS10KMPH**0.9 * CBD_EFF**0.19 * EXP(-0.17*100.0*C%M1) / 0.3048 ! ft / min
+         CROSA    = MIN(CROSA,CROWN_FIRE_SPREAD_RATE_LIMIT) ! ft/min
+         R0       = (3.0 / CBD_EFF) / 0.3048 !ft/min
+         CAC      = CROSA / R0
+         IF (CAC .GT. 1) THEN !Active crown fire
+            IF (CC%R4(IX,IY,1) .GE. CRITICAL_CANOPY_COVER) THEN 
+               C%CROWN_FIRE = 2
+               CROS = CROSA
+               C%PHIW_CROWN = MIN(MAX(CROS / MAX(C%VS0, 0.001) - 1.0, 0.0), 200.0)
+            ELSE
+               C%CROWN_FIRE = 1
+            ENDIF
+         ELSE ! Passive crown fire
+            C%CROWN_FIRE = 1
+            IF (CC%R4(IX,IY,1) .GE. CRITICAL_CANOPY_COVER) THEN
+               CROS = CROSA * EXP(-CAC)
+               C%PHIW_CROWN = MIN(MAX(CROS / MAX(C%VS0,0.001) - 1.0, 0.0), 200.0)
+            ENDIF
+         ENDIF
       endif
-      if (C%IFBFM .eq. 6 .and. C%CROWN_FIRE .gt. 0) then ! C-6 special condition 
-         FME = 1000*((1.5-0.00275*C%FMC)**4.0)/(460+(25.9*C%FMC))
-         RSC = 60*(1-exp(-0.0497*C%ISI))*FME/0.778
-         C%VELOCITY = C%VELOCITY + C%CFB*(RSC - C%VELOCITY/3.28) * 3.28 !ft/min
-      endif
-      ! print *, C%SFC, C%CFC, C%CFB, C%VELOCITY / 3.28
    endif
-   
-   if (trim(SURFACE_SPREAD_MODEL) .eq. "CFFDRS") C%FLIN_SURFACE = 300 * (C%SFC + C%CFC) * C%VELOCITY / 3.28
-   
-   
-   if (C%FLIN_SURFACE .lt. C%CRITICAL_FLIN) then 
-      C%CROWN_FIRE = 0
-      C%FLIN_CANOPY = 0
-   else
-      if (trim(SURFACE_SPREAD_MODEL) .eq. "ROTHERMEL") C%FLIN_CANOPY = C%HPUA_CANOPY * C%VELOCITY * 5.08E-3
-   endif
-   ! print *, C%FLIN_SURFACE, C%FLIN_CANOPY
 
    C%FLAME_LENGTH = (0.0775 / 0.3048) * (C%FLIN_SURFACE + C%FLIN_CANOPY) ** 0.46
    C%HRRPUA = (C%FLIN_SURFACE + C%FLIN_CANOPY) / ASP%CELLSIZE
@@ -426,6 +403,9 @@ end subroutine UPDATE_LOCAL_SPREAD_PROPERTIES
 ! *****************************************************************************
 
 subroutine CROWN_CRITICAL_FLIN(C)
+! Computes (once, then caches) the critical surface fireline intensity required
+! for crown-fire initiation at node C, along with canopy heat-per-unit-area,
+! from canopy bulk density, canopy/base heights, and foliar moisture content.
 
 TYPE (NODE), POINTER, INTENT(INOUT) :: C
 REAL :: FMCTERM, CBH_EFF
@@ -633,7 +613,7 @@ INTEGER, PARAMETER :: NO_DATA = -9999
 REAL :: DFC_COEFF, RAD_COEFF, ANALYSIS_CELLSIZE_SQUARED, RANALYSIS_CELLSIZE, HALF_ANALYSIS_CELLSIZE, HRR_ADJUSTER, ELLIPSE_MINOR_SQUARED, & 
         RDEL_X, RDEL_Y, TARGET_R, TARGET_R_METERS, TARGET_THETA, WIND_THETA, TARGET_THETA_F, MAX_ELLIPSE_DIST, &
         ELLIPSE_DIST_THETA, DFC_CHECKER, DFC_FACTOR, DFC_HEAT_RECEIVED, RAD_LIMIT_THETA, RAD_CHECKER, DELTA_RAD, RAD_FACTOR, &
-        RAD_EFF_DIST, RAD_HEAT_RECEIVED, WTU_DIST_LIMIT, WTU_FLIN_LIMIT
+        RAD_EFF_DIST, RAD_HEAT_RECEIVED, WTU_DIST_LIMIT, WTU_FLIN_LIMIT, HRR_BURNING_NODE
 
 TYPE(UCB_ELLIPSE) :: ELLIPSE_PARAMETERS
 ! Interface submodel
@@ -656,8 +636,14 @@ ELLIPSE_MINOR_SQUARED = ELLIPSE_PARAMETERS%ELLIPSE_MINOR * ELLIPSE_PARAMETERS%EL
 
 IXTAGSTART = MAX(3,    IX_BURNING - BANDTHICKNESS_WUI) 
 IXTAGSTOP  = MIN(NX-2, IX_BURNING + BANDTHICKNESS_WUI)
-IYTAGSTART = MAX(3,    IY_BURNING - BANDTHICKNESS_WUI) 
+IYTAGSTART = MAX(3,    IY_BURNING - BANDTHICKNESS_WUI)
 IYTAGSTOP  = MIN(NY-2, IY_BURNING + BANDTHICKNESS_WUI)
+
+! These quantities depend only on the burning node / its ellipse, not on the target (IX,IY),
+! so hoist them out of the band loop below (they are otherwise recomputed for every target cell).
+WIND_THETA = PIO180 * (270. - BURNING_NODES%WD20_NOW) !in radians
+MAX_ELLIPSE_DIST = 0.3 * ELLIPSE_PARAMETERS%DIST_DOWNWIND * (ELLIPSE_PARAMETERS%ELLIPSE_MAJOR - ELLIPSE_PARAMETERS%ELLIPSE_ECCENTRICITY) / ELLIPSE_MINOR_SQUARED
+HRR_BURNING_NODE = HRR_TRANSIENT_MAP(IX_BURNING, IY_BURNING)
 
 ! Update the aggregated heat flux for each target (IX,IY) from all burning nodes at current time
 DO IY = IYTAGSTART, IYTAGSTOP
@@ -676,7 +662,7 @@ DO IX = IXTAGSTART, IXTAGSTOP
    ENDIF
 
    ! Interface Model
-   IF ((INTERFACE_MODEL_TYPE .EQ. 2) .AND. &
+   IF ((CRITICAL_HF_WUI .EQ. 2) .AND. &
       (BURNING_NODES%IFBFM .NE. 91) .AND. &
       (TARGET_R .LE. WTU_DIST_LIMIT).AND. &
       (FBFM%I2(IX,IY,1) .EQ. 91)) THEN
@@ -699,10 +685,7 @@ DO IX = IXTAGSTART, IXTAGSTOP
    RAD_COEFF = BUILDING_FUEL_MODEL_TABLE(IBLDGFM)%ABSORPTIVITY
 
    TARGET_THETA = ATAN2(RDEL_Y, RDEL_X) !in radians
-   WIND_THETA = PIO180 * (270. - BURNING_NODES%WD20_NOW) !in radians
    TARGET_THETA_F = TARGET_THETA - WIND_THETA !in radians
-
-   MAX_ELLIPSE_DIST = 0.3 * ELLIPSE_PARAMETERS%DIST_DOWNWIND * (ELLIPSE_PARAMETERS%ELLIPSE_MAJOR - ELLIPSE_PARAMETERS%ELLIPSE_ECCENTRICITY) / ELLIPSE_MINOR_SQUARED
 
    ! Direct Flame Contact
    ELLIPSE_DIST_THETA = MAX_ELLIPSE_DIST*ELLIPSE_MINOR_SQUARED / (ELLIPSE_PARAMETERS%ELLIPSE_MAJOR - ELLIPSE_PARAMETERS%ELLIPSE_ECCENTRICITY*COS(TARGET_THETA_F))
@@ -711,7 +694,7 @@ DO IX = IXTAGSTART, IXTAGSTOP
 
    DFC_FACTOR = AMAX1(0.0,AMIN1(1.0,DFC_CHECKER))
 
-   DFC_HEAT_RECEIVED = DFC_COEFF*DFC_FACTOR*HRR_TRANSIENT_MAP(IX_BURNING, IY_BURNING)*HRR_ADJUSTER  !DWI_M3
+   DFC_HEAT_RECEIVED = DFC_COEFF*DFC_FACTOR*HRR_BURNING_NODE*HRR_ADJUSTER  !DWI_M3
 
    ! Radiation
    RAD_LIMIT_THETA = ELLIPSE_DIST_THETA + BURNING_NODES%RAD_DIST
@@ -726,7 +709,7 @@ DO IX = IXTAGSTART, IXTAGSTOP
         RAD_EFF_DIST  = TARGET_R_METERS - ELLIPSE_DIST_THETA
    ENDIF
 
-   RAD_HEAT_RECEIVED = HRR_ADJUSTER*(0.3*DFC_COEFF*RAD_COEFF*RAD_FACTOR*HRR_TRANSIENT_MAP(IX_BURNING, IY_BURNING)*ANALYSIS_CELLSIZE_SQUARED)/(4*PI*RAD_EFF_DIST*RAD_EFF_DIST)  !DWI_M4
+   RAD_HEAT_RECEIVED = HRR_ADJUSTER*(0.3*DFC_COEFF*RAD_COEFF*RAD_FACTOR*HRR_BURNING_NODE*ANALYSIS_CELLSIZE_SQUARED)/(4*PI*RAD_EFF_DIST*RAD_EFF_DIST)  !DWI_M4
    
    TRANSIENT_DFC_WUI(IX,IY) = TRANSIENT_DFC_WUI(IX,IY) + DFC_HEAT_RECEIVED
    TRANSIENT_RADIATION_WUI(IX,IY) = TRANSIENT_RADIATION_WUI(IX,IY) + RAD_HEAT_RECEIVED
@@ -745,6 +728,10 @@ END SUBROUTINE CALC_WUI_HEATFLUX
 ! *****************************************************************************
 SUBROUTINE ELLIPSE_UCB(C)
 ! *****************************************************************************
+! Builds the UCB WUI fire-footprint ellipse for node C from wind speed and
+! building area/separation (Hamada-derived regressions, with HAZUS and high-wind
+! branches): computes downwind/upwind/sidewind distances and the resulting
+! ellipse major/minor/eccentricity, storing them in ELLIPSE_PROPERTY_MAP(IX,IY).
 
 USE ELMFIRE_VARS
 !ELLIPSE_PROPERTY_MAP
@@ -852,6 +839,10 @@ END SUBROUTINE ELLIPSE_UCB
 ! *****************************************************************************
 SUBROUTINE HRR_TRANSIENT(BURNING_NODES, T)
 ! *****************************************************************************
+! Evaluates the transient heat-release rate per unit area of a burning node at
+! time T from its time-of-arrival, following the building design-fire curve
+! (growth/full-development/decay) for FBFM91 cells or a residence-time pulse for
+! vegetative cells. Updates HRR_TRANSIENT, FLIN_SURFACE, and HRR_TRANSIENT_MAP.
 
 USE ELMFIRE_VARS
 ! HRR_TRANSIENT_MAP, BUILDING_FUEL_MODEL_TABLE
@@ -864,21 +855,26 @@ REAL ::  BURNING_TIME, TOA, HRR_PEAK, EARLY_TIME,  DEVELOPED_TIME, DECAY_TIME
 
 INTEGER :: BLDG_FM
 INTEGER, PARAMETER :: NO_DATA = -9999
-
-BLDG_FM = BURNING_NODES%IBLDGFM
-IF (BURNING_NODES%IBLDGFM .EQ. NO_DATA) BLDG_FM = 1
+REAL(8), PARAMETER :: FT_PER_MIN_TO_MPS = 0.00508
 
 IX = BURNING_NODES%IX
 IY = BURNING_NODES%IY
-TOA = TIME_OF_ARRIVAL(IX,IY)
 
 IF (PHIP(IX,IY) .GT. 0) RETURN
 
+TOA = TIME_OF_ARRIVAL(IX,IY)
 BURNING_TIME = T - TOA
+
+! Pre-burned cells (initial ignition zone) : no HRR transient
+IF (TOA .LE. SIMULATION_TSTART) THEN
+   BURNING_NODES%HRR_TRANSIENT = 0.
+   HRR_TRANSIENT_MAP(IX,IY)    = 0.
+   RETURN
+ENDIF
 
 ! This is to be modified. Maybe introduce a design fire curve for non-FBFM91 fuel.
 IF (BURNING_NODES%IFBFM .NE. 91) THEN
-   IF (BURNING_TIME .LT. ANALYSIS_CELLSIZE/MAX(1E-5, BURNING_NODES%VELOCITY_DMS_SURFACE)) THEN
+   IF (BURNING_TIME .LT. ANALYSIS_CELLSIZE/MAX(1E-5, BURNING_NODES%VELOCITY*FT_PER_MIN_TO_MPS)) THEN
       BURNING_NODES%HRR_TRANSIENT = BURNING_NODES%HRRPUA
    ELSE
       BURNING_NODES%HRR_TRANSIENT = 0.
@@ -887,20 +883,25 @@ IF (BURNING_NODES%IFBFM .NE. 91) THEN
    RETURN
 ENDIF
 
-EARLY_TIME = BUILDING_FUEL_MODEL_TABLE(BLDG_FM)%T_EARLY
-DEVELOPED_TIME = BUILDING_FUEL_MODEL_TABLE(BLDG_FM)%T_FULLDEV
-DECAY_TIME = BUILDING_FUEL_MODEL_TABLE(BLDG_FM)%T_DECAY
-HRR_PEAK = BUILDING_FUEL_MODEL_TABLE(BLDG_FM)%HRRPUA_PEAK
+BLDG_FM = BURNING_NODES%IBLDGFM
+IF (BLDG_FM .NE. NO_DATA) THEN
+   EARLY_TIME = BUILDING_FUEL_MODEL_TABLE(BLDG_FM)%T_EARLY
+   DEVELOPED_TIME = BUILDING_FUEL_MODEL_TABLE(BLDG_FM)%T_FULLDEV
+   DECAY_TIME = BUILDING_FUEL_MODEL_TABLE(BLDG_FM)%T_DECAY
+   HRR_PEAK = BUILDING_FUEL_MODEL_TABLE(BLDG_FM)%HRRPUA_PEAK
 
-IF (BURNING_TIME .LE. EARLY_TIME) THEN
-   BURNING_NODES%HRR_TRANSIENT = (HRR_PEAK/ EARLY_TIME)*BURNING_TIME
-ELSEIF ((BURNING_TIME .GT. EARLY_TIME) .AND. (BURNING_TIME .LE. DEVELOPED_TIME)) THEN
-   BURNING_NODES%HRR_TRANSIENT = HRR_PEAK
-ELSEIF (BURNING_TIME .GT. DECAY_TIME) THEN
-   BURNING_NODES%HRR_TRANSIENT = 0.
-   BURNING_NODES%BURNED = .TRUE.
+   IF (BURNING_TIME .LE. EARLY_TIME) THEN
+      BURNING_NODES%HRR_TRANSIENT = (HRR_PEAK/ EARLY_TIME)*BURNING_TIME
+   ELSEIF ((BURNING_TIME .GT. EARLY_TIME) .AND. (BURNING_TIME .LE. DEVELOPED_TIME)) THEN
+      BURNING_NODES%HRR_TRANSIENT = HRR_PEAK
+   ELSEIF (BURNING_TIME .GT. DECAY_TIME) THEN
+      BURNING_NODES%HRR_TRANSIENT = 0.
+      BURNING_NODES%BURNED = .TRUE.
+   ELSE
+      BURNING_NODES%HRR_TRANSIENT = (HRR_PEAK/(DEVELOPED_TIME - DECAY_TIME))*(BURNING_TIME - DECAY_TIME)
+   ENDIF
 ELSE
-   BURNING_NODES%HRR_TRANSIENT = (HRR_PEAK/(DEVELOPED_TIME - DECAY_TIME))*(BURNING_TIME - DECAY_TIME)
+   BURNING_NODES%HRR_TRANSIENT = 0.0
 ENDIF
 
 BURNING_NODES%HRR_TRANSIENT = AMAX1(0.0, BURNING_NODES%HRR_TRANSIENT)
@@ -930,7 +931,7 @@ DO IX=1,NX
    IF (TIME_OF_ARRIVAL(IX,IY) .LT. 0.) CYCLE
    ! CRITICL_HF_WUI is the critical heat flux below which the fuel is considered to extinguish. This value is subject to changes and should be calibrated with real fire data.
    TOTAL_HEAT_FLUX = TRANSIENT_DFC_WUI(IX,IY)+TRANSIENT_RADIATION_WUI(IX,IY)
-   IF (TOTAL_HEAT_FLUX .LE. CRITICL_HF_WUI ) THEN 
+   IF (TOTAL_HEAT_FLUX .LE. CRITICL_HF_WUI ) THEN
       HRR_TRANSIENT = 0.
    ELSE
       HRR_TRANSIENT = HRR_TRANSIENT_MAP(IX,IY)
@@ -946,36 +947,17 @@ END SUBROUTINE CALC_FUEL_CONSUMPTION
 #endif
 
 ! *****************************************************************************
-SUBROUTINE BURNED_FILTER(DYNAMIC_ARRAY, ZERO_FILTERED, INDEX_FILTERED, IX_LOW_BORDER, IY_LOW_BORDER, IX_HIGH_BORDER, IY_HIGH_BORDER)
+PURE REAL FUNCTION CFFDRS_FW(WS)
 ! *****************************************************************************
-
-REAL, ALLOCATABLE, INTENT(INOUT), DIMENSION(:,:) :: DYNAMIC_ARRAY, ZERO_FILTERED
-INTEGER :: I, TOTAL_ELEMENTS, IX_LOW_BORDER, IY_LOW_BORDER, IX_HIGH_BORDER, IY_HIGH_BORDER
-LOGICAL, ALLOCATABLE :: VALID_VALUES(:)
-INTEGER, ALLOCATABLE, INTENT(OUT) :: INDEX_FILTERED(:)  ! Store indices
-
-
-TOTAL_ELEMENTS = SIZE(DYNAMIC_ARRAY, 1)
-
-    ! Create a logical mask for valid values
-ALLOCATE(VALID_VALUES(TOTAL_ELEMENTS))
-VALID_VALUES = (DYNAMIC_ARRAY(:, 1) >= IX_LOW_BORDER .AND. DYNAMIC_ARRAY(:, 1) <= IX_HIGH_BORDER .AND. &
-               DYNAMIC_ARRAY(:, 2) >= IY_LOW_BORDER .AND. DYNAMIC_ARRAY(:, 2) <= IY_HIGH_BORDER)
-
-    ! Allocate ZERO_FILTERED based on the number of valid values
-ALLOCATE(ZERO_FILTERED(COUNT(VALID_VALUES), 2))
-
-    ! Pack the valid IX and IY values directly into ZERO_FILTERED
-ZERO_FILTERED(:,1) = PACK(DYNAMIC_ARRAY(:,1), VALID_VALUES)
-ZERO_FILTERED(:,2) = PACK(DYNAMIC_ARRAY(:,2), VALID_VALUES)
-
-! Pack the indices of valid values
-INDEX_FILTERED = PACK((/(I, I=1,TOTAL_ELEMENTS)/), VALID_VALUES)
-
-!DEALLOCATE(VALID_VALUES)
-
+! CFFDRS wind function FW (the ISI wind multiplier) as a function of wind speed WS.
+REAL, INTENT(IN) :: WS
+if (WS .le. 40) then
+   CFFDRS_FW = exp(0.05039*WS)
+else
+   CFFDRS_FW = 12*(1-exp(-0.0818*(WS-28)))
+endif
 ! *****************************************************************************
-END SUBROUTINE BURNED_FILTER
+END FUNCTION CFFDRS_FW
 ! *****************************************************************************
 
 END MODULE
