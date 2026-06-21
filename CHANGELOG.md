@@ -51,6 +51,8 @@ Please create issues with your errors, requests or observations so they can be w
 - Removed the `LATITUDE` and `LONGITUDE` inputs required for diurnal fire adjustments. ELMFIRE now calculates them automatically from the domain center dimensions.
 
 ### Fixed
+- Updated the dockerfile to compile with Ubuntu 24.04 and resolve some python related issues.
+- Fixed `DUMP_EMBER_FLUX` output that would crash when called. 
 - Fixed `HRR_TRANSIENT` outputs so `DUMP_HRR_TRANSIENT = .TRUE.` writes HRRPUA for all actively burning fuels within residence time, not only WUI cells.
 - Fixed simulation stop handling so runs are clipped to `SIMULATION_TSTOP` and exit after final cleanup instead of continuing to the end of the meteorology bands.
 - Fixed WU-E accumulated heat-flux outputs so `DUMP_TOTAL_DFC_RECEIVED` and `DUMP_TOTAL_RAD_RECEIVED` write gridded totals for all receiving cells, rather than only values stored on tagged nodes.
