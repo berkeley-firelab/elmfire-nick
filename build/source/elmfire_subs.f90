@@ -279,6 +279,7 @@ IF (TRIM(PIXELTYPE) .NE. 'FLOAT' .AND. TRIM(PIXELTYPE) .NE. 'SIGNEDINT' ) THEN
    STOP
 ENDIF
 
+NBITS = 0   ! unreachable default; PIXELTYPE is validated above
 SELECT CASE(TRIM(PIXELTYPE))
    CASE('FLOAT')
       NBITS=32
@@ -705,7 +706,8 @@ DO I = 1, L%NUM_NODES
    UYNOW = UYL + F * (UYH - UYL)
    
 ! Convert to wind speed and direction
-   IF      (UXNOW .EQ. 0. .AND. UYNOW .EQ. 0.) THEN 
+   WDNOW = 0.   ! exhaustive branches below set it; default keeps it defined
+   IF      (UXNOW .EQ. 0. .AND. UYNOW .EQ. 0.) THEN
       WDNOW = 0.
    ELSE IF (UXNOW .GT. 0. .AND. UYNOW .EQ. 0.) THEN
       WDNOW = 0.5*PI
@@ -810,7 +812,8 @@ UXNOW = UXL + F * (UXH - UXL)
 UYNOW = UYL + F * (UYH - UYL)
    
 ! Convert to wind speed and direction
-IF      (UXNOW .EQ. 0. .AND. UYNOW .EQ. 0.) THEN 
+WDNOW = 0.   ! exhaustive branches below set it; default keeps it defined
+IF      (UXNOW .EQ. 0. .AND. UYNOW .EQ. 0.) THEN
    WDNOW = 0.
 ELSE IF (UXNOW .GT. 0. .AND. UYNOW .EQ. 0.) THEN
    WDNOW = 0.5*PI

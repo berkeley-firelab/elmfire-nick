@@ -1835,8 +1835,6 @@ END SELECT
 
 CLOSE(LUINPUT,IOSTAT=IOS)
 
-100 FORMAT(A)
-
 ! *****************************************************************************
 END SUBROUTINE READ_BSQ_RASTER_SLICE
 ! *****************************************************************************
@@ -1990,6 +1988,7 @@ IF (BANDEND-BANDSTART .gt. WX_BANDS_KEPT_IN_MEM) then
    STOP
 endif
 
+NBANDS = 0   ! real value is computed in the header-set block before any allocation below
 DO ITILE = 1, 3
 DO JTILE = 1, 3
 

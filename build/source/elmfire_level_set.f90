@@ -377,6 +377,7 @@ DO WHILE (T .le. totalDuration)
 
       ! Initialize viariables on each new call:
       ITIMESTEP                   = 0
+      T_LAST_EXTENDED_ATTACK      = -9E9
       T_LAST_INTERPOLATE_M1       = -9E9
       T_LAST_INTERPOLATE_M10      = -9E9
       T_LAST_INTERPOLATE_M100     = -9E9

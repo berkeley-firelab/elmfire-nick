@@ -105,7 +105,6 @@ DO I = 1, NUM_NODES
 !   WS_LIMIT = 96.8*C%IR**0.3333333 !Andrews, Cruz, and Rothermel (2013) limit
    WS_LIMIT = 0.9*C%IR !Original limit
    WSMF_LIMITED = MIN(C%WSMF, WS_LIMIT)
-
    C%PHIW_SURFACE = FMT%PHIWTERM * WSMF_LIMITED**FMT%B_COEFF
 
 ! Max slope factor is equal to max wind factor:

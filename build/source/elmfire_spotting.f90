@@ -71,6 +71,7 @@ X0(1) = (REAL(IX0)-0.5) * CC%CELLSIZE
 X0(2) = (REAL(IY0)-0.5) * CC%CELLSIZE 
 X0(3) = DEM%R4(IX0,IY0,1) + MAX(CH%R4(IX0,IY0,1),2.0)
 
+NEMBERS_REAL = 0.   ! default if GENERATION_MODEL matches no branch below
 IF (GENERATION_MODEL .eq. 'RANDOM') then
    CALL RANDOM_NUMBER(R0)
    NEMBERS_REAL = REAL(NEMBERS_MIN) + R0 * REAL(NEMBERS_MAX - NEMBERS_MIN)
@@ -262,7 +263,6 @@ MINIMUM_CURRENT_WX_BAND)
 ! flags positive ignitions stochastically from the per-cell ignition probability.
 
 INTEGER, INTENT(IN) :: NX_ELM, NY_ELM, NUM_EMBERS, IRANK_WORLD, ICASE, MINIMUM_CURRENT_WX_BAND
-INTEGER :: N_SPOT_FIRES
 REAL, INTENT(IN) :: CELLSIZE_ELM, PIGN_ELM, MIN_SPOTTING_DISTANCE, MAX_SPOTTING_DISTANCE, &
                     SIGMA_DIST, MU_DIST, SIGMA_CROSSWIND_LOCAL, MU_CROSSWIND_LOCAL, IGNMULT
 REAL(8), intent(in) :: TIME_NOW
@@ -293,6 +293,7 @@ UWIND (3) = 0.
 OFFSET(3) = 0.
 
 ! Find the maximum spotting distance accoring to criterion P_EPS (P_EPS=0.001 by default)
+X_MAX = 0.   ! only consumed in the EMPIRICAL branch, which sets it below
 IF (SPOTTING_DISTANCE_MODEL .eq. 'EMPIRICAL') THEN
    QUANTILE=SQRT_2*ERFINV_LOCAL(2.0*(1.0-P_EPS)-1.0)
    LNORM_QUANTILE = EXP(MU_DIST + SIGMA_DIST * QUANTILE)
@@ -306,6 +307,7 @@ DO IEMBER = 1, NUM_EMBERS
 
 ! Get spotting distance
    CALL RANDOM_NUMBER(R0)
+   SPOTTING_DISTANCE = 0.   ! default if SPOTTING_DISTANCE_MODEL matches no branch
    IF (SPOTTING_DISTANCE_MODEL .EQ. 'UNIFORM') THEN
       SPOTTING_DISTANCE = MIN_SPOTTING_DISTANCE + R0 * (MAX_SPOTTING_DISTANCE - MIN_SPOTTING_DISTANCE)
       SPOTTING_DISTANCE_FULL = SPOTTING_DISTANCE
@@ -380,6 +382,7 @@ DO IEMBER = 1, NUM_EMBERS
    SPOTTING_STATS(NUM_TRACKED_EMBERS)%ACCUMULATED       = .FALSE.
 
    ICOUNT = 0
+   UWIND = 0.   ! set on the first cell-crossing; default covers the first step
 
    DO WHILE (T .LT. TSTOP .AND. DIST .LT. SPOTTING_DISTANCE )
       ICOUNT = ICOUNT + 1
@@ -563,7 +566,7 @@ MU_DIST    = C%MU_DIST
 SIGMA_CROSSWIND_LOCAL = C%SIGMA_CROSSWIND_LOCAL
 MU_CROSSWIND_LOCAL    = C%MU_CROSSWIND_LOCAL
 
-UWIND (3) = 0. 
+UWIND     = 0.   ! (1:2) set on the first cell-crossing in the loop; (3) is always 0
 OFFSET(3) = 0.
 
 ! Find the maximum spotting distance accoring to criterion P_EPS (P_EPS=0.001 by default)
