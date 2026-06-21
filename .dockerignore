@@ -2,8 +2,7 @@
 .git
 .gitignore
 
-# Docs and CI config — not needed at runtime.
-docs
+# CI config — not needed at runtime.
 .github
 
 # WSL/Windows "downloaded from the internet" marker files.
