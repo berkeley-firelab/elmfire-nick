@@ -60,11 +60,13 @@ RUN apt-get purge -y build-essential && \
 
 WORKDIR /elmfire
 
-# Keep ELMFIRE_VER in sync with build/linux/make_gnu.sh (ELMFIRE_VER=...).
-# It is the version-suffixed binary name (elmfire_$ELMFIRE_VER) that the
-# bundled tutorial/example scripts invoke. The unsuffixed `elmfire` symlink
-# always points at the current build regardless of this value.
-ENV ELMFIRE_VER=1.1
+# ELMFIRE_VER is the version-suffixed binary name (elmfire_$ELMFIRE_VER) that
+# the bundled tutorial/example scripts invoke. The repo-root VERSION file is the
+# single source of truth; this ARG defaults to it and can be overridden with
+# --build-arg ELMFIRE_VER=... The unsuffixed `elmfire` symlink always points at
+# the current build regardless of this value.
+ARG ELMFIRE_VER
+ENV ELMFIRE_VER=${ELMFIRE_VER:-1.1}
 ENV ELMFIRE_BASE_DIR=/elmfire/elmfire
 ENV ELMFIRE_SCRATCH_BASE=/scratch/elmfire
 ENV ELMFIRE_INSTALL_DIR=$ELMFIRE_BASE_DIR/build/linux/bin

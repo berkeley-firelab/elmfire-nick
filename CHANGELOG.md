@@ -30,6 +30,8 @@ Please create issues with your errors, requests or observations so they can be w
 - **Additional `&OUTPUTS` options**: `DUMP_CRITICAL_FLIN` (critical fireline intensity for canopy fire ignition), `DUMP_EMITIMES` (creates the `emitimes.txt` file required for a HYSPLIT smoke simulation), `DUMP_SPREAD_DIRECTION` (primary fire spread direction in degrees), `SPREAD_RATE_IN_M` (converts ROS output from feet per minute to meters per minute), and `DUMP_CFFDRS_DEBUG` (CFFDRS diagnostics).
 - **Raster perturbation distributions (`&MONTE_CARLO`)**: each perturbed raster can now draw its Monte Carlo offset from a `PDF_TYPE` of `'UNIFORM'`, `'GAUSSIAN'`, or `'LOGNORMAL'`. `'UNIFORM'` uses `PDF_LOWER_LIMIT`/`PDF_UPPER_LIMIT` as before; `'GAUSSIAN'` and `'LOGNORMAL'` use the new `PDF_MEAN`/`PDF_SIGMA` parameters.
 - **Input file checking**: input validation now runs at the start of a simulation. The run stops if too few files are specified, if required input parameters are unset, or if input rasters have mismatching size / extent / band count or a non-meter CRS, among other checks.
+- **`LANDSCAPE_FILENAME` (`&INPUTS`)**: a single multiband "landscape" GeoTIFF can now supply all topography/fuel layers in place of the individual rasters. Bands are read in order: 1 = elevation (DEM), 2 = slope, 3 = aspect, 4 = fuel model, 5 = canopy cover, 6 = canopy height, 7 = canopy base height, 8 = canopy bulk density. When set, the per-layer `*_FILENAME` keys are ignored and the computational domain is taken from the landscape file. Weather, adjustment-factor, phi and barrier rasters remain separate.
+- **Single version source (`VERSION` file)**: a repo-root `VERSION` file is now the single source of truth for the ELMFIRE version. The build scripts (`make_gnu.sh`, `make_intel.sh`), the `Dockerfile`, and the compiled-in banner (`VERSIONSTRING`) all derive from it, and the bundled tutorial/example/verification run scripts default `ELMFIRE_VER` to it (still overridable by exporting `ELMFIRE_VER`).
 
 ### Changed
 - **Transient output scheduling**: fixed-`DTDUMP` output is no longer limited by the previous fixed-size dump-time array.
@@ -41,6 +43,7 @@ Please create issues with your errors, requests or observations so they can be w
 - **WU-E transient and accumulated output rasters** are now limited to building spread model type 2.
 - **`NUM_METEOROLOGY_TIMES` default changed to -1**: leaving it unset makes it equal the number of bands in the wind speed file.
 - **Diurnal-adjustment defaults changed to -1** for `CURRENT_YEAR`, `HOUR_OF_YEAR`, `SUNRISE_HOUR`, and `SUNSET_HOUR`, so an error is raised if these are needed for diurnal adjustment but are not set. `SUNRISE_HOUR` and `SUNSET_HOUR` are computed automatically; setting them in the input file overrides the automatic calculation.
+- **Bundled examples, tutorials and verification cases migrated to landscape-file inputs**: the topography/fuel layers are now stacked into a single multiband `landscape.tif` (via a new `create_landscape` helper in `tutorials/functions/functions.sh`) instead of eight separate rasters. The same cases were also brought in line with the 1.1 namelists — `FEEDBACK_LEVEL` instead of `DEBUG_LEVEL`, the modular spotting switches, and no `COMPUTATIONAL_DOMAIN` group — and their run scripts now resolve `ELMFIRE_VER` from the `VERSION` file instead of stale hard-coded defaults. (FBP/CFFDRS verification cases keep separate rasters, as they have no canopy bands.)
 
 ### Removed
 - Removed `DEBUG_LEVEL`, which has been replaced by `FEEDBACK_LEVEL` (see Added).
@@ -79,6 +82,7 @@ Please create issues with your errors, requests or observations so they can be w
 These changes are implementation details with no direct user-facing input or behavior change; they are listed for developers working on the source.
 
 - Added a quick compile option (./make_gnu.sh -f) that only compiles the basic elmfire executable.
+- Build scripts now read the version from the repo-root `VERSION` file and keep the source `VERSIONSTRING` literal in sync with it at compile time, so the version lives in one place. A self-locating `set_elmfire_version` helper in `tutorials/functions/functions.sh` resolves it for the bundled run scripts.
 - Added WU-E gridded state arrays for transient and accumulated fields: `HRR_TRANSIENT_MAP`, `TOTAL_DFC_WUI`, `TOTAL_RADIATION_WUI`, `TRANSIENT_DFC_WUI`, `TRANSIENT_RADIATION_WUI`, `FUEL_LOAD_REMAIN`, and `ELLIPSE_PROPERTY_MAP`.
 - Added gridded interface-model state arrays `TEST_INTERFACE_WUI` and `WTU_SPREAD_WUI` to carry threshold interface effects from the WU-E heat-flux calculation back into linked-list node updates.
 - Added `LIST_WUI_BURNING`, `TAG_WUI`, and `UNTAG_CELLS_WUI` to track WUI cells that need transient HRR and heat-flux updates.

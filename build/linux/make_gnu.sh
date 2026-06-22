@@ -4,8 +4,11 @@
 # paths below (../Makefile_elmfire, etc.) resolve no matter where it's invoked.
 cd "$(dirname "$(readlink -f "$0")")"
 
-# ELMFIRE version:
-ELMFIRE_VER=1.1
+# ELMFIRE version: the repo-root VERSION file is the single source of truth.
+# Override at build time by exporting ELMFIRE_VER. The compiled-in banner
+# (VERSIONSTRING in ../source/elmfire.f90) is kept in sync below.
+ELMFIRE_VER=${ELMFIRE_VER:-$(tr -d '[:space:]' < ../../VERSION)}
+sed -i "s/VERSIONSTRING='ELMFIRE [^']*'/VERSIONSTRING='ELMFIRE $ELMFIRE_VER'/" ../source/elmfire.f90
 
 # Fast/debug build: compile only the main elmfire executable and skip the
 # gprof/block/perf/debug variants and elmfire_post. Enable with either:

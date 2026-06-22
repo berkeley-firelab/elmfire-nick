@@ -1139,14 +1139,7 @@ DO I = 1, NLINES
    IF (ISDATATYPE == 'data_type') THEN
       READ(LINENOW(26:26),*) TEMPSTR
       READ(TEMPSTR,*) ITYPE
-      IF (ITYPE .EQ. 2) THEN
-         RASTER%PIXELTYPE='SIGNEDINT'
-         RASTER%NBITS=16
-      ENDIF
-      IF (ITYPE .EQ. 4) THEN
-         RASTER%PIXELTYPE='FLOAT'
-         RASTER%NBITS=32
-      ENDIF
+      CALL CLASSIFY_ENVI_DATA_TYPE(ITYPE, RASTER%PIXELTYPE, RASTER%NBITS, FN)
    ENDIF
 
    IF (ISLINES == 'lines') THEN ! rows
@@ -1280,14 +1273,7 @@ SELECT CASE(TRIM(INTERLEAVE))
 END SELECT
 
 
-SELECT CASE(DATA_TYPE)
-   CASE(2)
-      RASTER%PIXELTYPE='SIGNEDINT'
-      RASTER%NBITS=16
-   CASE(4)
-      RASTER%PIXELTYPE='FLOAT'
-      RASTER%NBITS=32
-END SELECT
+CALL CLASSIFY_ENVI_DATA_TYPE(DATA_TYPE, RASTER%PIXELTYPE, RASTER%NBITS, FNHDR)
 
 ! Check to make sure x and y cell sizes are the same:
 IF (RASTER%XDIM .NE. RASTER%YDIM) THEN
@@ -1398,25 +1384,7 @@ DO
       READ(VALUESTR,*,IOSTAT=IOS) ITYPE
       IF (IOS .EQ. 0) THEN
          GOT_DATATYPE = .TRUE.
-         SELECT CASE (ITYPE)
-         CASE (1)
-            RASTER%PIXELTYPE='UNSIGNEDINT'
-            RASTER%NBITS=8
-         CASE (2)
-            RASTER%PIXELTYPE='SIGNEDINT'
-            RASTER%NBITS=16
-         CASE (3)
-            RASTER%PIXELTYPE='SIGNEDINT'
-            RASTER%NBITS=32
-         CASE (4)
-            RASTER%PIXELTYPE='FLOAT'
-            RASTER%NBITS=32
-         CASE (5)
-            RASTER%PIXELTYPE='FLOAT'
-            RASTER%NBITS=64
-         CASE DEFAULT
-            WRITE(*,*) 'Warning: unhandled ENVI data_type=', ITYPE, ' in ', TRIM(FNXML)
-         END SELECT
+         CALL CLASSIFY_ENVI_DATA_TYPE(ITYPE, RASTER%PIXELTYPE, RASTER%NBITS, FNXML)
       ENDIF
       CYCLE
    ENDIF
@@ -1696,6 +1664,156 @@ END SUBROUTINE PREPARE_RASTER_HEADER
 ! *****************************************************************************
 
 ! *****************************************************************************
+SUBROUTINE CLASSIFY_ENVI_DATA_TYPE(ITYPE, PIXELTYPE, NBITS, SRC)
+! *****************************************************************************
+! Maps an ENVI 'data type' code to ELMFIRE's internal PIXELTYPE label and bit
+! width. 16-bit signed integers are kept as integers (read into %I2, used by
+! integer-coded layers such as FBFM and PYROMES); every other supported numeric
+! type is decoded into 32-bit REAL (%R4) at read time by READ_BSQ_BAND_R4.
+! Complex (6, 9) and 64-bit integer (14, 15) types have no REAL/INTEGER*2
+! representation here and are rejected loudly rather than read as garbage.
+
+INTEGER,      INTENT(IN)  :: ITYPE
+CHARACTER(*), INTENT(OUT) :: PIXELTYPE
+INTEGER,      INTENT(OUT) :: NBITS
+CHARACTER(*), INTENT(IN)  :: SRC
+
+SELECT CASE (ITYPE)
+   CASE (1)            ! 8-bit unsigned integer
+      PIXELTYPE = 'BYTE'     ; NBITS = 8
+   CASE (2)            ! 16-bit signed integer (kept as INTEGER*2)
+      PIXELTYPE = 'SIGNEDINT'; NBITS = 16
+   CASE (3)            ! 32-bit signed integer
+      PIXELTYPE = 'INT32'    ; NBITS = 32
+   CASE (4)            ! 32-bit float
+      PIXELTYPE = 'FLOAT'    ; NBITS = 32
+   CASE (5)            ! 64-bit float (double)
+      PIXELTYPE = 'DOUBLE'   ; NBITS = 64
+   CASE (12)           ! 16-bit unsigned integer
+      PIXELTYPE = 'UINT16'   ; NBITS = 16
+   CASE (13)           ! 32-bit unsigned integer
+      PIXELTYPE = 'UINT32'   ; NBITS = 32
+   CASE DEFAULT
+      WRITE(*,*) '[ERROR] Unsupported ENVI data type (', ITYPE, ') for ', TRIM(SRC)
+      WRITE(*,*) '        Supported: 1=byte, 2=int16, 3=int32, 4=float32, 5=float64,'
+      WRITE(*,*) '        12=uint16, 13=uint32. Re-export the raster as Float32 or Int16.'
+      STOP
+END SELECT
+
+! *****************************************************************************
+END SUBROUTINE CLASSIFY_ENVI_DATA_TYPE
+! *****************************************************************************
+
+! *****************************************************************************
+SUBROUTINE READ_BSQ_BAND_R4(FNBSQ, IREC, NPIX, PIXELTYPE, RVALUES)
+! *****************************************************************************
+! Reads band record IREC (NPIX pixels, BSQ layout) from FNBSQ and returns the
+! values as 32-bit REAL in RVALUES, decoding whatever on-disk numeric type
+! PIXELTYPE names. Unsigned integer types are sign-corrected (Fortran has no
+! unsigned kinds, so the raw bits read back negative for the upper half of the
+! range). Handles every supported pixel type except 16-bit signed integer,
+! which the callers read straight into %I2. RECL is obtained via INQUIRE so the
+! record length stays correct regardless of the compiler's RECL unit.
+!
+! Note: 32-bit integers and 64-bit floats whose magnitude exceeds ~2^24 lose
+! precision once stored as REAL(4). That is immaterial for the fuel,
+! topography, weather and mask rasters ELMFIRE consumes.
+
+CHARACTER(*), INTENT(IN)  :: FNBSQ, PIXELTYPE
+INTEGER,      INTENT(IN)  :: IREC, NPIX
+REAL,         INTENT(OUT) :: RVALUES(1:NPIX)
+
+INTEGER :: LUN, IOS
+INTEGER*8 :: LRECL
+INTEGER(1), ALLOCATABLE :: B1(:)
+INTEGER(2), ALLOCATABLE :: U2(:)
+INTEGER(4), ALLOCATABLE :: I4(:)
+REAL(4),    ALLOCATABLE :: R4T(:)
+REAL(8),    ALLOCATABLE :: R8T(:)
+
+SELECT CASE (TRIM(PIXELTYPE))
+
+   CASE ('BYTE')                                  ! 8-bit unsigned
+      ALLOCATE(B1(1:NPIX)); INQUIRE(IOLENGTH=LRECL) B1(:)
+      CALL OPEN_BSQ_DIRECT(FNBSQ, LRECL, LUN)
+      READ(LUN, REC=IREC, IOSTAT=IOS) B1(:)
+      RVALUES(:) = REAL(IAND(INT(B1, 4), 255))
+      DEALLOCATE(B1)
+
+   CASE ('UINT16')                                ! 16-bit unsigned
+      ALLOCATE(U2(1:NPIX)); INQUIRE(IOLENGTH=LRECL) U2(:)
+      CALL OPEN_BSQ_DIRECT(FNBSQ, LRECL, LUN)
+      READ(LUN, REC=IREC, IOSTAT=IOS) U2(:)
+      RVALUES(:) = REAL(IAND(INT(U2, 4), 65535))
+      DEALLOCATE(U2)
+
+   CASE ('INT32')                                 ! 32-bit signed
+      ALLOCATE(I4(1:NPIX)); INQUIRE(IOLENGTH=LRECL) I4(:)
+      CALL OPEN_BSQ_DIRECT(FNBSQ, LRECL, LUN)
+      READ(LUN, REC=IREC, IOSTAT=IOS) I4(:)
+      RVALUES(:) = REAL(I4)
+      DEALLOCATE(I4)
+
+   CASE ('UINT32')                                ! 32-bit unsigned
+      ALLOCATE(I4(1:NPIX)); INQUIRE(IOLENGTH=LRECL) I4(:)
+      CALL OPEN_BSQ_DIRECT(FNBSQ, LRECL, LUN)
+      READ(LUN, REC=IREC, IOSTAT=IOS) I4(:)
+      RVALUES(:) = REAL(IAND(INT(I4, 8), 4294967295_8))
+      DEALLOCATE(I4)
+
+   CASE ('FLOAT')                                 ! 32-bit float
+      ALLOCATE(R4T(1:NPIX)); INQUIRE(IOLENGTH=LRECL) R4T(:)
+      CALL OPEN_BSQ_DIRECT(FNBSQ, LRECL, LUN)
+      READ(LUN, REC=IREC, IOSTAT=IOS) R4T(:)
+      RVALUES(:) = R4T(:)
+      DEALLOCATE(R4T)
+
+   CASE ('DOUBLE')                                ! 64-bit float
+      ALLOCATE(R8T(1:NPIX)); INQUIRE(IOLENGTH=LRECL) R8T(:)
+      CALL OPEN_BSQ_DIRECT(FNBSQ, LRECL, LUN)
+      READ(LUN, REC=IREC, IOSTAT=IOS) R8T(:)
+      RVALUES(:) = REAL(R8T, 4)
+      DEALLOCATE(R8T)
+
+   CASE DEFAULT
+      WRITE(*,*) '[ERROR] READ_BSQ_BAND_R4: cannot decode PIXELTYPE ', TRIM(PIXELTYPE)
+      STOP
+
+END SELECT
+
+IF (IOS .NE. 0) THEN
+   WRITE(*,*) '[ERROR] Problem reading band ', IREC, ' from ', TRIM(FNBSQ), ' (IOS=', IOS, ')'
+   STOP
+ENDIF
+CLOSE(LUN, IOSTAT=IOS)
+
+! *****************************************************************************
+END SUBROUTINE READ_BSQ_BAND_R4
+! *****************************************************************************
+
+! *****************************************************************************
+SUBROUTINE OPEN_BSQ_DIRECT(FNBSQ, LRECL, LUN)
+! *****************************************************************************
+! Opens FNBSQ for direct-access unformatted reads with record length LRECL and
+! returns a fresh unit in LUN. Aborts on failure.
+
+CHARACTER(*), INTENT(IN)  :: FNBSQ
+INTEGER*8,    INTENT(IN)  :: LRECL
+INTEGER,      INTENT(OUT) :: LUN
+INTEGER :: IOS
+
+OPEN(NEWUNIT=LUN, FILE=TRIM(FNBSQ), ACCESS='DIRECT', FORM='UNFORMATTED', &
+     STATUS='OLD', RECL=LRECL, IOSTAT=IOS)
+IF (IOS .NE. 0) THEN
+   WRITE(*,*) 'Problem opening raster file ', TRIM(FNBSQ)
+   STOP
+ENDIF
+
+! *****************************************************************************
+END SUBROUTINE OPEN_BSQ_DIRECT
+! *****************************************************************************
+
+! *****************************************************************************
 !> Read slice of raster contained in .bsq file FN in directory INDIR and save it to RASTER.
 SUBROUTINE READ_BSQ_RASTER_SLICE(RASTER,INDIR,FN,BANDSTART,BANDEND)
 ! *****************************************************************************
@@ -1828,8 +1946,31 @@ SELECT CASE(TRIM(RASTER%PIXELTYPE))
 
       DEALLOCATE(I2VALUES, I2TEMP)
 
+   CASE('BYTE','UINT16','INT32','UINT32','DOUBLE')
+!     Decoded into 32-bit REAL by READ_BSQ_BAND_R4, then presented as FLOAT to
+!     all downstream consumers.
+      IF (.NOT. ASSOCIATED(RASTER%R4)) ALLOCATE(RASTER%R4(1:RASTER%NCOLS,1:RASTER%NROWS,1:NBANDS))
+      ALLOCATE(RVALUES(1:RASTER%NROWS*RASTER%NCOLS))
+      ALLOCATE(RTEMP(1:RASTER%NCOLS,1:RASTER%NROWS))
+
+      RASTER%R4(:,:,:) = RASTER%NODATA_VALUE
+
+      DO IBAND = BANDSTART, BANDEND
+         CALL READ_BSQ_BAND_R4(FNBSQ, IBAND, RASTER%NROWS*RASTER%NCOLS, RASTER%PIXELTYPE, RVALUES)
+         RTEMP(:,:) = RESHAPE(RVALUES, (/RASTER%NCOLS,RASTER%NROWS/))
+         DO IROW1 = 1, RASTER%NROWS
+            IROW2 = RASTER%NROWS + 1 - IROW1
+            RASTER%R4(:,IROW1,IBAND - BANDSTART + 1) = RTEMP(:,IROW2)
+         ENDDO
+      ENDDO
+
+      DEALLOCATE(RVALUES, RTEMP)
+      RASTER%PIXELTYPE = 'FLOAT'
+      RASTER%NBITS = 32
+
    CASE DEFAULT
-      CONTINUE
+      WRITE(*,*) '[ERROR] READ_BSQ_RASTER_SLICE: unhandled PIXELTYPE ', TRIM(RASTER%PIXELTYPE), ' for ', TRIM(FNBSQ)
+      STOP
 
 END SELECT
 
@@ -1930,8 +2071,28 @@ SELECT CASE(TRIM(RASTER%PIXELTYPE))
 
       DEALLOCATE(I2VALUES, I2TEMP)
 
+   CASE('BYTE','UINT16','INT32','UINT32','DOUBLE')
+!     Decoded into 32-bit REAL by READ_BSQ_BAND_R4, then presented as FLOAT.
+      IF (.NOT. ASSOCIATED(RASTER%R4)) ALLOCATE(RASTER%R4(1:RASTER%NCOLS,1:RASTER%NROWS,1:1))
+      ALLOCATE(RVALUES(1:RASTER%NROWS*RASTER%NCOLS))
+      ALLOCATE(RTEMP(1:RASTER%NCOLS,1:RASTER%NROWS))
+
+      RASTER%R4(:,:,:) = RASTER%NODATA_VALUE
+
+      CALL READ_BSQ_BAND_R4(FNBSQ, IBAND, RASTER%NROWS*RASTER%NCOLS, RASTER%PIXELTYPE, RVALUES)
+      RTEMP(:,:) = RESHAPE(RVALUES, (/RASTER%NCOLS,RASTER%NROWS/))
+      DO IROW1 = 1, RASTER%NROWS
+         IROW2 = RASTER%NROWS + 1 - IROW1
+         RASTER%R4(:,IROW1,1) = RTEMP(:,IROW2)
+      ENDDO
+
+      DEALLOCATE(RVALUES, RTEMP)
+      RASTER%PIXELTYPE = 'FLOAT'
+      RASTER%NBITS = 32
+
    CASE DEFAULT
-      CONTINUE
+      WRITE(*,*) '[ERROR] READ_LANDSCAPE_BAND: unhandled PIXELTYPE ', TRIM(RASTER%PIXELTYPE), ' for ', TRIM(FNBSQ)
+      STOP
 
 END SELECT
 
@@ -2114,12 +2275,49 @@ DO JTILE = 1, 3
          IF (ALLOCATED(I2VALUES)) DEALLOCATE(I2VALUES)
          IF (ALLOCATED(I2TEMP))   DEALLOCATE(I2TEMP)
 
+      CASE('BYTE','UINT16','INT32','UINT32','DOUBLE')
+!        Decoded into 32-bit REAL by READ_BSQ_BAND_R4. PIXELTYPE is relabelled
+!        FLOAT only after the tile loop, so every tile decodes with the true type.
+         IF (.NOT. ASSOCIATED(RASTER%R4)) THEN
+            ALLOCATE(RASTER%R4(1:NCOLS_FULL,1:NROWS_FULL,1:NBANDS))
+            RASTER%R4(:,:,:) = RASTER%NODATA_VALUE
+         ENDIF
+
+         ALLOCATE(RVALUES(1:NCOLS_TILE*NROWS_TILE))
+         ALLOCATE(RTEMP  (1:NCOLS_TILE,1:NROWS_TILE))
+
+         DO IBAND = BANDSTART, BANDEND
+            IBAND_OUT = IBAND - BANDSTART + 1
+            CALL READ_BSQ_BAND_R4(FNBSQ, IBAND, NCOLS_TILE*NROWS_TILE, RASTER%PIXELTYPE, RVALUES)
+            RTEMP(:,:) = RESHAPE(RVALUES, (/NCOLS_TILE, NROWS_TILE/))
+
+            IROW_SMALL = NROWS_TILE
+            DO IROW_BIG = IROW_BIG_LO, IROW_BIG_HI
+               RASTER%R4(ICOL_BIG_LO:ICOL_BIG_HI, IROW_BIG, IBAND_OUT) = RTEMP(:,IROW_SMALL)
+               IROW_SMALL = IROW_SMALL - 1
+            ENDDO
+         ENDDO
+         IF (ALLOCATED(RVALUES)) DEALLOCATE(RVALUES)
+         IF (ALLOCATED(RTEMP))   DEALLOCATE(RTEMP)
+
+      CASE DEFAULT
+         WRITE(*,*) '[ERROR] READ_BSQ_RASTER_SLICE_EXISTING_TILED: unhandled PIXELTYPE ', &
+                    TRIM(RASTER%PIXELTYPE), ' for ', TRIM(FNBSQ)
+         STOP
+
    END SELECT
 
    CLOSE(LUINPUT, IOSTAT=IOS)
 
 ENDDO
 ENDDO
+
+! Numeric types decoded into R4 above are presented as FLOAT to downstream code.
+SELECT CASE (TRIM(RASTER%PIXELTYPE))
+   CASE ('BYTE','UINT16','INT32','UINT32','DOUBLE')
+      RASTER%PIXELTYPE = 'FLOAT'
+      RASTER%NBITS = 32
+END SELECT
 
 ! *****************************************************************************
 END SUBROUTINE READ_BSQ_RASTER_SLICE_EXISTING_TILED
