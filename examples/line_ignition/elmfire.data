@@ -55,6 +55,6 @@ WX_BANDS_KEPT_IN_MEM = 40
 /
 
 &MISCELLANEOUS
-PATH_TO_GDAL                   = '/home/nick/miniconda3/envs/elmfire/bin/'
+PATH_TO_GDAL                   = 'auto'
 SCRATCH                        = './scratch'
 /

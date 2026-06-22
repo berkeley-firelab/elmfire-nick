@@ -2,7 +2,7 @@
 !Based on the Canopy Verification Case
 
 &MISCELLANEOUS
-PATH_TO_GDAL                   = '/usr/bin'
+PATH_TO_GDAL                   = 'auto'
 SCRATCH 					   = './scratch'
 FUEL_MODEL_FILE				   = './inputs/fuel_models.csv'
 /

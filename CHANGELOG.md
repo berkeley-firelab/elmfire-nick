@@ -11,6 +11,7 @@ Please create issues with your errors, requests or observations so they can be w
 > Starting with this release, ELMFIRE uses semantic version numbers. Earlier builds were identified only by their compile date, which made it hard to reference or reproduce a specific version. This changelog covers all changes between ELMFIRE 1.1 and the original code this repository was forked from.
 
 ### Added
+- **`POINT_WIND_TO_CENTER` (`&MONTE_CARLO`)**: When using random ignitions, always change the wind direction to drive the fire from the ignition point towards the center of the domain. 
 - **`DUMP_EVERY_STEP` (`&OUTPUTS`)**: writes transient outputs at every computation timestep.
 - **Transient dump manifest**: dump-index filenames for transient rasters, plus a `dump_times_<case>.csv` manifest recording each dump index, its exact output time, and whether the dump is final.
 - **`FEEDBACK_LEVEL` (`&SIMULATOR`)**: controls the verbosity of runtime feedback, with the options 0 to 3. This replaces the previous numeric `DEBUG_LEVEL` (see Removed).

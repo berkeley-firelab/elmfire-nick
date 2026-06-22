@@ -125,6 +125,7 @@ DO WHILE (T .le. totalDuration)
    ! endif
    DAY_OF_SIM = ceiling(((12 + mod(HOUR_OF_YEAR, 24) + IWX_BAND + floor(T/3600) - 1)/24.0))
    IF (T > BAND_H * DT_METEOROLOGY .and. WS%NBANDS .gt. 1) THEN ! LOAD NEXT WEATHER SLICE (unless weather is constant)
+      print *, WS%NBANDS
       if (FEEDBACK_LEVEL .ge. 3) then
          WRITE(LOG_MSG,'(A,I0,A,I0,A,I0,A)') '[',ICASE,'] UPDATING WEATHER SLICE FROM [',BAND_L,', ',BAND_H,']'
          WRITE(*,'(A)') TRIM(LOG_MSG)
@@ -344,9 +345,9 @@ DO WHILE (T .le. totalDuration)
          ENDIF
 
          if (POINT_WIND_TO_CENTER) then
-            XCEN = ASP%NROWS / 2
-            YCEN = ASP%NCOLS / 2
-            WD_TO_CENTER = MOD(90 + atand((IX_IGN - XCEN)/(IY_IGN-YCEN)),360.0)
+            XCEN = ASP%NCOLS / 2
+            YCEN = ASP%NROWS / 2
+            WD_TO_CENTER = MOD(atand((IX_IGN - XCEN)/(ASP%NROWS-IY_IGN-YCEN)),360.0)
             print *, IX_IGN,IY_IGN,XCEN,YCEN,WD_TO_CENTER
          endif
 

@@ -39,6 +39,6 @@ WSMFEFF_LOW_MULT = 0.011364
 /
 
 &MISCELLANEOUS
-PATH_TO_GDAL                   = '/usr/bin'
+PATH_TO_GDAL                   = 'auto'
 SCRATCH                        = './scratch'
 /

@@ -55,7 +55,7 @@ GLOBAL_SURFACE_FIRE_SPOTTING_PERCENT_MIN  = 100.0
 /
 
 &MISCELLANEOUS
-PATH_TO_GDAL                   = '/usr/bin'
+PATH_TO_GDAL                   = 'auto'
 SCRATCH                        = './scratch'
 /
-PATH_TO_GDAL                   = '/cvmfs/hpcsw.umd.edu/spack-software/2022.06.15/linux-rhel8-zen2/gcc-9.4.0/gdal-3.4.0-2lfwxvv4yfehlamhc5zraivmeu4hbxdi/bin'
+PATH_TO_GDAL                   = 'auto'

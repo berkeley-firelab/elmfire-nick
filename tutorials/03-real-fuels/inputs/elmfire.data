@@ -43,6 +43,6 @@ T_IGN(1)      = 0.0
 /
 
 &MISCELLANEOUS
-PATH_TO_GDAL                   = '/usr/bin'
+PATH_TO_GDAL                   = 'auto'
 SCRATCH                        = './scratch'
 /

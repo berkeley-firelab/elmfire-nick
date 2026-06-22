@@ -47,6 +47,6 @@ RANDOMIZE_RANDOM_SEED = .TRUE.
 /
 
 &MISCELLANEOUS
-PATH_TO_GDAL                   = '/usr/bin/'
+PATH_TO_GDAL                   = 'auto'
 SCRATCH                        = './scratch'
 /

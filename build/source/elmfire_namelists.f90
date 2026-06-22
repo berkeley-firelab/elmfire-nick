@@ -13,7 +13,9 @@ SUBROUTINE READ_MISC
 ! GDAL paths and scratch/input directories, and appends path separators to the
 ! directory paths.
 
-INTEGER :: IOS
+INTEGER :: IOS, LUGDAL, ISLASH
+CHARACTER(400) :: GDALEXE, GDALTMP
+CHARACTER(32)  :: RANKSTR
 
 NAMELIST /MISCELLANEOUS/ BUILDING_FUEL_MODEL_FILE, FUEL_MODEL_FILE, MISCELLANEOUS_INPUTS_DIRECTORY, PATH_TO_GDAL, SCRATCH
 
@@ -23,13 +25,40 @@ IF (IRANK_WORLD .EQ. 0) WRITE(*,*) 'Reading &MISCELLANEOUS namelist group'
 BUILDING_FUEL_MODEL_FILE       = 'building_fuel_models.csv'
 FUEL_MODEL_FILE                = 'null'
 MISCELLANEOUS_INPUTS_DIRECTORY = 'null'
-PATH_TO_GDAL                   = '/usr/bin'
+PATH_TO_GDAL                   = 'auto'
 SCRATCH                        = 'null'
 
 READ(LUINPUT,NML=MISCELLANEOUS,IOSTAT=IOS)
 IF (IOS > 0) THEN
    WRITE(*,*) 'Error: Problem with namelist group &MISCELLANEOUS.'
    STOP
+ENDIF
+
+! If PATH_TO_GDAL is left at the default 'auto', discover the directory that
+! contains gdal_translate from the PATH (via 'command -v') so users don't have
+! to hard-code it. Falls back to '/usr/bin' if GDAL can't be located. An
+! explicit PATH_TO_GDAL in the namelist always takes precedence.
+IF (TRIM(PATH_TO_GDAL) .EQ. 'auto') THEN
+   WRITE(RANKSTR,'(I0)') IRANK_WORLD
+   GDALTMP = '.elmfire_gdal_path_' // TRIM(RANKSTR) // '.txt'
+   CALL EXECUTE_COMMAND_LINE('command -v gdal_translate > ' // TRIM(GDALTMP) // ' 2>/dev/null', EXITSTAT=IOS)
+
+   GDALEXE = ''
+   OPEN(NEWUNIT=LUGDAL, FILE=TRIM(GDALTMP), STATUS='OLD', ACTION='READ', IOSTAT=IOS)
+   IF (IOS .EQ. 0) THEN
+      READ(LUGDAL,'(A)',IOSTAT=IOS) GDALEXE
+      CLOSE(LUGDAL)
+   ENDIF
+   CALL EXECUTE_COMMAND_LINE(TRIM(DELETECOMMAND) // ' ' // TRIM(GDALTMP))
+
+   ISLASH = INDEX(TRIM(GDALEXE), PATH_SEPARATOR, BACK=.TRUE.)
+   IF (ISLASH .GT. 1) THEN
+      PATH_TO_GDAL = GDALEXE(1:ISLASH-1)
+      IF (IRANK_WORLD .EQ. 0) WRITE(*,*) 'Auto-detected PATH_TO_GDAL: ', TRIM(PATH_TO_GDAL)
+   ELSE
+      PATH_TO_GDAL = '/usr/bin'
+      IF (IRANK_WORLD .EQ. 0) WRITE(*,*) 'Could not auto-detect GDAL on PATH; falling back to PATH_TO_GDAL = ', TRIM(PATH_TO_GDAL)
+   ENDIF
 ENDIF
 
 PATH_TO_GDAL = TRIM(PATH_TO_GDAL) // PATH_SEPARATOR
