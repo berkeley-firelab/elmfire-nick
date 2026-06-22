@@ -345,10 +345,10 @@ DO WHILE (T .le. totalDuration)
          ENDIF
 
          if (POINT_WIND_TO_CENTER) then
-            XCEN = ASP%NCOLS / 2
-            YCEN = ASP%NROWS / 2
-            WD_TO_CENTER = MOD(atand((IX_IGN - XCEN)/(ASP%NROWS-IY_IGN-YCEN)),360.0)
-            print *, IX_IGN,IY_IGN,XCEN,YCEN,WD_TO_CENTER
+            XCEN = REAL(ASP%NCOLS) / 2.0
+            YCEN = REAL(ASP%NROWS) / 2.0
+            WD_TO_CENTER = atan2d(XCEN - IX_IGN, YCEN - IY_IGN)
+            WD_TO_CENTER = MODULO(WD_TO_CENTER + 180.0, 360.0)
          endif
 
       ENDIF
