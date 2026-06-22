@@ -70,6 +70,7 @@ Please create issues with your errors, requests or observations so they can be w
 - Added single-node handling to linked-list deletion to keep list head/tail pointers valid after deleting the final node.
 - Fixed a bug where a positive `NODATA_VALUE` in rasters was handled incorrectly.
 - Reworked the BSQ metadata parser to find its target values more flexibly instead of relying on fixed character ranges (which caused issues depending on how the input TIFs were converted to BSQ).
+- Fixed input rasters stored as 8-bit byte, 32-bit integer, unsigned 16-/32-bit integer, or 64-bit float being silently skipped at read time. Only 16-bit signed integer and 32-bit float were decoded, so a raster of any other type loaded as empty — most visibly, a byte ignition mask aborted the run with "No ignitable pixels found in the ignition mask" even though it contained valid cells. These types are now decoded into ELMFIRE's internal 32-bit float representation, and a genuinely unsupported on-disk type (e.g. complex or 64-bit integer) now stops with a clear error instead of reading no data.
 - Fixed a bug where the final ROS value in Fire Potential mode (`MODE = 2`) was incorrectly calculated.
 - Fixed a bug where user-specified firebrand inputs were overwritten back to their defaults.
 - Fixed flame-ellipse building fire spread to fall back to default values when nonuniform building rasters contain `NODATA_VALUE` in the building-size or structure-separation-distance layers.
@@ -94,3 +95,5 @@ These changes are implementation details with no direct user-facing input or beh
 - Removed the active-model dependency on `USE_UMD_SPOTTING_MODEL` for allocating and updating `SPOTTING_STATS`.
 - Renamed functions `SARDOY_PDF_PARAMETERS` → `EMPIRICAL_PDF_PARAMETERS`, `SARDOY_PDFINV` → `LOGNORM_CDF`, and `SARDOY_CDF` → `LOGNORM_CDF_DEFINITE` to clarify their roles.
 - Renamed the variable `EMBER_TIGN` → `EMBER_TOA` (the time of arrival of the first ember).
+- Unified the ENVI `data type` → internal pixel-type mapping into a single `CLASSIFY_ENVI_DATA_TYPE` shared by all three header parsers (replacing three inconsistent inline mappings), and added a `READ_BSQ_BAND_R4` helper that decodes byte, 16-/32-bit signed and unsigned integers, and 32-/64-bit floats into the 32-bit float raster buffer. The three BSQ readers now route these types through it and stop on an unhandled pixel type instead of silently returning no data.
+- De-duplicated wind-direction interpolation: `INTERP_WD_RASTER` now walks the linked list and delegates the per-node math to `INTERP_WD_RASTER_SINGLE`, so the interpolation logic lives in one place. The single-node routine's node argument intent was corrected from `OUT` to `IN` so the pointer association is preserved across the call.

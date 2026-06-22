@@ -343,6 +343,13 @@ DO WHILE (T .le. totalDuration)
             DT = DT_METEOROLOGY
          ENDIF
 
+         if (POINT_WIND_TO_CENTER) then
+            XCEN = ASP%NROWS / 2
+            YCEN = ASP%NCOLS / 2
+            WD_TO_CENTER = MOD(90 + atand((IX_IGN - XCEN)/(IY_IGN-YCEN)),360.0)
+            print *, IX_IGN,IY_IGN,XCEN,YCEN,WD_TO_CENTER
+         endif
+
       ENDIF
 
       ! Check for errant IWX_BAND
@@ -491,7 +498,7 @@ DO WHILE (T .le. totalDuration)
                   CALL INTERP_RASTER_LINKEDLIST_SINGLE (LIST_BURNED%TAIL, WS20_LO(:,:), WS20_HI(:,:), F_METEOROLOGY, 7)
                ENDIF
                
-               CALL INTERP_WD_RASTER_SINGLE(LIST_BURNED%TAIL, WD20_LO(:,:), WD20_HI(:,:), F_METEOROLOGY)
+               CALL UPDATE_WD_RASTER_SINGLE(LIST_BURNED%TAIL, WD20_LO(:,:), WD20_HI(:,:), F_METEOROLOGY)
 
                ICOL = ICOL_ANALYSIS_F2C(IX)
                IROW = IROW_ANALYSIS_F2C(IY)
@@ -568,7 +575,7 @@ DO WHILE (T .le. totalDuration)
                CALL INTERP_RASTER_LINKEDLIST (LIST_WUI_BURNING, WS20_LO(:,:), WS20_HI(:,:), F_METEOROLOGY, 7)
             ENDIF
             
-            CALL INTERP_WD_RASTER(LIST_WUI_BURNING, WD20_LO(:,:), WD20_HI(:,:), F_METEOROLOGY)
+            CALL UPDATE_WD_RASTER(LIST_WUI_BURNING, WD20_LO(:,:), WD20_HI(:,:), F_METEOROLOGY)
 
             L_WUI_P => LIST_WUI_BURNING%HEAD
             DO I = 1, LIST_WUI_BURNING%NUM_NODES
@@ -779,7 +786,7 @@ DO WHILE (T .le. totalDuration)
             CALL INTERP_RASTER_LINKEDLIST_SINGLE (C, MLW_LO (:,:), MLW_HI (:,:), F_METEOROLOGY, 5)
             CALL INTERP_RASTER_LINKEDLIST_SINGLE (C, FMC_LO (:,:), FMC_HI (:,:), F_METEOROLOGY, 6)
             CALL INTERP_RASTER_LINKEDLIST_SINGLE (C, WS20_LO(:,:), WS20_HI(:,:), F_METEOROLOGY, 7)
-            CALL INTERP_WD_RASTER_SINGLE(C, WD20_LO(:,:), WD20_HI(:,:), F_METEOROLOGY)
+            CALL UPDATE_WD_RASTER_SINGLE(C, WD20_LO(:,:), WD20_HI(:,:), F_METEOROLOGY)
             CALL WRITE_STATION(C,IRANK_WORLD,ICASE,T)
             C=>C%NEXT
          ENDDO
@@ -907,11 +914,11 @@ DO WHILE (T .le. totalDuration)
             ENDIF
          ELSE
             CALL INTERP_RASTER_LINKEDLIST(LIST_TAGGED, WS20_LO(:,:), WS20_HI(:,:), F_METEOROLOGY, 7)
-            CALL INTERP_WD_RASTER(LIST_TAGGED, WD20_LO(:,:), WD20_HI(:,:), F_METEOROLOGY)
+            CALL UPDATE_WD_RASTER(LIST_TAGGED, WD20_LO(:,:), WD20_HI(:,:), F_METEOROLOGY)
 
             IF (USE_BLDG_SPREAD_MODEL .AND. (BLDG_SPREAD_MODEL_TYPE .EQ. 2)) THEN
                CALL INTERP_RASTER_LINKEDLIST(LIST_WUI_BURNING, WS20_LO(:,:), WS20_HI(:,:), F_METEOROLOGY, 7)
-               CALL INTERP_WD_RASTER(LIST_WUI_BURNING, WD20_LO(:,:), WD20_HI(:,:), F_METEOROLOGY)
+               CALL UPDATE_WD_RASTER(LIST_WUI_BURNING, WD20_LO(:,:), WD20_HI(:,:), F_METEOROLOGY)
             ENDIF
          ENDIF
    !      CALL INTERP_WD_RASTER(LIST_TAGGED, WD20_LO(:,:), WD20_HI(:,:), F_METEOROLOGY)
@@ -1237,7 +1244,7 @@ DO WHILE (T .le. totalDuration)
                CALL INTERP_RASTER_LINKEDLIST_SINGLE (C, WS20_LO(:,:), WS20_HI(:,:), F_METEOROLOGY, 7)
             ENDIF
             
-            CALL INTERP_WD_RASTER_SINGLE(C, WD20_LO(:,:), WD20_HI(:,:), F_METEOROLOGY)
+            CALL UPDATE_WD_RASTER_SINGLE(C, WD20_LO(:,:), WD20_HI(:,:), F_METEOROLOGY)
             if (trim(SURFACE_SPREAD_MODEL) .eq. "ROTHERMEL") then
                CALL ROTHERMEL_SURFACE_SPREAD_RATE(LIST_TAGGED, C)
             else if (trim(SURFACE_SPREAD_MODEL) .eq. "CFFDRS") then

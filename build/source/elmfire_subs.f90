@@ -422,7 +422,7 @@ END FUNCTION Y_FROM_IROW
 ! *****************************************************************************
 
 ! *****************************************************************************
-SUBROUTINE INTERP_WD_RASTER(L,WD_LO,WD_HI,F)
+SUBROUTINE UPDATE_WD_RASTER(L,WD_LO,WD_HI,F)
 ! *****************************************************************************
 ! Temporally interpolates wind direction (fraction F between the WD_LO and
 ! WD_HI rasters) for every node in linked list L, updating each node's
@@ -437,16 +437,16 @@ TYPE(NODE), POINTER :: C
 
 C => L%HEAD
 DO I = 1, L%NUM_NODES
-   CALL INTERP_WD_RASTER_SINGLE(C, WD_LO, WD_HI, F)
+   CALL UPDATE_WD_RASTER_SINGLE(C, WD_LO, WD_HI, F)
    C => C%NEXT
 ENDDO
 
 ! *****************************************************************************
-END SUBROUTINE INTERP_WD_RASTER
+END SUBROUTINE UPDATE_WD_RASTER
 ! *****************************************************************************
 
 ! *****************************************************************************
-SUBROUTINE INTERP_WD_RASTER_SINGLE(NODEIN,WD_LO,WD_HI,F)
+SUBROUTINE UPDATE_WD_RASTER_SINGLE(NODEIN,WD_LO,WD_HI,F)
 ! *****************************************************************************
 ! Same as INTERP_WD_RASTER but for a single node NODEIN: temporally interpolates
 ! wind direction between WD_LO and WD_HI (fraction F) and updates the node's
@@ -463,17 +463,22 @@ C => NODEIN
 
 ICOL = ICOL_ANALYSIS_F2C(C%IX)
 IROW = IROW_ANALYSIS_F2C(C%IY)
-WD1TO = WD_LO(ICOL,IROW) + 180. ; IF (WD1TO .GT. 360) WD1TO = WD1TO - 360.
-WD2TO = WD_HI(ICOL,IROW) + 180. ; IF (WD2TO .GT. 360) WD2TO = WD2TO - 360.
-WDTO = WD1TO + F * (WD2TO - WD1TO)
-C%WD20_INTERP = WDTO + 180. + PERTURB_WD
-IF (C%WD20_INTERP .GT. 360.) C%WD20_INTERP = C%WD20_INTERP - 360.
-IF (C%WD20_INTERP .LT.   0.) C%WD20_INTERP = C%WD20_INTERP + 360.
+
+if (POINT_WIND_TO_CENTER) then
+   C%WD20_INTERP = WD_TO_CENTER
+else
+   WD1TO = WD_LO(ICOL,IROW) + 180. ; IF (WD1TO .GT. 360) WD1TO = WD1TO - 360.
+   WD2TO = WD_HI(ICOL,IROW) + 180. ; IF (WD2TO .GT. 360) WD2TO = WD2TO - 360.
+   WDTO = WD1TO + F * (WD2TO - WD1TO)
+   C%WD20_INTERP = WDTO + 180. + PERTURB_WD
+   IF (C%WD20_INTERP .GT. 360.) C%WD20_INTERP = C%WD20_INTERP - 360.
+   IF (C%WD20_INTERP .LT.   0.) C%WD20_INTERP = C%WD20_INTERP + 360.
+endif 
 
 C%WD20_NOW = C%WD20_INTERP
   
 ! *****************************************************************************
-END SUBROUTINE INTERP_WD_RASTER_SINGLE
+END SUBROUTINE UPDATE_WD_RASTER_SINGLE
 ! *****************************************************************************
 
 ! *****************************************************************************

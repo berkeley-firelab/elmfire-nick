@@ -686,6 +686,8 @@ TYPE(TIMED_LOCATIONS_TRACKER_TYPE), ALLOCATABLE, DIMENSION (:) :: TIMED_LOCATION
 INTEGER :: IGN_IWX_BAND_LO, IGN_IWX_BAND_HI, IWX_BAND_OFFSET=0
 LOGICAL :: ONLY_READ_NEEDED_WX_BANDS = .FALSE.
 
+REAL :: WD_TO_CENTER
+
 ! *****************************************************************************
 END MODULE ELMFIRE_VARS
 ! *****************************************************************************
