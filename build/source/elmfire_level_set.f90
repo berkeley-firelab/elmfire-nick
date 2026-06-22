@@ -1459,15 +1459,15 @@ DO WHILE (T .le. totalDuration)
                ELSE
                   SUPP(IT_EA)%SDIBAR = 0
                ENDIF
-               IF ( ABS(SUPP(IT_EA)%DADT) .LT. 1E-6 ) THEN
-                  SUPP(IT_EA)%DC_PER_DAY = 0.
+               ! IF ( ABS(SUPP(IT_EA)%DADT) .LT. 1E-6 ) THEN
+               !    SUPP(IT_EA)%DC_PER_DAY = 0.
+               ! ELSE
+               IF (USE_SDI_LOG_FUNCTION) THEN
+                  SUPP(IT_EA)%DC_PER_DAY = 0.01 * DIURNAL_ADJUSTMENT_FACTOR * MAX_CONTAINMENT_PER_DAY * (1. - LOG10(SUPP(IT_EA)%DADT) / LOG10(AREA_NO_CONTAINMENT_CHANGE) )
                ELSE
-                  IF (USE_SDI_LOG_FUNCTION) THEN
-                     SUPP(IT_EA)%DC_PER_DAY = 0.01 * DIURNAL_ADJUSTMENT_FACTOR * MAX_CONTAINMENT_PER_DAY * (1. - LOG10(SUPP(IT_EA)%DADT) / LOG10(AREA_NO_CONTAINMENT_CHANGE) )
-                  ELSE
-                     SUPP(IT_EA)%DC_PER_DAY = 0.01 * DIURNAL_ADJUSTMENT_FACTOR * MAX_CONTAINMENT_PER_DAY * (1. - SUPP(IT_EA)%DADT        / AREA_NO_CONTAINMENT_CHANGE       )
-                  ENDIF
+                  SUPP(IT_EA)%DC_PER_DAY = 0.01 * DIURNAL_ADJUSTMENT_FACTOR * MAX_CONTAINMENT_PER_DAY * (1. - SUPP(IT_EA)%DADT        / AREA_NO_CONTAINMENT_CHANGE       )
                ENDIF
+               ! ENDIF
                IF (SUPP(IT_EA)%DC_PER_DAY .GT. 0.) THEN
                   SUPP(IT_EA)%DC_PER_DAY = SUPP(IT_EA)%DC_PER_DAY * EXP(-B_SDI * SUPP(IT_EA)%SDIBAR)
                ELSE
@@ -1477,6 +1477,8 @@ DO WHILE (T .le. totalDuration)
                SUPP(IT_EA)%TARGET_CONTAINMENT = SUPP(IT_EA-1)%TARGET_CONTAINMENT  + SUPP(IT_EA)%DC_PER_DAY * DT_DAY
                IF (SUPP(IT_EA)%TARGET_CONTAINMENT .GT. 1. ) SUPP(IT_EA)%TARGET_CONTAINMENT = 1.
                IF (SUPP(IT_EA)%TARGET_CONTAINMENT .LT. 0. ) SUPP(IT_EA)%TARGET_CONTAINMENT = 0.
+
+               print *, T, ACRES, SUPP(IT_EA)%TARGET_CONTAINMENT, SUPP(IT_EA)%DC_PER_DAY, SUPP(IT_EA)%DADT
                
                CALL CENTROID(IT_EA)
                CALL CONTAINMENT(IT_EA,T)
