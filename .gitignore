@@ -52,6 +52,7 @@ misc
 outputs
 scratch
 work
+config/wui_inputs
 
 # ============================================================
 # Runs
