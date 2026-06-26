@@ -35,6 +35,7 @@ Please create issues with your errors, requests or observations so they can be w
 - **Single version source (`VERSION` file)**: a repo-root `VERSION` file is now the single source of truth for the ELMFIRE version. The build scripts (`make_gnu.sh`, `make_intel.sh`), the `Dockerfile`, and the compiled-in banner (`VERSIONSTRING`) all derive from it, and the bundled tutorial/example/verification run scripts default `ELMFIRE_VER` to it (still overridable by exporting `ELMFIRE_VER`).
 
 ### Changed
+- **Verbose namelist input**: ELMFIRE now outputs error messages regarding the input namelists, so wrong or outdated inputs are highlighted. 
 - **Transient output scheduling**: fixed-`DTDUMP` output is no longer limited by the previous fixed-size dump-time array.
 - **Final-output handling**: now uses an explicit final-dump flag, preserving final-only outputs (time of arrival, fireline intensity, spread rate, ember ignition) while allowing transient fields to dump repeatedly.
 - **Smoke submodel**: reworked for smoother HYSPLIT integration. A simplified emission model based on bulk flaming and smoldering wood emission values is now used. The new parameters are `PM_EMISSION_FACTOR_FLAMING`, `PM_EMISSION_FACTOR_SMOLDERING`, `DRY_WOOD_CALORIFIC_VALUE`, `FLAMING_TIME`, and `SMOLDERING_TIME` (all have standard defaults that can be modified if needed). `DUMP_EMITIMES` (`&OUTPUTS`) creates the `emitimes.txt` file required by HYSPLIT.
