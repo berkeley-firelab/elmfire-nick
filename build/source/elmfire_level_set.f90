@@ -87,7 +87,7 @@ if (FEEDBACK_LEVEL .ge. 1) then
    WRITE(*,'(A)') TRIM(LOG_MSG)
 endif
 if (IS_VIRTUAL_RUN) then
-   WRITE(LOG_MSG,'(A,I0,A)') '[',ICASE,']: VIRTUAL RUN CASE'
+   WRITE(LOG_MSG,'(A,I0,A)') '[',ICASE,'] VIRTUAL RUN CASE'
    WRITE(*,'(A)') TRIM(LOG_MSG)
    rank_finished = 1
 endif
@@ -125,7 +125,6 @@ DO WHILE (T .le. totalDuration)
    ! endif
    DAY_OF_SIM = ceiling(((12 + mod(HOUR_OF_YEAR, 24) + IWX_BAND + floor(T/3600) - 1)/24.0))
    IF (T > BAND_H * DT_METEOROLOGY .and. WS%NBANDS .gt. 1) THEN ! LOAD NEXT WEATHER SLICE (unless weather is constant)
-      print *, WS%NBANDS
       if (FEEDBACK_LEVEL .ge. 3) then
          WRITE(LOG_MSG,'(A,I0,A,I0,A,I0,A)') '[',ICASE,'] UPDATING WEATHER SLICE FROM [',BAND_L,', ',BAND_H,']'
          WRITE(*,'(A)') TRIM(LOG_MSG)
@@ -1859,7 +1858,6 @@ DO WHILE (T .le. totalDuration)
       START_CALCS = .FALSE.
       rank_finished = 1
       DT = DT_METEOROLOGY
-      T = totalDuration + DT_METEOROLOGY
 
       if (FEEDBACK_LEVEL .ge. 3) then
          WRITE(LOG_MSG,'(A,I0,A)') '[',ICASE,'] LEVEL SET CASE ENDED'

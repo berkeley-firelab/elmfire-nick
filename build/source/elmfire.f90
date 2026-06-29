@@ -41,7 +41,7 @@ REAL :: APHIW, COSASPMPI, PHIMAG, PHIWX, PHIWY, PHIX, PHIY, SINASPMPI
 
 CHARACTER(3) :: THREE_IWX_BAND
 CHARACTER(4) :: FOUR_IWX_BAND
-CHARACTER(4) :: FOUR_IENS
+CHARACTER(7) :: SEVEN_IENS
 CHARACTER(20) :: ENS_TAG
 ! VERSIONSTRING is kept in sync with the repo-root VERSION file by the build
 ! scripts (make_gnu.sh / make_intel.sh); edit VERSION, not this literal.
@@ -543,8 +543,8 @@ IF (MODE .NE. 1) THEN
             ! Member tag appended to output filenames. Empty for a single deterministic
             ! realization so existing (non-Monte-Carlo) output names are unchanged.
             IF (N_ENS_MODE2 .GT. 1) THEN
-               WRITE(FOUR_IENS,'(I4.4)') IENS
-               ENS_TAG = '_mc' // FOUR_IENS
+               WRITE(SEVEN_IENS,'(I7.7)') IENS
+               ENS_TAG = '_mc' // SEVEN_IENS
             ELSE
                ENS_TAG = ''
             ENDIF
