@@ -1840,7 +1840,7 @@ CLOSE(LUIN)
 ! 2. Build gdaltransform command:
 !    gdaltransform -s_srs SRC_SRS -t_srs EPSG:4326 < TMPIN > TMPOUT
 SHELLSTR = TRIM(PATH_TO_GDAL) // 'gdaltransform -s_srs "' // TRIM(A_SRS) // '"' // &
-            ' -t_srs EPSG:4326 < ' // TRIM(TMPIN) // ' > ' // TRIM(TMPOUT)
+            ' -t_srs EPSG:4326 < ' // TRIM(TMPIN) // ' > ' // TRIM(TMPOUT) // ' 2>/dev/null'
 
 ! WRITE(*,*) 'Running: ', TRIM(SHELLSTR)
 CALL EXECUTE_COMMAND_LINE(TRIM(SHELLSTR), EXITSTAT=IOS)

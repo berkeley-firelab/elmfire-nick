@@ -450,7 +450,7 @@ IF (USE_LANDSCAPE_FILE) THEN
       INQUIRE(FILE=TRIM(FNHDR),EXIST=HDR_EXISTS)
       INQUIRE(FILE=TRIM(FNBSQ),EXIST=BSQ_EXISTS)
       IF (.NOT. HDR_EXISTS .OR. .NOT. BSQ_EXISTS) THEN
-         SHELLSTR = TRIM(PATH_TO_GDAL) // 'gdal_translate -of ENVI -co "INTERLEAVE=BSQ" ' // TRIM(FNTIF) // " " // TRIM(FNBSQ)
+         SHELLSTR = TRIM(PATH_TO_GDAL) // 'gdal_translate -q -of ENVI -co "INTERLEAVE=BSQ" ' // TRIM(FNTIF) // " " // TRIM(FNBSQ)
          IF (FEEDBACK_LEVEL .GE. 3) WRITE(*,'(A)') TRIM(SHELLSTR)
          CALL EXECUTE_COMMAND_LINE(TRIM(SHELLSTR))
       ENDIF
@@ -966,12 +966,12 @@ SELECT CASE (TRIM(RASTER%PIXELTYPE))
 
       IF (CONVERT_TO_GEOTIFF_LOCAL) THEN
          IF (COMPRESS) THEN
-            SHELLSTR = TRIM(PATH_TO_GDAL) // 'gdal_translate -ot Float32 -co "COMPRESS=DEFLATE" -co "ZLEVEL=9" -a_srs "' // &
+            SHELLSTR = TRIM(PATH_TO_GDAL) // 'gdal_translate -q -ot Float32 -co "COMPRESS=DEFLATE" -co "ZLEVEL=9" -a_srs "' // &
                        TRIM(A_SRS) // '" ' // TRIM(FNBIL) // ' ' // TRIM(FNTIF)
             IF (FEEDBACK_LEVEL .GE. 3) WRITE(*,100) TRIM(SHELLSTR)
             ISTAT = SYSTEM(TRIM(SHELLSTR))
          ELSE
-            SHELLSTR = TRIM(PATH_TO_GDAL) // 'gdal_translate -ot Float32 -a_srs "' // &
+            SHELLSTR = TRIM(PATH_TO_GDAL) // 'gdal_translate -q -ot Float32 -a_srs "' // &
                        TRIM(A_SRS) // '" ' // TRIM(FNBIL) // ' '// TRIM(FNTIF)
             IF (FEEDBACK_LEVEL .GE. 3) WRITE(*,100) TRIM(SHELLSTR)
             ISTAT = SYSTEM(TRIM(SHELLSTR))
@@ -1019,12 +1019,12 @@ SELECT CASE (TRIM(RASTER%PIXELTYPE))
 
       IF (CONVERT_TO_GEOTIFF_LOCAL) THEN
          IF (COMPRESS) THEN
-            SHELLSTR = TRIM(PATH_TO_GDAL) // 'gdal_translate -ot Int16 -co "COMPRESS=DEFLATE" -co "ZLEVEL=9" -a_srs "' // &
+            SHELLSTR = TRIM(PATH_TO_GDAL) // 'gdal_translate -q -ot Int16 -co "COMPRESS=DEFLATE" -co "ZLEVEL=9" -a_srs "' // &
                        TRIM(A_SRS) // '" ' // TRIM(FNBIL) // ' ' // TRIM(FNTIF)
             IF (FEEDBACK_LEVEL .GE. 3) WRITE(*,100) TRIM(SHELLSTR)
             ISTAT = SYSTEM(TRIM(SHELLSTR))
          ELSE
-            SHELLSTR = TRIM(PATH_TO_GDAL) // 'gdal_translate -ot Int16 -a_srs "' // &
+            SHELLSTR = TRIM(PATH_TO_GDAL) // 'gdal_translate -q -ot Int16 -a_srs "' // &
                        TRIM(A_SRS) // '" ' // TRIM(FNBIL) // ' ' // TRIM(FNTIF)
             IF (FEEDBACK_LEVEL .GE. 3) WRITE(*,100) TRIM(SHELLSTR)
             ISTAT = SYSTEM(TRIM(SHELLSTR))
@@ -1094,7 +1094,7 @@ ENDIF
 ! Convert to ENVI header BSQ format
 INQUIRE(FILE=FNXML,EXIST=XML_EXISTS)
 IF (.NOT. USE_EXISTING_BSQS .and. .not. XML_EXISTS) THEN
-   SHELLSTR = TRIM(PATH_TO_GDAL) // 'gdal_translate -of ENVI -co "INTERLEAVE=BSQ" ' // TRIM(FNTIF) // " " // TRIM(FNBSQ)
+   SHELLSTR = TRIM(PATH_TO_GDAL) // 'gdal_translate -q -of ENVI -co "INTERLEAVE=BSQ" ' // TRIM(FNTIF) // " " // TRIM(FNBSQ)
    IF (FEEDBACK_LEVEL .GE. 3) WRITE(*,100) TRIM(SHELLSTR)
    CALL EXECUTE_COMMAND_LINE(TRIM(SHELLSTR))
 ENDIF
@@ -1603,7 +1603,7 @@ ENDIF
 INQUIRE(FILE=TRIM(FNHDR),EXIST=HDR_EXISTS)
 INQUIRE(FILE=TRIM(FNBSQ),EXIST=BSQ_EXISTS)
 IF (.NOT. HDR_EXISTS .OR. .NOT. BSQ_EXISTS) THEN
-   SHELLSTR = TRIM(PATH_TO_GDAL) // 'gdal_translate -of ENVI -co "INTERLEAVE=BSQ" ' // TRIM(FNTIF) // " " // TRIM(FNBSQ)
+   SHELLSTR = TRIM(PATH_TO_GDAL) // 'gdal_translate -q -of ENVI -co "INTERLEAVE=BSQ" ' // TRIM(FNTIF) // " " // TRIM(FNBSQ)
    IF (FEEDBACK_LEVEL .GE. 3) WRITE(*,100) TRIM(SHELLSTR)
    CALL EXECUTE_COMMAND_LINE(TRIM(SHELLSTR))
 ENDIF
