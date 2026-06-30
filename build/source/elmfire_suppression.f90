@@ -301,6 +301,311 @@ END SUBROUTINE ABSORB_SMALL_SEGMENTS
 
 
 ! *****************************************************************************
+SUBROUTINE DETECT_OUTER_FIRELINE()
+! *****************************************************************************
+TYPE(NODE), POINTER :: C, C2
+
+INTEGER :: I, I2
+INTEGER :: DX, DY, IX, IY, NX, NY
+INTEGER :: IX1, IY1
+INTEGER :: IX_MIN, IX_MAX, IY_MIN, IY_MAX
+INTEGER :: BUFFER
+INTEGER :: HEAD, TAIL
+INTEGER :: TEST_INDX
+INTEGER :: NQ
+INTEGER :: NCOUNT
+INTEGER :: R_CHECK
+
+REAL :: CX, CY
+REAL :: VX, VY, DOTP
+LOGICAL :: BURNED_OUTSIDE
+
+INTEGER, ALLOCATABLE :: QX(:), QY(:)
+LOGICAL, ALLOCATABLE :: OUTSIDE_UNBURNED(:,:)
+
+! ------------------------------------------------------------
+! 1. RESET FIRELINE FLAGS AND FIND LOCAL BOUNDING BOX
+! ------------------------------------------------------------
+
+NX = ANALYSIS_NCOLS
+NY = ANALYSIS_NROWS
+
+IX_MIN = HUGE(1)
+IY_MIN = HUGE(1)
+IX_MAX = -HUGE(1)
+IY_MAX = -HUGE(1)
+
+C => LIST_TAGGED%HEAD
+DO I = 1, LIST_TAGGED%NUM_NODES
+
+   C%FIRE_LINE = .FALSE.
+
+   IX_MIN = MIN(IX_MIN, C%IX)
+   IX_MAX = MAX(IX_MAX, C%IX)
+   IY_MIN = MIN(IY_MIN, C%IY)
+   IY_MAX = MAX(IY_MAX, C%IY)
+
+   C => C%NEXT
+ENDDO
+
+BUFFER = MAX(3, NINT(FIRE_LINE_THICKNESS) + 2)
+
+IX_MIN = MAX(1, IX_MIN - BUFFER)
+IX_MAX = MIN(NX, IX_MAX + BUFFER)
+IY_MIN = MAX(1, IY_MIN - BUFFER)
+IY_MAX = MIN(NY, IY_MAX + BUFFER)
+
+NQ = (IX_MAX - IX_MIN + 1) * (IY_MAX - IY_MIN + 1)
+
+ALLOCATE(OUTSIDE_UNBURNED(IX_MIN:IX_MAX,IY_MIN:IY_MAX))
+ALLOCATE(QX(NQ))
+ALLOCATE(QY(NQ))
+
+OUTSIDE_UNBURNED = .FALSE.
+HEAD = 1
+TAIL = 0
+
+! ============================================================
+! 2. SEED OUTSIDE UNBURNED FROM BOUNDING-BOX EDGES
+! ============================================================
+
+DO IY = IY_MIN, IY_MAX
+
+   IF (TIME_OF_ARRIVAL(IX_MIN,IY) .EQ. -1) THEN
+      TAIL = TAIL + 1
+      QX(TAIL) = IX_MIN
+      QY(TAIL) = IY
+      OUTSIDE_UNBURNED(IX_MIN,IY) = .TRUE.
+   ENDIF
+
+   IF (TIME_OF_ARRIVAL(IX_MAX,IY) .EQ. -1 .AND. &
+       .NOT. OUTSIDE_UNBURNED(IX_MAX,IY)) THEN
+      TAIL = TAIL + 1
+      QX(TAIL) = IX_MAX
+      QY(TAIL) = IY
+      OUTSIDE_UNBURNED(IX_MAX,IY) = .TRUE.
+   ENDIF
+
+ENDDO
+
+DO IX = IX_MIN, IX_MAX
+
+   IF (TIME_OF_ARRIVAL(IX,IY_MIN) .EQ. -1 .AND. &
+       .NOT. OUTSIDE_UNBURNED(IX,IY_MIN)) THEN
+      TAIL = TAIL + 1
+      QX(TAIL) = IX
+      QY(TAIL) = IY_MIN
+      OUTSIDE_UNBURNED(IX,IY_MIN) = .TRUE.
+   ENDIF
+
+   IF (TIME_OF_ARRIVAL(IX,IY_MAX) .EQ. -1 .AND. &
+       .NOT. OUTSIDE_UNBURNED(IX,IY_MAX)) THEN
+      TAIL = TAIL + 1
+      QX(TAIL) = IX
+      QY(TAIL) = IY_MAX
+      OUTSIDE_UNBURNED(IX,IY_MAX) = .TRUE.
+   ENDIF
+
+ENDDO
+
+! ============================================================
+! 3. FLOOD-FILL OUTSIDE UNBURNED CELLS
+! ============================================================
+
+DO WHILE (HEAD .LE. TAIL)
+
+   IX = QX(HEAD)
+   IY = QY(HEAD)
+   HEAD = HEAD + 1
+
+   DO DX = -1, 1
+      DO DY = -1, 1
+
+         IF (DX .EQ. 0 .AND. DY .EQ. 0) CYCLE
+
+         IX1 = IX + DX
+         IY1 = IY + DY
+
+         IF (IX1 .LT. IX_MIN .OR. IX1 .GT. IX_MAX) CYCLE
+         IF (IY1 .LT. IY_MIN .OR. IY1 .GT. IY_MAX) CYCLE
+
+         IF (OUTSIDE_UNBURNED(IX1,IY1)) CYCLE
+
+         IF (TIME_OF_ARRIVAL(IX1,IY1) .EQ. -1) THEN
+            OUTSIDE_UNBURNED(IX1,IY1) = .TRUE.
+
+            TAIL = TAIL + 1
+            QX(TAIL) = IX1
+            QY(TAIL) = IY1
+         ENDIF
+
+      ENDDO
+   ENDDO
+
+ENDDO
+
+! ============================================================
+! 4. DETECT OUTER FIRELINE ONLY
+! ============================================================
+
+C => LIST_TAGGED%HEAD
+DO I = 1, LIST_TAGGED%NUM_NODES
+
+   IX = C%IX
+   IY = C%IY
+
+   IF (IX .GE. IX_MIN .AND. IX .LE. IX_MAX .AND. &
+       IY .GE. IY_MIN .AND. IY .LE. IY_MAX) THEN
+
+      IF (C%TIME_OF_ARRIVAL .EQ. -1 .AND. OUTSIDE_UNBURNED(IX,IY)) THEN
+
+         DO DX = -FIRE_LINE_THICKNESS, FIRE_LINE_THICKNESS
+            DO DY = -FIRE_LINE_THICKNESS, FIRE_LINE_THICKNESS
+
+               IF (DX .EQ. 0 .AND. DY .EQ. 0) CYCLE
+
+               IX1 = IX + DX
+               IY1 = IY + DY
+
+               IF (IX1 .LT. 1 .OR. IX1 .GT. NX) CYCLE
+               IF (IY1 .LT. 1 .OR. IY1 .GT. NY) CYCLE
+
+               IF (TIME_OF_ARRIVAL(IX1,IY1) .GT. 0) THEN
+                  C%FIRE_LINE = .TRUE.
+               ENDIF
+
+            ENDDO
+         ENDDO
+
+      ENDIF
+
+   ENDIF
+
+   C => C%NEXT
+ENDDO
+
+! ============================================================
+! 5. COMPUTE FIRE CENTER FROM BURNED CELLS IN LOCAL BOX
+! ============================================================
+
+CX = 0.0
+CY = 0.0
+NCOUNT = 0
+
+DO IX = IX_MIN, IX_MAX
+   DO IY = IY_MIN, IY_MAX
+
+      IF (TIME_OF_ARRIVAL(IX,IY) .GT. 0) THEN
+         CX = CX + REAL(IX)
+         CY = CY + REAL(IY)
+         NCOUNT = NCOUNT + 1
+      ENDIF
+
+   ENDDO
+ENDDO
+
+IF (NCOUNT .GT. 0) THEN
+   CX = CX / REAL(NCOUNT)
+   CY = CY / REAL(NCOUNT)
+ENDIF
+
+! ============================================================
+! 6. REMOVE FIRELINE CELLS BETWEEN TWO FIRELINES
+! ============================================================
+
+R_CHECK = MAX(3, NINT(FIRE_LINE_THICKNESS) + 2)
+
+C => LIST_TAGGED%HEAD
+DO I = 1, LIST_TAGGED%NUM_NODES
+
+   IF (C%FIRE_LINE) THEN
+
+      VX = REAL(C%IX) - CX
+      VY = REAL(C%IY) - CY
+
+      BURNED_OUTSIDE = .FALSE.
+
+      DO DX = -R_CHECK, R_CHECK
+         DO DY = -R_CHECK, R_CHECK
+
+            IF (DX .EQ. 0 .AND. DY .EQ. 0) CYCLE
+
+            IX1 = C%IX + DX
+            IY1 = C%IY + DY
+
+            IF (IX1 .LT. 1 .OR. IX1 .GT. NX) CYCLE
+            IF (IY1 .LT. 1 .OR. IY1 .GT. NY) CYCLE
+
+            DOTP = REAL(DX) * VX + REAL(DY) * VY
+
+            IF (DOTP .GT. 0.0 .AND. TIME_OF_ARRIVAL(IX1,IY1) .GT. 0) THEN
+               BURNED_OUTSIDE = .TRUE.
+            ENDIF
+
+         ENDDO
+      ENDDO
+
+      IF (BURNED_OUTSIDE) C%FIRE_LINE = .FALSE.
+
+   ENDIF
+
+   C => C%NEXT
+ENDDO
+
+! ============================================================
+! 7. REMOVE ISOLATED FIRELINE CELLS
+! ============================================================
+
+C => LIST_TAGGED%HEAD
+DO I = 1, LIST_TAGGED%NUM_NODES
+
+   IF (C%FIRE_LINE) THEN
+
+      TEST_INDX = 0
+
+      DO DX = -1, 1
+         DO DY = -1, 1
+
+            IF (DX .EQ. 0 .AND. DY .EQ. 0) CYCLE
+
+            IX1 = C%IX + DX
+            IY1 = C%IY + DY
+
+            C2 => LIST_TAGGED%HEAD
+            DO I2 = 1, LIST_TAGGED%NUM_NODES
+
+               IF (C2%IX .EQ. IX1 .AND. C2%IY .EQ. IY1 .AND. C2%FIRE_LINE) THEN
+                  TEST_INDX = TEST_INDX + 1
+                  EXIT
+               ENDIF
+
+               C2 => C2%NEXT
+
+            ENDDO
+
+         ENDDO
+      ENDDO
+
+      IF (TEST_INDX .EQ. 0) C%FIRE_LINE = .FALSE.
+
+   ENDIF
+
+   C => C%NEXT
+ENDDO
+
+DEALLOCATE(OUTSIDE_UNBURNED)
+DEALLOCATE(QX)
+DEALLOCATE(QY)
+
+
+! *****************************************************************************
+END SUBROUTINE DETECT_OUTER_FIRELINE
+! *****************************************************************************
+
+
+
+
+! *****************************************************************************
 SUBROUTINE SEGMENT_FIRELINE
 ! *****************************************************************************
 ! REAL(8), INTENT(IN) :: T
@@ -318,63 +623,65 @@ INTEGER, ALLOCATABLE :: MAP_SEG(:)
 INTEGER :: OLD_SEG
 
 ! detect fireline
-C => LIST_TAGGED%HEAD
-DO I = 1, LIST_TAGGED%NUM_NODES
-   IF (C%TIME_OF_ARRIVAL .EQ. -1) THEN
-      DO DX = -FIRE_LINE_THICKNESS, FIRE_LINE_THICKNESS
-         DO DY = -FIRE_LINE_THICKNESS, FIRE_LINE_THICKNESS
-            IF (DX .EQ. 0 .AND. DY .EQ. 0) CYCLE
-            IX = C%IX + DX
-            IY = C%IY + DY
-            IF (TIME_OF_ARRIVAL(IX,IY) .GT. 0) C%FIRE_LINE = .TRUE.
-         ENDDO
-      ENDDO
-   ENDIF
-   
-   C => C%NEXT
-ENDDO
+CALL DETECT_OUTER_FIRELINE()
 
-! remove isolated fireline
-C => LIST_TAGGED%HEAD
-DO I = 1, LIST_TAGGED%NUM_NODES
-   IF (C%FIRE_LINE) THEN
-      IX1 = C%IX - 1
-      IY1 = C%IY
-      IX2 = C%IX - 1
-      IY2 = C%IY + 1
-      IX3 = C%IX
-      IY3 = C%IY + 1
-      IX4 = C%IX + 1
-      IY4 = C%IY + 1
-      IX5 = C%IX + 1
-      IY5 = C%IY
-      IX6 = C%IX + 1
-      IY6 = C%IY - 1
-      IX7 = C%IX
-      IY7 = C%IY - 1
-      IX8 = C%IX - 1
-      IY8 = C%IY - 1   
+! C => LIST_TAGGED%HEAD
+! DO I = 1, LIST_TAGGED%NUM_NODES
+!    IF (C%TIME_OF_ARRIVAL .EQ. -1) THEN
+!       DO DX = -FIRE_LINE_THICKNESS, FIRE_LINE_THICKNESS
+!          DO DY = -FIRE_LINE_THICKNESS, FIRE_LINE_THICKNESS
+!             IF (DX .EQ. 0 .AND. DY .EQ. 0) CYCLE
+!             IX = C%IX + DX
+!             IY = C%IY + DY
+!             IF (TIME_OF_ARRIVAL(IX,IY) .GT. 0) C%FIRE_LINE = .TRUE.
+!          ENDDO
+!       ENDDO
+!    ENDIF
+   
+!    C => C%NEXT
+! ENDDO
+
+! ! remove isolated fireline
+! C => LIST_TAGGED%HEAD
+! DO I = 1, LIST_TAGGED%NUM_NODES
+!    IF (C%FIRE_LINE) THEN
+!       IX1 = C%IX - 1
+!       IY1 = C%IY
+!       IX2 = C%IX - 1
+!       IY2 = C%IY + 1
+!       IX3 = C%IX
+!       IY3 = C%IY + 1
+!       IX4 = C%IX + 1
+!       IY4 = C%IY + 1
+!       IX5 = C%IX + 1
+!       IY5 = C%IY
+!       IX6 = C%IX + 1
+!       IY6 = C%IY - 1
+!       IX7 = C%IX
+!       IY7 = C%IY - 1
+!       IX8 = C%IX - 1
+!       IY8 = C%IY - 1   
       
-      C2 => LIST_TAGGED%HEAD
-      TEST_INDX = 0
-      DO I2 = 1, LIST_TAGGED%NUM_NODES
-         IF (C2%IX .EQ. IX1 .AND. C2%IY .EQ. IY1 .AND. C2%FIRE_LINE) TEST_INDX = TEST_INDX + 1
-         IF (C2%IX .EQ. IX2 .AND. C2%IY .EQ. IY2 .AND. C2%FIRE_LINE) TEST_INDX = TEST_INDX + 1
-         IF (C2%IX .EQ. IX3 .AND. C2%IY .EQ. IY3 .AND. C2%FIRE_LINE) TEST_INDX = TEST_INDX + 1
-         IF (C2%IX .EQ. IX4 .AND. C2%IY .EQ. IY4 .AND. C2%FIRE_LINE) TEST_INDX = TEST_INDX + 1
-         IF (C2%IX .EQ. IX5 .AND. C2%IY .EQ. IY5 .AND. C2%FIRE_LINE) TEST_INDX = TEST_INDX + 1
-         IF (C2%IX .EQ. IX6 .AND. C2%IY .EQ. IY6 .AND. C2%FIRE_LINE) TEST_INDX = TEST_INDX + 1
-         IF (C2%IX .EQ. IX7 .AND. C2%IY .EQ. IY7 .AND. C2%FIRE_LINE) TEST_INDX = TEST_INDX + 1
-         IF (C2%IX .EQ. IX8 .AND. C2%IY .EQ. IY8 .AND. C2%FIRE_LINE) TEST_INDX = TEST_INDX + 1
-         C2 => C2%NEXT
-      ENDDO
+!       C2 => LIST_TAGGED%HEAD
+!       TEST_INDX = 0
+!       DO I2 = 1, LIST_TAGGED%NUM_NODES
+!          IF (C2%IX .EQ. IX1 .AND. C2%IY .EQ. IY1 .AND. C2%FIRE_LINE) TEST_INDX = TEST_INDX + 1
+!          IF (C2%IX .EQ. IX2 .AND. C2%IY .EQ. IY2 .AND. C2%FIRE_LINE) TEST_INDX = TEST_INDX + 1
+!          IF (C2%IX .EQ. IX3 .AND. C2%IY .EQ. IY3 .AND. C2%FIRE_LINE) TEST_INDX = TEST_INDX + 1
+!          IF (C2%IX .EQ. IX4 .AND. C2%IY .EQ. IY4 .AND. C2%FIRE_LINE) TEST_INDX = TEST_INDX + 1
+!          IF (C2%IX .EQ. IX5 .AND. C2%IY .EQ. IY5 .AND. C2%FIRE_LINE) TEST_INDX = TEST_INDX + 1
+!          IF (C2%IX .EQ. IX6 .AND. C2%IY .EQ. IY6 .AND. C2%FIRE_LINE) TEST_INDX = TEST_INDX + 1
+!          IF (C2%IX .EQ. IX7 .AND. C2%IY .EQ. IY7 .AND. C2%FIRE_LINE) TEST_INDX = TEST_INDX + 1
+!          IF (C2%IX .EQ. IX8 .AND. C2%IY .EQ. IY8 .AND. C2%FIRE_LINE) TEST_INDX = TEST_INDX + 1
+!          C2 => C2%NEXT
+!       ENDDO
 
-      IF (TEST_INDX .EQ. 0) C%FIRE_LINE = .FALSE.
+!       IF (TEST_INDX .EQ. 0) C%FIRE_LINE = .FALSE.
 
-   ENDIF
+!    ENDIF
    
-   C => C%NEXT
-ENDDO
+!    C => C%NEXT
+! ENDDO
 
 
 ! C => LIST_TAGGED%HEAD
