@@ -656,6 +656,7 @@ DO WHILE (T .le. totalDuration)
             IF (EXTENDED_ATTACK_MODEL .EQ. 0) THEN
                SUPP(0)%ACRES = ACRES
             ELSE IF (EXTENDED_ATTACK_MODEL .EQ. 1) THEN
+               WRITE(*,'(A)') 'Time (s),Suppressed Line (m),Fire Line (m),Contained'
                CONTINUE
             ELSE
                WRITE(*,*) 'Error: "EXTENDED_ATTACK_MODEL" should be 0 or 1 in namelist!'
@@ -1498,11 +1499,11 @@ DO WHILE (T .le. totalDuration)
                CALL SORT_STS
                CALL DIRECT_ATTACK(T, IT_EA, rank_finished, DT, ICASE, TSTOP)
                
-               CALL LL_DUMP_ROUTINE(LIST_TAGGED,"time_suppressed",T,"time_suppressed",1)
-               CALL LL_DUMP_ROUTINE(LIST_TAGGED,"ROS",T,"ROS",1)
-               CALL LL_DUMP_ROUTINE(LIST_TAGGED,"STS",T,"STS",1)
-               CALL LL_DUMP_ROUTINE(LIST_TAGGED,"SEGMENT",T,"SEGMENT",1)
-               CALL LL_DUMP_ROUTINE(LIST_TAGGED,"time_of_arrival",T,"time_of_arrival",1)
+               ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"time_suppressed",T,"time_suppressed",1)
+               ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"ROS",T,"ROS",1)
+               ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"STS",T,"STS",1)
+               ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"SEGMENT",T,"SEGMENT",1)
+               ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"time_of_arrival",T,"time_of_arrival",1)
 
                DEALLOCATE(SUPPRESSION_TYPE_SCORE)
                DEALLOCATE(SUPPRESSION_TYPE_SCORE_RANK)
