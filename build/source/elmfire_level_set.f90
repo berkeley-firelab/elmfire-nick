@@ -1499,11 +1499,11 @@ DO WHILE (T .le. totalDuration)
                CALL SORT_STS
                CALL DIRECT_ATTACK(T, IT_EA, rank_finished, DT, ICASE, TSTOP)
                
-               ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"time_suppressed",T,"time_suppressed",1)
+               CALL LL_DUMP_ROUTINE(LIST_TAGGED,"time_suppressed",T,"time_suppressed",1)
                ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"ROS",T,"ROS",1)
-               ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"STS",T,"STS",1)
-               ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"SEGMENT",T,"SEGMENT",1)
-               ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"time_of_arrival",T,"time_of_arrival",1)
+               CALL LL_DUMP_ROUTINE(LIST_TAGGED,"STS",T,"STS",1)
+               CALL LL_DUMP_ROUTINE(LIST_TAGGED,"SEGMENT",T,"SEGMENT",1)
+               CALL LL_DUMP_ROUTINE(LIST_TAGGED,"time_of_arrival",T,"time_of_arrival",1)
 
                DEALLOCATE(SUPPRESSION_TYPE_SCORE)
                DEALLOCATE(SUPPRESSION_TYPE_SCORE_RANK)
@@ -1513,6 +1513,7 @@ DO WHILE (T .le. totalDuration)
                DO I = 1, LIST_TAGGED%NUM_NODES
                   C%FIRE_LINE = .FALSE.
                   C%SEGMENT_GROUP = -1
+                  C%STS = -1
                   C => C%NEXT
                ENDDO
 
