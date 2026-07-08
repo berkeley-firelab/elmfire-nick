@@ -202,6 +202,8 @@ DO WHILE (T .le. totalDuration)
          ALLOCATE(TIME_OF_ARRIVAL (1:NX,1:NY)); TIME_OF_ARRIVAL(:,:) = -1.
          ALLOCATE(TAGGED          (1:NX,1:NY)); TAGGED(:,:) = .FALSE.
          ALLOCATE(PHIP            (1:NX,1:NY)); PHIP(:,:) = 1
+         !Majid_bav::added below
+         ALLOCATE(PCL_HOLD_PROB            (1:NX,1:NY)); PCL_HOLD_PROB(:,:) = 0
          ALLOCATE(EVERTAGGED      (1:NX,1:NY)); EVERTAGGED(:,:) = .FALSE.
          ALLOCATE(EVERTAGGED_IX   (1:NX*NY))
          ALLOCATE(EVERTAGGED_IY   (1:NX*NY))
@@ -433,6 +435,8 @@ DO WHILE (T .le. totalDuration)
                SUPP(IT_EA)%CONTAINMENT=0.
             ENDDO
          ELSE IF (EXTENDED_ATTACK_MODEL .EQ. 1) THEN
+
+            IF (ENABLE_INDIRECT_ATTACK) CALL CALCULATE_PCL_HOLD_MAP(NX, NY)
 
             DO IT_EA = 0, 1000
                SUPP(IT_EA)%NCELLS(:)=0
@@ -1498,6 +1502,7 @@ DO WHILE (T .le. totalDuration)
                CALL CALCULATE_STS
                CALL SORT_STS
                CALL DIRECT_ATTACK(T, IT_EA, rank_finished, DT, ICASE, TSTOP)
+               IF (ENABLE_INDIRECT_ATTACK) CALL INDIRECT_ATTACK(NX, NY, T)
                
                CALL LL_DUMP_ROUTINE(LIST_TAGGED,"time_suppressed",T,"time_suppressed",1)
                ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"ROS",T,"ROS",1)

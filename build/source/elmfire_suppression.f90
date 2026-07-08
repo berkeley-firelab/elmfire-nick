@@ -1643,7 +1643,6 @@ SEG_DEG = 0.0
 SEG_SUPPRESSED = .FALSE.
 SEG_CANDIDATE = .FALSE.
 
-
 ! Calculate center of the active fire area
 CALL CENTROID(IT)
 
@@ -1808,6 +1807,9 @@ ENDIF
 
 DEALLOCATE(L_SEG)
 DEALLOCATE(L_REQ)
+DEALLOCATE(SEG_IXCEN)
+DEALLOCATE(SEG_IYCEN)
+DEALLOCATE(SEG_DEG)
 DEALLOCATE(SEG_SUPPRESSED)
 DEALLOCATE(SEG_CANDIDATE)
 
@@ -1818,19 +1820,175 @@ END SUBROUTINE DIRECT_ATTACK
 
 
 
+! *****************************************************************************
+SUBROUTINE CALCULATE_PCL_HOLD_MAP(NX, NY)
+! *****************************************************************************
+INTEGER, INTENT(IN)  :: NX, NY
+INTEGER              :: ICOL,IROW, IX, IY, K, X0, Y0, XN, YN
+INTEGER              :: HEAD, TAIL
+INTEGER              :: COUNT_SEG
+INTEGER              :: MAXCELLS
+INTEGER              :: NSEG
+INTEGER              :: NCAND
+
+REAL :: SUM_SEG
+REAL, ALLOCATABLE :: PCL_ORIG(:,:)
+
+INTEGER, ALLOCATABLE :: QX(:), QY(:)
+LOGICAL, ALLOCATABLE :: VISITED(:,:)
+
+INTEGER, DIMENSION(8) :: DX = (/ -1, 0, 1, -1, 1, -1, 0, 1 /)
+INTEGER, DIMENSION(8) :: DY = (/ -1,-1,-1,  0, 0,  1, 1, 1 /)
+
+! thresholding the pcl
+DO IY = 1, NY
+   DO IX = 1, NX
+      ICOL = ICOL_ANALYSIS_F2C(IX)
+      IROW = IROW_ANALYSIS_F2C(IY)
+
+      IF (PCL%R4(ICOL,IROW,1) .GE. PCL_THRESHOLD) PCL_HOLD_PROB(IX, IY) = PCL%R4(ICOL,IROW,1)
+   ENDDO
+ENDDO
+
+! Segment PCL_HOLD_PROB and replace each segment by its mean
+MAXCELLS = NX * NY
+NCAND = COUNT(PCL_HOLD_PROB > 0.0)
+
+ALLOCATE(PCL_ORIG(NX,NY))
+ALLOCATE(PCL_MEAN_SEG(NCAND))
+ALLOCATE(QX(MAXCELLS))
+ALLOCATE(QY(MAXCELLS))
+ALLOCATE(VISITED(NX,NY))
+
+! Save original PCL values before overwriting with segment IDs
+PCL_ORIG = PCL_HOLD_PROB
+
+! Initialize outputs
+PCL_HOLD_PROB = 0.0
+PCL_MEAN_SEG = 0.0
+VISITED = .FALSE.
+NSEG = 0
+
+DO IY = 1, NY
+   DO IX = 1, NX
+
+      ! Start a new segment from an unvisited positive PCL cell
+      IF (PCL_ORIG(IX,IY) > 0.0 .AND. .NOT. VISITED(IX,IY)) THEN
+
+         NSEG = NSEG + 1
+
+         HEAD = 1
+         TAIL = 1
+
+         QX(TAIL) = IX
+         QY(TAIL) = IY
+
+         VISITED(IX,IY) = .TRUE.
+
+         SUM_SEG = 0.0
+         COUNT_SEG = 0
+
+         !------------------------------------------------------
+         ! Flood-fill this connected PCL segment
+         !------------------------------------------------------
+         DO WHILE (HEAD <= TAIL)
+
+            X0 = QX(HEAD)
+            Y0 = QY(HEAD)
+            HEAD = HEAD + 1
+
+            SUM_SEG = SUM_SEG + PCL_ORIG(X0,Y0)
+            COUNT_SEG = COUNT_SEG + 1
+
+            DO K = 1, 8
+
+               XN = X0 + DX(K)
+               YN = Y0 + DY(K)
+
+               ! Skip outside domain
+               IF (XN < 1 .OR. XN > NX) CYCLE
+               IF (YN < 1 .OR. YN > NY) CYCLE
+
+               ! Add connected positive PCL cell
+               IF (PCL_ORIG(XN,YN) > 0.0 .AND. .NOT. VISITED(XN,YN)) THEN
+
+                  TAIL = TAIL + 1
+                  QX(TAIL) = XN
+                  QY(TAIL) = YN
+
+                  VISITED(XN,YN) = .TRUE.
+
+               END IF
+
+            END DO
+
+         END DO
+
+         !------------------------------------------------------
+         ! Store mean PCL value for this segment
+         !------------------------------------------------------
+         PCL_MEAN_SEG(NSEG) = SUM_SEG / REAL(COUNT_SEG)
+
+         !------------------------------------------------------
+         ! Fill PCL_HOLD_PROB with the segment ID
+         !------------------------------------------------------
+         DO K = 1, TAIL
+            PCL_HOLD_PROB(QX(K),QY(K)) = REAL(NSEG)
+         END DO
+
+      END IF
+
+   END DO
+END DO
 
 
+DEALLOCATE(PCL_ORIG)
+DEALLOCATE(QX)
+DEALLOCATE(QY)
+DEALLOCATE(VISITED)
 
 
+! *****************************************************************************
+END SUBROUTINE CALCULATE_PCL_HOLD_MAP
+! *****************************************************************************
 
 
+! *****************************************************************************
+SUBROUTINE INDIRECT_ATTACK(NX, NY, T)
+! *****************************************************************************
+TYPE(NODE), POINTER :: C
+REAL(8), INTENT(IN) :: T
+INTEGER, INTENT(IN) :: NX, NY
+INTEGER :: I
+REAL :: R
 
+   
+C => LIST_TAGGED%HEAD
+DO I = 1, LIST_TAGGED%NUM_NODES
 
+   IF (.NOT. C%FIRE_LINE) THEN
+      C => C%NEXT
+      CYCLE
+   ENDIF
 
+   IF (PCL_HOLD_PROB(C%IX, C%IY) .NE. 0) THEN
 
+      CALL RANDOM_NUMBER(R)
+      IF ((R*100)<PCL_MEAN_SEG(NINT(PCL_HOLD_PROB(C%IX, C%IY)))) THEN
+         PCL_MEAN_SEG(NINT(PCL_HOLD_PROB(C%IX, C%IY))) = 100
+         C%SUPPRESSION_ADJUSTMENT_FACTOR = 0
+         C%TIME_SUPPRESSED = T
+      ENDIF
+      
+   ENDIF
 
+   C => C%NEXT
 
+ENDDO
 
+! *****************************************************************************
+END SUBROUTINE INDIRECT_ATTACK
+! *****************************************************************************
 
 
 ! *****************************************************************************
