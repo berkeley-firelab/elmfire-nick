@@ -1501,8 +1501,8 @@ DO WHILE (T .le. totalDuration)
                
                CALL LL_DUMP_ROUTINE(LIST_TAGGED,"time_suppressed",T,"time_suppressed",1)
                ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"ROS",T,"ROS",1)
-               CALL LL_DUMP_ROUTINE(LIST_TAGGED,"STS",T,"STS",1)
-               CALL LL_DUMP_ROUTINE(LIST_TAGGED,"SEGMENT",T,"SEGMENT",1)
+               ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"STS",T,"STS",1)
+               ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"SEGMENT",T,"SEGMENT",1)
                CALL LL_DUMP_ROUTINE(LIST_TAGGED,"time_of_arrival",T,"time_of_arrival",1)
 
                DEALLOCATE(SUPPRESSION_TYPE_SCORE)
