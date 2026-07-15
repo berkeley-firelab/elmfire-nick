@@ -797,7 +797,7 @@ NAMELIST /SUPPRESSION/ AREA_NO_CONTAINMENT_CHANGE, B_SDI, DT_EXTENDED_ATTACK, &
                        INITIAL_ATTACK_TIME, MAX_CONTAINMENT_PER_DAY, SDI_FACTOR, USE_SDI, USE_SDI_LOG_FUNCTION, &
                        ! Majid_bav::added below
                        EXTENDED_ATTACK_MODEL, EXTENDED_ATTACK_TIME, AVAILABLE_SUPPRESSION_CAPACITY, DELTA_ROS, DELTA_FL, &
-                        DELTA_SDI, DELTA_PCL, FIRE_LINE_THICKNESS, SDI_MAX_DIRECT_ATTACK, FL_MAX_DIRECT_ATTACK, PCL_THRESHOLD
+                        DELTA_SDI, DELTA_PCL, FIRE_LINE_THICKNESS, SDI_MAX_DIRECT_ATTACK, FL_MAX_DIRECT_ATTACK, PCL_THRESHOLD, FL_REF_INDIRECT_ATTACK
 
 IF (IRANK_WORLD .EQ. 0) WRITE(*,*) 'Reading &SUPPRESSION namelist group'
 
@@ -820,6 +820,7 @@ ENABLE_INDIRECT_ATTACK             = .TRUE.     ! indirect attack model
 PCL_THRESHOLD                      = 20.0       ! pcl threshold for indirect attack
 EXTENDED_ATTACK_TIME               = 3600       ! seconds
 FL_MAX_DIRECT_ATTACK               = 8.0        ! ft
+FL_REF_INDIRECT_ATTACK             = 6.0        ! ft
 SDI_MAX_DIRECT_ATTACK              = 40.0       ! 0 to 318 USDA data = SDI*100
 AVAILABLE_SUPPRESSION_CAPACITY     = 2000       ! m/hr
 FIRE_LINE_THICKNESS                = 1          ! num cells

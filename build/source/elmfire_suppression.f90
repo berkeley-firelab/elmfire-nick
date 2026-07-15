@@ -421,308 +421,174 @@ DEALLOCATE(SEG_HAS_NEIGHBOR)
 END SUBROUTINE ABSORB_SMALL_SEGMENTS
 ! *****************************************************************************
 
-
 ! *****************************************************************************
-SUBROUTINE DETECT_OUTER_FIRELINE()
+SUBROUTINE DETECT_FIRELINE
 ! *****************************************************************************
-TYPE(NODE), POINTER :: C, C2
 
-INTEGER :: I, I2
-INTEGER :: DX, DY, IX, IY, NX, NY
-INTEGER :: IX1, IY1
-INTEGER :: IX_MIN, IX_MAX, IY_MIN, IY_MAX
-INTEGER :: BUFFER
-INTEGER :: HEAD, TAIL
-INTEGER :: TEST_INDX
-INTEGER :: NQ
-INTEGER :: NCOUNT
-INTEGER :: R_CHECK
+TYPE(NODE), POINTER :: C
 
-REAL :: CX, CY
-REAL :: VX, VY, DOTP
-LOGICAL :: BURNED_OUTSIDE
+INTEGER :: I
+INTEGER :: DX, DY
+INTEGER :: IX, IY
+INTEGER :: IX_MIN, IX_MAX
+INTEGER :: IY_MIN, IY_MAX
+INTEGER :: N_NEIGHBORS
 
-INTEGER, ALLOCATABLE :: QX(:), QY(:)
-LOGICAL, ALLOCATABLE :: OUTSIDE_UNBURNED(:,:)
+INTEGER :: TOA_IX_MIN, TOA_IX_MAX
+INTEGER :: TOA_IY_MIN, TOA_IY_MAX
 
-! ------------------------------------------------------------
-! 1. RESET FIRELINE FLAGS AND FIND LOCAL BOUNDING BOX
-! ------------------------------------------------------------
+LOGICAL, ALLOCATABLE :: FIRELINE_MASK(:,:)
 
-NX = ANALYSIS_NCOLS
-NY = ANALYSIS_NROWS
+! ---------------------------------------------------------------------------
+! Return immediately if the list is empty
+! ---------------------------------------------------------------------------
+IF (LIST_TAGGED%NUM_NODES .LE. 0) RETURN
+IF (.NOT. ASSOCIATED(LIST_TAGGED%HEAD)) RETURN
 
-IX_MIN = HUGE(1)
-IY_MIN = HUGE(1)
-IX_MAX = -HUGE(1)
-IY_MAX = -HUGE(1)
+! Bounds of the global TIME_OF_ARRIVAL array
+TOA_IX_MIN = LBOUND(TIME_OF_ARRIVAL, 1)
+TOA_IX_MAX = UBOUND(TIME_OF_ARRIVAL, 1)
+TOA_IY_MIN = LBOUND(TIME_OF_ARRIVAL, 2)
+TOA_IY_MAX = UBOUND(TIME_OF_ARRIVAL, 2)
+
+! ---------------------------------------------------------------------------
+! Find the bounding box of LIST_TAGGED.
+!
+! The temporary grid is restricted to this bounding box instead of allocating
+! an array over the entire computational domain.
+! ---------------------------------------------------------------------------
+IX_MIN = HUGE(IX_MIN)
+IY_MIN = HUGE(IY_MIN)
+IX_MAX = -HUGE(IX_MAX)
+IY_MAX = -HUGE(IY_MAX)
 
 C => LIST_TAGGED%HEAD
-DO I = 1, LIST_TAGGED%NUM_NODES
 
-   C%FIRE_LINE = .FALSE.
+DO I = 1, LIST_TAGGED%NUM_NODES
 
    IX_MIN = MIN(IX_MIN, C%IX)
    IX_MAX = MAX(IX_MAX, C%IX)
    IY_MIN = MIN(IY_MIN, C%IY)
    IY_MAX = MAX(IY_MAX, C%IY)
 
-   C => C%NEXT
-ENDDO
-
-BUFFER = MAX(3, NINT(FIRE_LINE_THICKNESS) + 2)
-
-IX_MIN = MAX(1, IX_MIN - BUFFER)
-IX_MAX = MIN(NX, IX_MAX + BUFFER)
-IY_MIN = MAX(1, IY_MIN - BUFFER)
-IY_MAX = MIN(NY, IY_MAX + BUFFER)
-
-NQ = (IX_MAX - IX_MIN + 1) * (IY_MAX - IY_MIN + 1)
-
-ALLOCATE(OUTSIDE_UNBURNED(IX_MIN:IX_MAX,IY_MIN:IY_MAX))
-ALLOCATE(QX(NQ))
-ALLOCATE(QY(NQ))
-
-OUTSIDE_UNBURNED = .FALSE.
-HEAD = 1
-TAIL = 0
-
-! ============================================================
-! 2. SEED OUTSIDE UNBURNED FROM BOUNDING-BOX EDGES
-! ============================================================
-
-DO IY = IY_MIN, IY_MAX
-
-   IF (TIME_OF_ARRIVAL(IX_MIN,IY) .EQ. -1) THEN
-      TAIL = TAIL + 1
-      QX(TAIL) = IX_MIN
-      QY(TAIL) = IY
-      OUTSIDE_UNBURNED(IX_MIN,IY) = .TRUE.
-   ENDIF
-
-   IF (TIME_OF_ARRIVAL(IX_MAX,IY) .EQ. -1 .AND. &
-       .NOT. OUTSIDE_UNBURNED(IX_MAX,IY)) THEN
-      TAIL = TAIL + 1
-      QX(TAIL) = IX_MAX
-      QY(TAIL) = IY
-      OUTSIDE_UNBURNED(IX_MAX,IY) = .TRUE.
-   ENDIF
-
-ENDDO
-
-DO IX = IX_MIN, IX_MAX
-
-   IF (TIME_OF_ARRIVAL(IX,IY_MIN) .EQ. -1 .AND. &
-       .NOT. OUTSIDE_UNBURNED(IX,IY_MIN)) THEN
-      TAIL = TAIL + 1
-      QX(TAIL) = IX
-      QY(TAIL) = IY_MIN
-      OUTSIDE_UNBURNED(IX,IY_MIN) = .TRUE.
-   ENDIF
-
-   IF (TIME_OF_ARRIVAL(IX,IY_MAX) .EQ. -1 .AND. &
-       .NOT. OUTSIDE_UNBURNED(IX,IY_MAX)) THEN
-      TAIL = TAIL + 1
-      QX(TAIL) = IX
-      QY(TAIL) = IY_MAX
-      OUTSIDE_UNBURNED(IX,IY_MAX) = .TRUE.
-   ENDIF
-
-ENDDO
-
-! ============================================================
-! 3. FLOOD-FILL OUTSIDE UNBURNED CELLS
-! ============================================================
-
-DO WHILE (HEAD .LE. TAIL)
-
-   IX = QX(HEAD)
-   IY = QY(HEAD)
-   HEAD = HEAD + 1
-
-   DO DX = -1, 1
-      DO DY = -1, 1
-
-         IF (DX .EQ. 0 .AND. DY .EQ. 0) CYCLE
-
-         IX1 = IX + DX
-         IY1 = IY + DY
-
-         IF (IX1 .LT. IX_MIN .OR. IX1 .GT. IX_MAX) CYCLE
-         IF (IY1 .LT. IY_MIN .OR. IY1 .GT. IY_MAX) CYCLE
-
-         IF (OUTSIDE_UNBURNED(IX1,IY1)) CYCLE
-
-         IF (TIME_OF_ARRIVAL(IX1,IY1) .EQ. -1) THEN
-            OUTSIDE_UNBURNED(IX1,IY1) = .TRUE.
-
-            TAIL = TAIL + 1
-            QX(TAIL) = IX1
-            QY(TAIL) = IY1
-         ENDIF
-
-      ENDDO
-   ENDDO
-
-ENDDO
-
-! ============================================================
-! 4. DETECT OUTER FIRELINE ONLY
-! ============================================================
-
-C => LIST_TAGGED%HEAD
-DO I = 1, LIST_TAGGED%NUM_NODES
-
-   IX = C%IX
-   IY = C%IY
-
-   IF (IX .GE. IX_MIN .AND. IX .LE. IX_MAX .AND. &
-       IY .GE. IY_MIN .AND. IY .LE. IY_MAX) THEN
-
-      IF (C%TIME_OF_ARRIVAL .EQ. -1 .AND. OUTSIDE_UNBURNED(IX,IY)) THEN
-
-         DO DX = -FIRE_LINE_THICKNESS, FIRE_LINE_THICKNESS
-            DO DY = -FIRE_LINE_THICKNESS, FIRE_LINE_THICKNESS
-
-               IF (DX .EQ. 0 .AND. DY .EQ. 0) CYCLE
-
-               IX1 = IX + DX
-               IY1 = IY + DY
-
-               IF (IX1 .LT. 1 .OR. IX1 .GT. NX) CYCLE
-               IF (IY1 .LT. 1 .OR. IY1 .GT. NY) CYCLE
-
-               IF (TIME_OF_ARRIVAL(IX1,IY1) .GT. 0) THEN
-                  C%FIRE_LINE = .TRUE.
-               ENDIF
-
-            ENDDO
-         ENDDO
-
-      ENDIF
-
-   ENDIF
+   ! Important if DETECT_FIRELINE is called repeatedly
+   C%FIRE_LINE = .FALSE.
 
    C => C%NEXT
+
 ENDDO
 
-! ============================================================
-! 5. COMPUTE FIRE CENTER FROM BURNED CELLS IN LOCAL BOX
-! ============================================================
+! Add one cell around the bounding box for checking the eight neighbors
+ALLOCATE(FIRELINE_MASK(IX_MIN-1:IX_MAX+1, IY_MIN-1:IY_MAX+1))
+FIRELINE_MASK = .FALSE.
 
-CX = 0.0
-CY = 0.0
-NCOUNT = 0
-
-DO IX = IX_MIN, IX_MAX
-   DO IY = IY_MIN, IY_MAX
-
-      IF (TIME_OF_ARRIVAL(IX,IY) .GT. 0) THEN
-         CX = CX + REAL(IX)
-         CY = CY + REAL(IY)
-         NCOUNT = NCOUNT + 1
-      ENDIF
-
-   ENDDO
-ENDDO
-
-IF (NCOUNT .GT. 0) THEN
-   CX = CX / REAL(NCOUNT)
-   CY = CY / REAL(NCOUNT)
-ENDIF
-
-! ============================================================
-! 6. REMOVE FIRELINE CELLS BETWEEN TWO FIRELINES
-! ============================================================
-
-R_CHECK = MAX(3, NINT(FIRE_LINE_THICKNESS) + 2)
-
+! ---------------------------------------------------------------------------
+! Detect candidate fireline cells
+! ---------------------------------------------------------------------------
 C => LIST_TAGGED%HEAD
+
 DO I = 1, LIST_TAGGED%NUM_NODES
 
-   IF (C%FIRE_LINE) THEN
+   IF (C%TIME_OF_ARRIVAL .EQ. -1 .AND. &
+       C%TIME_SUPPRESSED .EQ. -1) THEN
 
-      VX = REAL(C%IX) - CX
-      VY = REAL(C%IY) - CY
+      SEARCH_NEIGHBORS: DO DX = -FIRE_LINE_THICKNESS, &
+                                 FIRE_LINE_THICKNESS
 
-      BURNED_OUTSIDE = .FALSE.
+         IX = C%IX + DX
 
-      DO DX = -R_CHECK, R_CHECK
-         DO DY = -R_CHECK, R_CHECK
+         ! Avoid accessing outside TIME_OF_ARRIVAL
+         IF (IX .LT. TOA_IX_MIN .OR. IX .GT. TOA_IX_MAX) CYCLE
+
+         DO DY = -FIRE_LINE_THICKNESS, FIRE_LINE_THICKNESS
 
             IF (DX .EQ. 0 .AND. DY .EQ. 0) CYCLE
 
-            IX1 = C%IX + DX
-            IY1 = C%IY + DY
+            IY = C%IY + DY
 
-            IF (IX1 .LT. 1 .OR. IX1 .GT. NX) CYCLE
-            IF (IY1 .LT. 1 .OR. IY1 .GT. NY) CYCLE
+            ! Avoid accessing outside TIME_OF_ARRIVAL
+            IF (IY .LT. TOA_IY_MIN .OR. IY .GT. TOA_IY_MAX) CYCLE
 
-            DOTP = REAL(DX) * VX + REAL(DY) * VY
+            IF (TIME_OF_ARRIVAL(IX,IY) .GT. 0) THEN
+               C%FIRE_LINE = .TRUE.
 
-            IF (DOTP .GT. 0.0 .AND. TIME_OF_ARRIVAL(IX1,IY1) .GT. 0) THEN
-               BURNED_OUTSIDE = .TRUE.
+               ! No reason to continue searching after finding one
+               EXIT SEARCH_NEIGHBORS
             ENDIF
 
          ENDDO
-      ENDDO
-
-      IF (BURNED_OUTSIDE) C%FIRE_LINE = .FALSE.
+      ENDDO SEARCH_NEIGHBORS
 
    ENDIF
 
    C => C%NEXT
+
 ENDDO
 
-! ============================================================
-! 7. REMOVE ISOLATED FIRELINE CELLS
-! ============================================================
-
+! ---------------------------------------------------------------------------
+! Store candidate fireline cells in the temporary grid.
+!
+! This replaces searching the linked list for every neighboring coordinate.
+! ---------------------------------------------------------------------------
 C => LIST_TAGGED%HEAD
+
+DO I = 1, LIST_TAGGED%NUM_NODES
+
+   IF (C%FIRE_LINE) THEN
+      FIRELINE_MASK(C%IX,C%IY) = .TRUE.
+   ENDIF
+
+   C => C%NEXT
+
+ENDDO
+
+! ---------------------------------------------------------------------------
+! Remove isolated fireline cells
+!
+! The mask is not modified during this pass. Therefore, all cells are tested
+! against the original candidate fireline, avoiding order-dependent results.
+! ---------------------------------------------------------------------------
+C => LIST_TAGGED%HEAD
+
 DO I = 1, LIST_TAGGED%NUM_NODES
 
    IF (C%FIRE_LINE) THEN
 
-      TEST_INDX = 0
+      N_NEIGHBORS = 0
 
       DO DX = -1, 1
          DO DY = -1, 1
 
             IF (DX .EQ. 0 .AND. DY .EQ. 0) CYCLE
 
-            IX1 = C%IX + DX
-            IY1 = C%IY + DY
+            IF (FIRELINE_MASK(C%IX + DX, C%IY + DY)) THEN
+               N_NEIGHBORS = N_NEIGHBORS + 1
 
-            C2 => LIST_TAGGED%HEAD
-            DO I2 = 1, LIST_TAGGED%NUM_NODES
-
-               IF (C2%IX .EQ. IX1 .AND. C2%IY .EQ. IY1 .AND. C2%FIRE_LINE) THEN
-                  TEST_INDX = TEST_INDX + 1
-                  EXIT
-               ENDIF
-
-               C2 => C2%NEXT
-
-            ENDDO
+               ! Only one neighbor is needed to prove it is not isolated
+               EXIT
+            ENDIF
 
          ENDDO
+
+         IF (N_NEIGHBORS .GT. 0) EXIT
       ENDDO
 
-      IF (TEST_INDX .EQ. 0) C%FIRE_LINE = .FALSE.
+      IF (N_NEIGHBORS .EQ. 0) THEN
+         C%FIRE_LINE = .FALSE.
+      ENDIF
 
    ENDIF
 
    C => C%NEXT
+
 ENDDO
 
-DEALLOCATE(OUTSIDE_UNBURNED)
-DEALLOCATE(QX)
-DEALLOCATE(QY)
-
+DEALLOCATE(FIRELINE_MASK)
 
 ! *****************************************************************************
-END SUBROUTINE DETECT_OUTER_FIRELINE
+END SUBROUTINE DETECT_FIRELINE
 ! *****************************************************************************
+
 
 
 
@@ -732,11 +598,10 @@ SUBROUTINE SEGMENT_FIRELINE
 ! *****************************************************************************
 ! REAL(8), INTENT(IN) :: T
 ! REAL,    INTENT(IN) :: DT
-TYPE(NODE), POINTER :: C, C2
+TYPE(NODE), POINTER :: C
 REAL :: C_ELLIPSE, X_PNT, COSANG
 INTEGER  :: IX_MIN, IX_MAX, IY_MIN, IY_MAX
-INTEGER :: I, I2, SEGMENT_ID, N, NX, NY, GX, GY, DX, DY, IX, IY, HEAD, TAIL, CURRENT, NB
-INTEGER :: IX1, IY1, IX2, IY2, IX3, IY3, IX4, IY4, IX5, IY5, IX6, IY6, IX7, IY7, IX8, IY8, TEST_INDX
+INTEGER :: I, SEGMENT_ID, N, NX, NY, GX, GY, DX, DY, IX, IY, HEAD, TAIL, CURRENT, NB
 
 TYPE(NODE_PTR), ALLOCATABLE :: NODES(:)
 INTEGER, ALLOCATABLE :: GRID(:,:)
@@ -745,75 +610,7 @@ INTEGER, ALLOCATABLE :: MAP_SEG(:)
 INTEGER :: OLD_SEG
 
 ! detect fireline
-! CALL DETECT_OUTER_FIRELINE()
-
-C => LIST_TAGGED%HEAD
-DO I = 1, LIST_TAGGED%NUM_NODES
-   IF (C%TIME_OF_ARRIVAL .EQ. -1) THEN
-      DO DX = -FIRE_LINE_THICKNESS, FIRE_LINE_THICKNESS
-         DO DY = -FIRE_LINE_THICKNESS, FIRE_LINE_THICKNESS
-            IF (DX .EQ. 0 .AND. DY .EQ. 0) CYCLE
-            IX = C%IX + DX
-            IY = C%IY + DY
-            IF (TIME_OF_ARRIVAL(IX,IY) .GT. 0) C%FIRE_LINE = .TRUE.
-         ENDDO
-      ENDDO
-   ENDIF
-   
-   C => C%NEXT
-ENDDO
-
-! remove isolated fireline
-C => LIST_TAGGED%HEAD
-DO I = 1, LIST_TAGGED%NUM_NODES
-   IF (C%FIRE_LINE) THEN
-      IX1 = C%IX - 1
-      IY1 = C%IY
-      IX2 = C%IX - 1
-      IY2 = C%IY + 1
-      IX3 = C%IX
-      IY3 = C%IY + 1
-      IX4 = C%IX + 1
-      IY4 = C%IY + 1
-      IX5 = C%IX + 1
-      IY5 = C%IY
-      IX6 = C%IX + 1
-      IY6 = C%IY - 1
-      IX7 = C%IX
-      IY7 = C%IY - 1
-      IX8 = C%IX - 1
-      IY8 = C%IY - 1   
-      
-      C2 => LIST_TAGGED%HEAD
-      TEST_INDX = 0
-      DO I2 = 1, LIST_TAGGED%NUM_NODES
-         IF (C2%IX .EQ. IX1 .AND. C2%IY .EQ. IY1 .AND. C2%FIRE_LINE) TEST_INDX = TEST_INDX + 1
-         IF (C2%IX .EQ. IX2 .AND. C2%IY .EQ. IY2 .AND. C2%FIRE_LINE) TEST_INDX = TEST_INDX + 1
-         IF (C2%IX .EQ. IX3 .AND. C2%IY .EQ. IY3 .AND. C2%FIRE_LINE) TEST_INDX = TEST_INDX + 1
-         IF (C2%IX .EQ. IX4 .AND. C2%IY .EQ. IY4 .AND. C2%FIRE_LINE) TEST_INDX = TEST_INDX + 1
-         IF (C2%IX .EQ. IX5 .AND. C2%IY .EQ. IY5 .AND. C2%FIRE_LINE) TEST_INDX = TEST_INDX + 1
-         IF (C2%IX .EQ. IX6 .AND. C2%IY .EQ. IY6 .AND. C2%FIRE_LINE) TEST_INDX = TEST_INDX + 1
-         IF (C2%IX .EQ. IX7 .AND. C2%IY .EQ. IY7 .AND. C2%FIRE_LINE) TEST_INDX = TEST_INDX + 1
-         IF (C2%IX .EQ. IX8 .AND. C2%IY .EQ. IY8 .AND. C2%FIRE_LINE) TEST_INDX = TEST_INDX + 1
-         C2 => C2%NEXT
-      ENDDO
-
-      IF (TEST_INDX .EQ. 0) C%FIRE_LINE = .FALSE.
-
-   ENDIF
-   
-   C => C%NEXT
-ENDDO
-
-
-! C => LIST_TAGGED%HEAD
-! DO I = 1, LIST_TAGGED%NUM_NODES
-!    IF (C%TIME_OF_ARRIVAL .GT. T-DT .AND. C%TIME_OF_ARRIVAL .LT. T+DT) THEN
-!        C%FIRE_LINE = .TRUE.
-!    ENDIF
-
-!    C => C%NEXT
-! ENDDO
+CALL DETECT_FIRELINE
 
 
 N = LIST_TAGGED%NUM_NODES
@@ -1093,188 +890,6 @@ ENDDO
 ! *****************************************************************************
 END SUBROUTINE SORT_STS
 ! *****************************************************************************
-
-
-! ! *****************************************************************************
-! SUBROUTINE DIRECT_ATTACK(T, IT, rank_finished, DT, ICASE, TSTOP)
-! ! *****************************************************************************
-! REAL(8), INTENT(IN) :: T
-! INTEGER, INTENT(IN) :: IT
-! INTEGER, INTENT(IN) :: ICASE
-! REAL, INTENT(INOUT)    :: DT, TSTOP
-! INTEGER, INTENT(INOUT) :: rank_finished
-! TYPE(NODE), POINTER :: C
-! INTEGER :: I, J, J2, J3, N_CELL_AVAIL
-! REAL :: CAP_0, L_CAP, L_AVAIL
-! REAL, ALLOCATABLE :: L_SEG(:), L_REQ(:), FL_MIN(:)
-! LOGICAL :: IS_MIN
-
-! IF (IT .NE. 1) THEN
-!    SUPP(IT)%FIRE_LINE_LENGTH = SUPP(IT-1)%SUPPRESSED_FIRELINE_LENGTH
-!    SUPP(IT)%SUPPRESSED_FIRELINE_LENGTH = SUPP(IT-1)%SUPPRESSED_FIRELINE_LENGTH
-! ENDIF
-
-
-! CAP_0 = FIRE_LINE_THICKNESS * AVAILABLE_SUPPRESSION_CAPACITY * (1/3600.0)
-! L_CAP = CAP_0*DT_EXTENDED_ATTACK
-! ALLOCATE(L_SEG(LIST_TAGGED%NUM_SEGMENTS))
-! ALLOCATE(L_REQ(LIST_TAGGED%NUM_SEGMENTS))
-
-! L_SEG = 0
-! L_REQ = 0
-
-! ! Calculate fireline length in each segement
-! C => LIST_TAGGED%HEAD
-! DO I = 1, LIST_TAGGED%NUM_NODES
-
-!    IF (.NOT. C%FIRE_LINE) THEN
-!       C => C%NEXT
-!       CYCLE
-!    ENDIF
-
-!    SUPP(IT)%FIRE_LINE_LENGTH = SUPP(IT)%FIRE_LINE_LENGTH + ANALYSIS_CELLSIZE
-
-!    L_SEG(C%SEGMENT_GROUP) = L_SEG(C%SEGMENT_GROUP) + ANALYSIS_CELLSIZE
-
-!    C => C%NEXT
-! ENDDO
-
-! ! consider effect of sts on length in each segment
-! DO I = 1, LIST_TAGGED%NUM_SEGMENTS
-!    IF (1-SUPPRESSION_TYPE_SCORE(I) .GT. 0) THEN
-!       L_REQ(I) = L_SEG(I)/(1-SUPPRESSION_TYPE_SCORE(I))
-!    ELSEIF (1-SUPPRESSION_TYPE_SCORE(I) .EQ. 0) THEN
-!       L_REQ(I) = L_SEG(I)
-!    ELSE
-!       L_REQ(I) = 0
-!    ENDIF
-! ENDDO
-
-! ! Apply direct attack
-! I = 0
-! L_CAP = MIN(L_CAP, SUPP(IT)%FIRE_LINE_LENGTH)
-! DO WHILE (L_CAP .GT. 0 .AND. I .LT. LIST_TAGGED%NUM_SEGMENTS)
-
-!    I = I + 1
-
-!    IF (L_REQ(SUPPRESSION_TYPE_SCORE_RANK(I)) .EQ. 0) CYCLE
-
-!    IF (L_CAP .GT. L_REQ(SUPPRESSION_TYPE_SCORE_RANK(I))) THEN
-
-!       ! SUPP(IT)%SUPPRESSED_FIRELINE_LENGTH = SUPP(IT)%SUPPRESSED_FIRELINE_LENGTH + L_REQ(SUPPRESSION_TYPE_SCORE_RANK(I))
-
-!       C => LIST_TAGGED%HEAD
-!       DO J = 1, LIST_TAGGED%NUM_NODES
-
-!          IF (.NOT. C%FIRE_LINE .OR. C%SEGMENT_GROUP .NE. SUPPRESSION_TYPE_SCORE_RANK(I)) THEN
-!             C => C%NEXT
-!             CYCLE
-!          ENDIF
-
-!          C%TIME_SUPPRESSED = T
-!          C%SUPPRESSION_ADJUSTMENT_FACTOR = 0.0
-!          SUPP(IT)%SUPPRESSED_FIRELINE_LENGTH = SUPP(IT)%SUPPRESSED_FIRELINE_LENGTH + ANALYSIS_CELLSIZE
-
-!          C => C%NEXT
-
-!       ENDDO
-
-!       L_CAP = L_CAP - L_REQ(SUPPRESSION_TYPE_SCORE_RANK(I))
-
-!    ELSE
-
-!       L_AVAIL = L_CAP * (1-SUPPRESSION_TYPE_SCORE(SUPPRESSION_TYPE_SCORE_RANK(I)))
-
-!       ! SUPP(IT)%SUPPRESSED_FIRELINE_LENGTH = SUPP(IT)%SUPPRESSED_FIRELINE_LENGTH + L_AVAIL
-
-!       N_CELL_AVAIL = CEILING(L_AVAIL/ANALYSIS_CELLSIZE)
-!       ALLOCATE(FL_MIN(N_CELL_AVAIL))
-!       DO J = 1, N_CELL_AVAIL
-!          FL_MIN(J) = 999999.0
-!       ENDDO
-
-!       C => LIST_TAGGED%HEAD
-!       DO J = 1, LIST_TAGGED%NUM_NODES
-!          IF (.NOT. C%FIRE_LINE .OR. C%SEGMENT_GROUP .NE. SUPPRESSION_TYPE_SCORE_RANK(I)) THEN
-!             C => C%NEXT
-!             CYCLE
-!          ENDIF
-
-
-!          DO J2 = 1, N_CELL_AVAIL
-
-!             IF (C%FLAME_LENGTH .LT. FL_MIN(J2)) THEN
-
-!                DO J3 = N_CELL_AVAIL, J2 + 1, -1
-!                   FL_MIN(J3) = FL_MIN(J3 - 1)
-!                ENDDO
-
-!                FL_MIN(J2) = C%FLAME_LENGTH
-!                EXIT
-
-!             ENDIF
-!          ENDDO
-
-!          C => C%NEXT
-!       ENDDO
-
-!       C => LIST_TAGGED%HEAD
-!       DO J = 1, LIST_TAGGED%NUM_NODES
-
-!          IF (.NOT. C%FIRE_LINE .OR. C%SEGMENT_GROUP .NE. SUPPRESSION_TYPE_SCORE_RANK(I) .OR. L_AVAIL .LE. 0) THEN
-!             C => C%NEXT
-!             CYCLE
-!          ENDIF
-
-!          IS_MIN = .FALSE.
-
-!          DO J2 = 1, N_CELL_AVAIL
-!             IF (C%FLAME_LENGTH .EQ. FL_MIN(J2)) IS_MIN = .TRUE.
-!          ENDDO
-
-!          IF (.NOT. IS_MIN) THEN
-!             C => C%NEXT
-!             CYCLE
-!          ENDIF
-
-!          C%TIME_SUPPRESSED = T
-!          C%SUPPRESSION_ADJUSTMENT_FACTOR = 0.0
-!          SUPP(IT)%SUPPRESSED_FIRELINE_LENGTH = SUPP(IT)%SUPPRESSED_FIRELINE_LENGTH + ANALYSIS_CELLSIZE
-
-!          L_AVAIL = L_AVAIL - ANALYSIS_CELLSIZE
-
-!          C => C%NEXT
-
-!       ENDDO
-
-!       L_CAP = -1.0
-!       DEALLOCATE(FL_MIN)
-
-!    ENDIF
-
-
-! ENDDO
-
-! SUPP(IT)%CONTAINMENT = (SUPP(IT)%SUPPRESSED_FIRELINE_LENGTH / SUPP(IT)%FIRE_LINE_LENGTH)
-
-! WRITE(*,'(F12.4,",",F10.0,",",F10.0,",",F10.7)') &
-!     SUPP(IT)%T, &
-!     SUPP(IT)%SUPPRESSED_FIRELINE_LENGTH, &
-!     SUPP(IT)%FIRE_LINE_LENGTH, &
-!     SUPP(IT)%CONTAINMENT
-
-! IF (SUPP(IT)%CONTAINMENT .GE. 0.99) THEN
-!    rank_finished = 1
-!    ! DT = DT_METEOROLOGY
-!    STATS_FINAL_CONTAINMENT_FRAC(ICASE) = 1.0
-!    STATS_SIMULATION_TSTOP_HOURS(ICASE) = T / 3600.0
-!    TSTOP = T
-!    WRITE(*,*) "Fire Fully Suppressed!"
-! ENDIF
-
-! ! *****************************************************************************
-! END SUBROUTINE DIRECT_ATTACK
-! ! *****************************************************************************
 
 
 ! *****************************************************************************
@@ -1619,13 +1234,17 @@ SUPP(IT)%FIRE_LINE_LENGTH = 0.0
 SUPP(IT)%SUPPRESSED_FIRELINE_LENGTH = 0.0
 
 IF (IT .NE. 1) THEN
-   SUPP(IT)%SUPPRESSED_FIRELINE_LENGTH = SUPP(IT-1)%SUPPRESSED_FIRELINE_LENGTH
-   SUPP(IT)%FIRE_LINE_LENGTH = SUPP(IT)%FIRE_LINE_LENGTH + &
-                                SUPP(IT-1)%SUPPRESSED_FIRELINE_LENGTH
+   SUPP(IT)%SUPPRESSED_FIRELINE_LENGTH =SUPP(IT)%SUPPRESSED_FIRELINE_LENGTH + SUPP(IT-1)%SUPPRESSED_FIRELINE_LENGTH + SUPP(IT)%INDIRECT_SUPPRESSED_FIRELINE_LENGTH
+   SUPP(IT)%FIRE_LINE_LENGTH = SUPP(IT)%FIRE_LINE_LENGTH + SUPP(IT)%SUPPRESSED_FIRELINE_LENGTH
 ENDIF
 
 CAP_0 = FIRE_LINE_THICKNESS * AVAILABLE_SUPPRESSION_CAPACITY * (1.0 / 3600.0)
-L_CAP = CAP_0 * DT_EXTENDED_ATTACK
+IF ((IT/10) .LT. 1.0) THEN
+   L_CAP = (IT/10) * CAP_0 * DT_EXTENDED_ATTACK
+ELSE
+   L_CAP = CAP_0 * DT_EXTENDED_ATTACK
+ENDIF
+
 
 ALLOCATE(L_SEG(LIST_TAGGED%NUM_SEGMENTS))
 ALLOCATE(SEG_IXCEN(LIST_TAGGED%NUM_SEGMENTS))
@@ -1740,7 +1359,7 @@ ENDDO
 DO WHILE (L_CAP .GT. 0.0)
 
    IF (CURRENT_SEG .LE. 0) THEN
-      DO WHILE (CURRENT_SEG .LT. 1)
+      DO WHILE (CURRENT_SEG .LT. 0)
 
          DEG_UPPER_LIM = DEG_UPPER_LIM + DEG_STEP
          DEG_LOWER_LIM = DEG_LOWER_LIM - DEG_STEP
@@ -1752,7 +1371,10 @@ DO WHILE (L_CAP .GT. 0.0)
       PREV_SEG = -1
    ENDIF
 
-   IF (CURRENT_SEG .LE. 0) EXIT
+   IF (CURRENT_SEG .LE. 0) THEN
+      ! WRITE(*,*) "HEREEEEEEE!!!!"
+      EXIT
+   ENDIF
 
    IF (L_REQ(CURRENT_SEG) .LE. 0.0) THEN
       SEG_SUPPRESSED(CURRENT_SEG) = .TRUE.
@@ -1788,7 +1410,7 @@ IF (SUPP(IT)%FIRE_LINE_LENGTH .GT. 0.0) THEN
    SUPP(IT)%CONTAINMENT = SUPP(IT)%SUPPRESSED_FIRELINE_LENGTH / &
                           SUPP(IT)%FIRE_LINE_LENGTH
 ELSE
-   SUPP(IT)%CONTAINMENT = 0.0
+   SUPP(IT)%CONTAINMENT = 1.0
 ENDIF
 
 WRITE(*,'(F12.4,",",F10.0,",",F10.0,",",F10.7)') &
@@ -1797,7 +1419,7 @@ WRITE(*,'(F12.4,",",F10.0,",",F10.0,",",F10.7)') &
     SUPP(IT)%FIRE_LINE_LENGTH, &
     SUPP(IT)%CONTAINMENT
 
-IF (SUPP(IT)%CONTAINMENT .GE. 0.99) THEN
+IF (SUPP(IT)%CONTAINMENT .GE. 1.0) THEN
    RANK_FINISHED = 1
    STATS_FINAL_CONTAINMENT_FRAC(ICASE) = 1.0
    STATS_SIMULATION_TSTOP_HOURS(ICASE) = T / 3600.0
@@ -1816,6 +1438,149 @@ DEALLOCATE(SEG_CANDIDATE)
 ! *****************************************************************************
 END SUBROUTINE DIRECT_ATTACK
 ! *****************************************************************************
+
+
+SUBROUTINE CALC_OTSU_PCL_THRESHOLD(NX, NY, PCL_R4, PCL_THRESHOLD_INTERNAL)
+
+   IMPLICIT NONE
+
+   INTEGER, INTENT(IN) :: NX, NY
+
+   REAL, INTENT(IN)  :: PCL_R4(:,:,:)
+   REAL, INTENT(INOUT) :: PCL_THRESHOLD_INTERNAL
+
+   INTEGER, PARAMETER :: NBINS = 256
+
+   INTEGER :: IX, IY, ICOL, IROW
+   INTEGER :: IBIN, K
+   INTEGER :: TOTAL_COUNT
+   INTEGER :: THRESH_BIN
+
+   INTEGER :: HIST(NBINS)
+
+   REAL :: V
+   REAL :: VMIN, VMAX
+   REAL :: BIN_VALUE
+   REAL :: SUM_TOTAL, SUM_BACK
+   REAL :: W_BACK, W_FORE
+   REAL :: MEAN_BACK, MEAN_FORE
+   REAL :: VAR_BETWEEN, VAR_MAX
+
+   !------------------------------------------------------------
+   ! Find min and max PCL values in analysis domain
+   ! Ignore zero values
+   !------------------------------------------------------------
+
+   VMIN = HUGE(1.0)
+   VMAX = -HUGE(1.0)
+   TOTAL_COUNT = 0
+
+   DO IY = 1, NY
+      DO IX = 1, NX
+
+         ICOL = ICOL_ANALYSIS_F2C(IX)
+         IROW = IROW_ANALYSIS_F2C(IY)
+
+         V = PCL_R4(ICOL, IROW, 1)
+
+         IF (V > 0.0) THEN
+            VMIN = MIN(VMIN, V)
+            VMAX = MAX(VMAX, V)
+            TOTAL_COUNT = TOTAL_COUNT + 1
+         END IF
+
+      END DO
+   END DO
+
+   IF (TOTAL_COUNT == 0) THEN
+      PCL_THRESHOLD_INTERNAL = 0.0
+      RETURN
+   END IF
+
+   IF (VMAX <= VMIN) THEN
+      PCL_THRESHOLD_INTERNAL = VMIN
+      RETURN
+   END IF
+
+   !------------------------------------------------------------
+   ! Build histogram
+   !------------------------------------------------------------
+
+   HIST = 0
+
+   DO IY = 1, NY
+      DO IX = 1, NX
+
+         ICOL = ICOL_ANALYSIS_F2C(IX)
+         IROW = IROW_ANALYSIS_F2C(IY)
+
+         V = PCL_R4(ICOL, IROW, 1)
+
+         IF (V > 0.0) THEN
+
+            IBIN = INT( (V - VMIN) / (VMAX - VMIN) * REAL(NBINS - 1) ) + 1
+
+            IBIN = MAX(1, MIN(NBINS, IBIN))
+
+            HIST(IBIN) = HIST(IBIN) + 1
+
+         END IF
+
+      END DO
+   END DO
+
+   !------------------------------------------------------------
+   ! Compute total weighted sum
+   !------------------------------------------------------------
+
+   SUM_TOTAL = 0.0
+
+   DO K = 1, NBINS
+      BIN_VALUE = VMIN + (REAL(K - 1) / REAL(NBINS - 1)) * (VMAX - VMIN)
+      SUM_TOTAL = SUM_TOTAL + BIN_VALUE * REAL(HIST(K))
+   END DO
+
+   !------------------------------------------------------------
+   ! Otsu threshold
+   !------------------------------------------------------------
+
+   SUM_BACK = 0.0
+   W_BACK = 0.0
+   VAR_MAX = -1.0
+   THRESH_BIN = 1
+
+   DO K = 1, NBINS
+
+      BIN_VALUE = VMIN + (REAL(K - 1) / REAL(NBINS - 1)) * (VMAX - VMIN)
+
+      W_BACK = W_BACK + REAL(HIST(K))
+
+      IF (W_BACK <= 0.0) CYCLE
+
+      W_FORE = REAL(TOTAL_COUNT) - W_BACK
+
+      IF (W_FORE <= 0.0) EXIT
+
+      SUM_BACK = SUM_BACK + BIN_VALUE * REAL(HIST(K))
+
+      MEAN_BACK = SUM_BACK / W_BACK
+      MEAN_FORE = (SUM_TOTAL - SUM_BACK) / W_FORE
+
+      VAR_BETWEEN = W_BACK * W_FORE * (MEAN_BACK - MEAN_FORE)**2
+
+      IF (VAR_BETWEEN > VAR_MAX) THEN
+         VAR_MAX = VAR_BETWEEN
+         THRESH_BIN = K
+      END IF
+
+   END DO
+
+   PCL_THRESHOLD_INTERNAL = VMIN + (REAL(THRESH_BIN - 1) / REAL(NBINS - 1)) * (VMAX - VMIN)
+
+! *****************************************************************************
+END SUBROUTINE CALC_OTSU_PCL_THRESHOLD
+! *****************************************************************************
+
 
 
 
@@ -1839,6 +1604,13 @@ LOGICAL, ALLOCATABLE :: VISITED(:,:)
 
 INTEGER, DIMENSION(8) :: DX = (/ -1, 0, 1, -1, 1, -1, 0, 1 /)
 INTEGER, DIMENSION(8) :: DY = (/ -1,-1,-1,  0, 0,  1, 1, 1 /)
+
+IF (PCL_THRESHOLD .GT. 100.0) THEN
+   CALL CALC_OTSU_PCL_THRESHOLD(NX, NY, PCL%R4, PCL_THRESHOLD)
+   WRITE(*,*) "Otsu thresholding on PCL ::::: the threshold is ", PCL_THRESHOLD
+ELSE
+   WRITE(*,*) "user-defined threshold on PCL ::::: the threshold is ", PCL_THRESHOLD
+ENDIF
 
 ! thresholding the pcl
 DO IY = 1, NY
@@ -1941,7 +1713,6 @@ DO IY = 1, NY
    END DO
 END DO
 
-
 DEALLOCATE(PCL_ORIG)
 DEALLOCATE(QX)
 DEALLOCATE(QY)
@@ -1960,7 +1731,7 @@ TYPE(NODE), POINTER :: C
 REAL(8), INTENT(IN) :: T
 INTEGER, INTENT(IN) :: NX, NY
 INTEGER :: I
-REAL :: R
+REAL :: R, F_FL
 
    
 C => LIST_TAGGED%HEAD
@@ -1971,10 +1742,12 @@ DO I = 1, LIST_TAGGED%NUM_NODES
       CYCLE
    ENDIF
 
-   IF (PCL_HOLD_PROB(C%IX, C%IY) .NE. 0) THEN
+   IF (PCL_HOLD_PROB(C%IX, C%IY) .NE. 0.0) THEN
 
       CALL RANDOM_NUMBER(R)
-      IF ((R*100)<PCL_MEAN_SEG(NINT(PCL_HOLD_PROB(C%IX, C%IY)))) THEN
+      F_FL = 1.0 / (1.0 + C%FLAME_LENGTH / FL_REF_INDIRECT_ATTACK)
+      R = R*100
+      IF (R .LT. PCL_MEAN_SEG(NINT(PCL_HOLD_PROB(C%IX, C%IY)))*F_FL) THEN
          PCL_MEAN_SEG(NINT(PCL_HOLD_PROB(C%IX, C%IY))) = 100
          C%SUPPRESSION_ADJUSTMENT_FACTOR = 0
          C%TIME_SUPPRESSED = T

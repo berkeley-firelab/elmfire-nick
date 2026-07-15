@@ -203,7 +203,7 @@ DO WHILE (T .le. totalDuration)
          ALLOCATE(TAGGED          (1:NX,1:NY)); TAGGED(:,:) = .FALSE.
          ALLOCATE(PHIP            (1:NX,1:NY)); PHIP(:,:) = 1
          !Majid_bav::added below
-         ALLOCATE(PCL_HOLD_PROB            (1:NX,1:NY)); PCL_HOLD_PROB(:,:) = 0
+         ALLOCATE(PCL_HOLD_PROB            (1:NX,1:NY)); PCL_HOLD_PROB(:,:) = 0.0
          ALLOCATE(EVERTAGGED      (1:NX,1:NY)); EVERTAGGED(:,:) = .FALSE.
          ALLOCATE(EVERTAGGED_IX   (1:NX*NY))
          ALLOCATE(EVERTAGGED_IY   (1:NX*NY))
@@ -396,6 +396,7 @@ DO WHILE (T .le. totalDuration)
       ACRES_SDI                   = 0.
 
       LIST_TAGGED                 = NEW_DLL(); LIST_TAGGED%NUM_NODES=0
+      LIST_SUPPRESSION_BLOCK      = NEW_DLL(); LIST_SUPPRESSION_BLOCK%NUM_NODES=0
       LIST_BURNED                 = NEW_DLL(); LIST_BURNED%NUM_NODES=0
       LIST_SUPPRESSED             = NEW_DLL(); LIST_SUPPRESSED%NUM_NODES=0
       LIST_WUI_BURNING            = NEW_DLL(); LIST_WUI_BURNING%NUM_NODES=0
@@ -432,11 +433,26 @@ DO WHILE (T .le. totalDuration)
 
                SUPP(IT_EA)%FIRE_LINE_LENGTH=0.
                SUPP(IT_EA)%SUPPRESSED_FIRELINE_LENGTH=0.
+               SUPP(IT_EA)%INDIRECT_SUPPRESSED_FIRELINE_LENGTH = 0.
                SUPP(IT_EA)%CONTAINMENT=0.
             ENDDO
          ELSE IF (EXTENDED_ATTACK_MODEL .EQ. 1) THEN
 
             IF (ENABLE_INDIRECT_ATTACK) CALL CALCULATE_PCL_HOLD_MAP(NX, NY)
+
+            DO IY = 1, NY
+               DO IX = 1, NX
+
+                  IF (PCL_HOLD_PROB(IX,IY) .NE. 0.0) THEN
+                     CALL APPEND(LIST_SUPPRESSION_BLOCK, IX, IY, T)
+                     LIST_SUPPRESSION_BLOCK%TAIL%TIME_SUPPRESSED = PCL_HOLD_PROB(IX,IY)
+                  ENDIF
+
+               ENDDO
+            ENDDO
+
+            CALL LL_DUMP_ROUTINE(LIST_SUPPRESSION_BLOCK,"indirect_suppression_block", T,"time_suppressed",1)
+
 
             DO IT_EA = 0, 1000
                SUPP(IT_EA)%NCELLS(:)=0
@@ -457,6 +473,7 @@ DO WHILE (T .le. totalDuration)
 
                SUPP(IT_EA)%FIRE_LINE_LENGTH=0.
                SUPP(IT_EA)%SUPPRESSED_FIRELINE_LENGTH=0.
+               SUPP(IT_EA)%INDIRECT_SUPPRESSED_FIRELINE_LENGTH = 0.
                SUPP(IT_EA)%CONTAINMENT=0.
             ENDDO
          ELSE
@@ -660,6 +677,7 @@ DO WHILE (T .le. totalDuration)
             IF (EXTENDED_ATTACK_MODEL .EQ. 0) THEN
                SUPP(0)%ACRES = ACRES
             ELSE IF (EXTENDED_ATTACK_MODEL .EQ. 1) THEN
+               WRITE(*,*)
                WRITE(*,'(A)') 'Time (s),Suppressed Line (m),Fire Line (m),Contained'
                CONTINUE
             ELSE
@@ -1493,18 +1511,45 @@ DO WHILE (T .le. totalDuration)
             ENDIF
 
          ELSE IF (EXTENDED_ATTACK_MODEL .EQ. 1) THEN
+            IF (ENABLE_INDIRECT_ATTACK .AND. T-EXTENDED_ATTACK_TIME .GT. 0) THEN
+               CALL DETECT_FIRELINE
+               CALL INDIRECT_ATTACK(NX, NY, T)
+               CALL UNTAG_CELLS(NX,NY,TIME_OF_ARRIVAL,T,SURFACE_FIRE)
+
+               C => LIST_TAGGED%HEAD
+               DO I = 1, LIST_TAGGED%NUM_NODES
+                  C%FIRE_LINE = .FALSE.
+                  C => C%NEXT
+               ENDDO
+            ENDIF
             IF (T - T_LAST_EXTENDED_ATTACK .GT. DT_EXTENDED_ATTACK) THEN
 
                IT_EA = IT_EA + 1
                SUPP(IT_EA)%T = T
 
+               IF (IT_EA .EQ. 1) THEN
+                  DO I = 1, LIST_SUPPRESSED%NUM_NODES
+                     SUPP(IT_EA)%INDIRECT_SUPPRESSED_FIRELINE_LENGTH = SUPP(IT_EA)%INDIRECT_SUPPRESSED_FIRELINE_LENGTH + ANALYSIS_CELLSIZE
+                  ENDDO
+               ELSE
+                  I = IT_EA
+                  DO WHILE (I .GE. 2)
+                     SUPP(IT_EA)%INDIRECT_SUPPRESSED_FIRELINE_LENGTH = SUPP(IT_EA)%INDIRECT_SUPPRESSED_FIRELINE_LENGTH - SUPP(I-1)%INDIRECT_SUPPRESSED_FIRELINE_LENGTH
+                     I = I-1
+                  ENDDO
+                  DO I = 1, LIST_SUPPRESSED%NUM_NODES
+                     SUPP(IT_EA)%INDIRECT_SUPPRESSED_FIRELINE_LENGTH = SUPP(IT_EA)%INDIRECT_SUPPRESSED_FIRELINE_LENGTH + ANALYSIS_CELLSIZE
+                  ENDDO
+               ENDIF
+
+
                CALL SEGMENT_FIRELINE
                CALL CALCULATE_STS
                CALL SORT_STS
                CALL DIRECT_ATTACK(T, IT_EA, rank_finished, DT, ICASE, TSTOP)
-               IF (ENABLE_INDIRECT_ATTACK) CALL INDIRECT_ATTACK(NX, NY, T)
                
-               CALL LL_DUMP_ROUTINE(LIST_TAGGED,"time_suppressed",T,"time_suppressed",1)
+               
+               ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"time_suppressed",T,"time_suppressed",1)
                ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"ROS",T,"ROS",1)
                ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"STS",T,"STS",1)
                ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"SEGMENT",T,"SEGMENT",1)
@@ -1524,6 +1569,7 @@ DO WHILE (T .le. totalDuration)
 
                T_LAST_EXTENDED_ATTACK = T
                CALL UNTAG_CELLS(NX,NY,TIME_OF_ARRIVAL,T,SURFACE_FIRE)
+               CALL LL_DUMP_ROUTINE(LIST_SUPPRESSED,"time_suppressed",T,"time_suppressed",1)
                
             ENDIF
          ELSE
@@ -2159,7 +2205,7 @@ DO
 
    IF (C%TIME_SUPPRESSED .GT. 0.) THEN
       CALL APPEND(LIST_SUPPRESSED, IX, IY, T)
-!      LIST_SUPPRESSED%TAIL = C
+      LIST_SUPPRESSED%TAIL%TIME_SUPPRESSED = T
       NUM_DELETED = NUM_DELETED + 1
       CALL DELETE_NODE(LIST_TAGGED, C)
       TAGGED(IX,IY) = .FALSE.
