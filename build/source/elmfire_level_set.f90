@@ -439,9 +439,9 @@ DO WHILE (T .le. totalDuration)
       IT_EA=0
 
       CALL ACCUMULATE_CPU_USAGE(33, IT1, IT2)
-
-      ! IF (DUMP_EMBER_FLUX .AND. (.NOT. ACCUMULATE_EMBER_FLUX) ) EMBER_FLUX%R4(:,:,1) = 0
-
+      
+      IF (ENABLE_SPOTTING .AND. ASSOCIATED(EMBER_FLUX%R4)) EMBER_FLUX%R4(:,:,1) = 0.0
+      
       IF (USE_BARRIERS) BANDTHICKNESS = 1
       ! Tag bands where initial phi values are less than 0:
       IF (.NOT. RANDOM_IGNITIONS) THEN
