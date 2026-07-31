@@ -641,6 +641,9 @@ TYPE NODE
    REAL :: LOCAL_EMBERGEN_DURATION = 0.
    REAL :: T_START_SPOTTING        = -1.
    REAL :: T_END_SPOTTING          = -1. 
+   ! End of the source-emission interval already integrated for this cell.
+   ! This prevents missed or repeated emission when LIST_BURNED is delayed.
+   REAL(8) :: T_LAST_SPOTTING_UPDATE = -1.0
    LOGICAL :: SPOTTING_DURATION_CALCULATED = .FALSE.
 ! Ember trackers
    LOGICAL :: TARGET_ARRIVED        = .FALSE.

@@ -2626,12 +2626,14 @@ IF (DUMP_VELOCITY .AND. IS_FINAL_DUMP) THEN
 ENDIF
 
 IF (DUMP_TIME_OF_ARRIVAL .AND. IS_FINAL_DUMP) THEN
-   RDUMPME%R4(:,:,:) = RDUMPME%NODATA_VALUE
-   C => LIST_BURNED%HEAD
-   DO I = 1, LIST_BURNED%NUM_NODES
-      RDUMPME%R4(C%IX,C%IY,1) = C%TIME_OF_ARRIVAL
-      C => C%NEXT
-   ENDDO
+   ! TIME_OF_ARRIVAL is the authoritative grid state.  In particular, an
+   ! ember can ignite a cell on the final solver step before that cell is
+   ! copied from LIST_TAGGED to LIST_BURNED.  Building this raster only from
+   ! LIST_BURNED would therefore omit otherwise valid spotting arrivals.
+   RDUMPME%R4(:,:,1) = TIME_OF_ARRIVAL(:,:)
+   WHERE (TIME_OF_ARRIVAL(:,:) .LT. 0.0)
+      RDUMPME%R4(:,:,1) = RDUMPME%NODATA_VALUE
+   END WHERE
    FN = 'time_of_arrival_' // SEVEN // '_' // CTSEC
    CALL WRITE_BIL_RASTER(RDUMPME,OUTPUTS_DIRECTORY,FN,CONVERT_TO_GEOTIFF,.TRUE.,IRANK_WORLD)
 ENDIF

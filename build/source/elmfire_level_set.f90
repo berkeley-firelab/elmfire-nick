@@ -47,7 +47,7 @@ REAL :: SURFACE_ACCELERATION_FACTOR, F_METEOROLOGY, R0, TAU, ACRES, ACRES_SDI, E
 
 REAL(8) :: TOTALENERGY, T, T_LAST_EXTENDED_ATTACK, T_LAST_INTERPOLATE_M1, T_LAST_INTERPOLATE_M10, T_LAST_INTERPOLATE_M100, &
         T_LAST_INTERPOLATE_MLH, T_LAST_INTERPOLATE_MLW, T_LAST_INTERPOLATE_FMC, T_LAST_INTERPOLATE_WIND, &
-        T_LAST_WIND_FLUCTUATIONS
+        T_LAST_WIND_FLUCTUATIONS, T_EMISSION_START, T_EMISSION_END
 
 REAL, SAVE :: ACRES_PER_PIXEL, RCELLSIZE, HALFRCELLSIZE, TSTOP
 REAL, ALLOCATABLE, SAVE, DIMENSION(:) :: X,Y
@@ -1028,10 +1028,17 @@ DO WHILE (T .le. totalDuration)
                ENDIF
             ENDIF
 #endif
-            C%BURNED               = .TRUE.
-            C%TIME_OF_ARRIVAL      = T
-            SURFACE_FIRE   (IX,IY) = 1
-            TIME_OF_ARRIVAL(IX,IY) = T
+            C%BURNED = .TRUE.
+            ! DIRECT spotting may have assigned a substep arrival before this
+            ! tagged cell is promoted to LIST_BURNED. Preserve that earliest
+            ! physical time instead of replacing it with the solver boundary.
+            IF (TIME_OF_ARRIVAL(IX,IY) .LT. 0.0) THEN
+               TIME_OF_ARRIVAL(IX,IY) = T
+            ELSE
+               TIME_OF_ARRIVAL(IX,IY) = MIN(TIME_OF_ARRIVAL(IX,IY), T)
+            ENDIF
+            C%TIME_OF_ARRIVAL = TIME_OF_ARRIVAL(IX,IY)
+            SURFACE_FIRE(IX,IY) = 1
             
             IF (C%CROWN_FIRE .LT. 0) C%CROWN_FIRE = 0
             
@@ -1167,9 +1174,16 @@ DO WHILE (T .le. totalDuration)
             CALL_SPOTTING = .FALSE.
             IF (.NOT. C%SPOTTING_DURATION_CALCULATED) CALL CALC_SPOTTING_DURATION(C)
 
-            ! Set DT_SPOTTING to the overlap length between [T, T+DT] and [C%T_END_SPOTTING,C%T_START_SPOTTING]
-            DT_SPOTTING = MIN(T+DT, C%T_END_SPOTTING)-MAX(T, C%T_START_SPOTTING)
-            DT_SPOTTING = MAX(0.0,DT_SPOTTING)
+            ! Integrate each eligible part of the source emission history once.
+            ! A cell can enter LIST_BURNED after its recorded arrival, so T
+            ! alone would omit the first physical emission interval.
+            IF (C%T_LAST_SPOTTING_UPDATE .LT. 0.0) THEN
+               T_EMISSION_START = MAX(C%TIME_OF_ARRIVAL, REAL(C%T_START_SPOTTING, 8))
+            ELSE
+               T_EMISSION_START = MAX(C%T_LAST_SPOTTING_UPDATE, REAL(C%T_START_SPOTTING, 8))
+            ENDIF
+            T_EMISSION_END = MIN(T + REAL(DT, 8), REAL(C%T_END_SPOTTING, 8))
+            DT_SPOTTING = MAX(0.0, REAL(T_EMISSION_END - T_EMISSION_START))
             IF (DT_SPOTTING .GT. 1E-5) THEN
                IF(C%IFBFM .EQ. 91 .AND. USE_BLDG_SPREAD_MODEL) THEN
                   FLIN = C%HRR_TRANSIENT+1E-5
@@ -1183,9 +1197,12 @@ DO WHILE (T .le. totalDuration)
                ENDIF
                
                IF (CALL_SPOTTING) THEN ! If using Eulerian firebrand solver, no trajectory calculated at this step, only initiate trackers
-                  CALL SPOTTING(C%IX,C%IY,C%WS20_NOW,FLIN, ICASE, DT_SPOTTING, T, &
+                  CALL SPOTTING(C%IX,C%IY,C%WS20_NOW,FLIN, ICASE, DT_SPOTTING, T_EMISSION_START, &
                               SOURCE_FUEL_IGN_MULT(FBFM%I2(C%IX,C%IY,1)),  C%IFBFM, LIST_EMBER_TRACKER, BAND_L)
                ENDIF
+               ! Advance even when stochastic selection produces no tracker,
+               ! so the same emission interval cannot be sampled twice.
+               C%T_LAST_SPOTTING_UPDATE = T_EMISSION_END
             ENDIF
             ! C%TAU_EMBERGEN = MIN (TAU_EMBERGEN, C%TAU_EMBERGEN + DT)
             C => C%NEXT
@@ -2640,6 +2657,7 @@ INTEGER, INTENT(IN) :: NX_ELM, NY_ELM, MINIMUM_CURRENT_WX_BAND
 TYPE (NODE), POINTER :: C => NULL(), NEXT_C => NULL()
 INTEGER :: IX, IY, ICOL, IROW
 REAL :: WS20
+REAL(8) :: T_IGNITION
 
 ! Move all trackers forward by 1 level-set time step (tracker trajectories are solved using smaller time steps)
 ! It avoids allocating a big table to memorize firebrands that will be deposited in the future steps.
@@ -2679,16 +2697,30 @@ DO
             C => NEXT_C
             CYCLE
          ENDIF
-      ELSE IF (trim(IGNITION_MODEL) .eq. 'DIRECT') THEN
-         ! Ignite the target immediately if any firebrand landed
-         IF (EMBER_TOA(IX,IY) .GT. T_ELMFIRE+DT_ELMFIRE .OR. EMBER_TOA(IX,IY) .LT. 0) THEN
+
+         T_IGNITION = T_ELMFIRE + DT_ELMFIRE
+
+      ELSE IF (TRIM(IGNITION_MODEL) .EQ. 'DIRECT') THEN
+         IF (EMBER_TOA(IX,IY) .LT. 0.0 .OR. &
+            EMBER_TOA(IX,IY) .GT. T_ELMFIRE + DT_ELMFIRE) THEN
             C => NEXT_C
             CYCLE
          ENDIF
+
+         ! DIRECT ignition occurs at the calculated ember landing time.
+         T_IGNITION = EMBER_TOA(IX,IY)
       ENDIF
 
       IF (ADJ%R4(IX,IY,1) .GT. 0. .AND. (.NOT. ISNONBURNABLE(IX,IY) ) ) THEN
-         CALL TAG_BAND(NX_ELM, NY_ELM, IX, IY, T_ELMFIRE+DT_ELMFIRE)
+         CALL TAG_BAND(NX_ELM, NY_ELM, IX, IY, T_IGNITION)
+
+         ! Preserve the earliest valid arrival if multiple ignition mechanisms
+         ! reach this cell during the same or neighboring solver steps.
+         IF (TIME_OF_ARRIVAL(IX,IY) .LT. 0.0) THEN
+            TIME_OF_ARRIVAL(IX,IY) = T_IGNITION
+         ELSE
+            TIME_OF_ARRIVAL(IX,IY) = MIN(TIME_OF_ARRIVAL(IX,IY), T_IGNITION)
+         ENDIF
          PHIP           (IX,IY) = -1.0
          ! Record firebrand ignited cells
          IF (DUMP_EMBER_IGNITION) EMBER_IGNITION_MAP%I2(IX,IY,1) = 1
@@ -2718,6 +2750,7 @@ INTEGER, INTENT(IN) :: NX_ELM, NY_ELM
 INTEGER :: I, IX, IY, ICOL, IROW
 TYPE (NODE), POINTER :: C => NULL(), NEXT_C => NULL()
 REAL :: WS20
+REAL(8) :: T_IGNITION
 
 DO I = 1, NUM_TRACKED_EMBERS
    IF (SPOTTING_STATS(I)%TIGN .LT. 0.0) CYCLE
@@ -2749,8 +2782,14 @@ DO I = 1, NUM_TRACKED_EMBERS
       IY = SPOTTING_STATS(I)%IY_TO
 
       IF (SURFACE_FIRE(IX,IY) .LE. 0 .AND. ADJ%R4(IX,IY,1) .GT. 0. .AND. (.NOT. ISNONBURNABLE(IX,IY) ) ) THEN
-         CALL TAG_BAND(NX_ELM, NY_ELM, IX, IY, T_ELMFIRE)
-         TIME_OF_ARRIVAL(IX,IY) = T_ELMFIRE
+         ! The Lagrangian trajectory supplies the continuous landing time.
+         T_IGNITION = SPOTTING_STATS(I)%TIGN
+         CALL TAG_BAND(NX_ELM, NY_ELM, IX, IY, T_IGNITION)
+         IF (TIME_OF_ARRIVAL(IX,IY) .LT. 0.0) THEN
+            TIME_OF_ARRIVAL(IX,IY) = T_IGNITION
+         ELSE
+            TIME_OF_ARRIVAL(IX,IY) = MIN(TIME_OF_ARRIVAL(IX,IY), T_IGNITION)
+         ENDIF
          PHIP           (IX,IY) = -1.0
       ENDIF
 
@@ -2785,7 +2824,9 @@ IF (TRIM(IGNITION_MODEL) .NE. 'DIRECT') THEN
          ENDIF
 
          IF (ADJ%R4(IX,IY,1) .GT. 0. .AND. (.NOT. ISNONBURNABLE(IX,IY) ) ) THEN
-            CALL TAG_BAND(NX_ELM, NY_ELM, IX, IY, T_ELMFIRE+DT_ELMFIRE)
+            T_IGNITION = T_ELMFIRE + DT_ELMFIRE
+            CALL TAG_BAND(NX_ELM, NY_ELM, IX, IY, T_IGNITION)
+            TIME_OF_ARRIVAL(IX,IY) = T_IGNITION
             PHIP           (IX,IY) = -1.0
             ! Record firebrand ignited cells
             IF (DUMP_EMBER_IGNITION) EMBER_IGNITION_MAP%I2(IX,IY,1) = 1
