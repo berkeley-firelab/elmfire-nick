@@ -489,6 +489,7 @@ DO WHILE (T .le. totalDuration)
       ! IF (DUMP_EMBER_FLUX .AND. (.NOT. ACCUMULATE_EMBER_FLUX) ) EMBER_FLUX%R4(:,:,1) = 0
 
       IF (USE_BARRIERS) BANDTHICKNESS = 1
+      FIRE_LINE_THICKNESS = MIN(REAL(BANDTHICKNESS), FIRE_LINE_THICKNESS)
       !Majid_bav:added below
       ! IF (ENABLE_EXTENDED_ATTACK .AND. EXTENDED_ATTACK_MODEL .EQ. 1) BANDTHICKNESS = 1
       
@@ -1462,7 +1463,7 @@ DO WHILE (T .le. totalDuration)
       !Majid_bav::modified below
       IF (ITIMESTEP .EQ. 1) THEN
          IF (EXTENDED_ATTACK_MODEL .EQ. 0) T_LAST_EXTENDED_ATTACK = T
-         IF (EXTENDED_ATTACK_MODEL .EQ. 1) T_LAST_EXTENDED_ATTACK = EXTENDED_ATTACK_TIME
+         IF (EXTENDED_ATTACK_MODEL .EQ. 1) T_LAST_EXTENDED_ATTACK = T
       ENDIF
 #ifdef _SUPPRESSION   
    ! Majid_bav::modified below
@@ -1511,7 +1512,7 @@ DO WHILE (T .le. totalDuration)
             ENDIF
 
          ELSE IF (EXTENDED_ATTACK_MODEL .EQ. 1) THEN
-            IF (ENABLE_INDIRECT_ATTACK .AND. T-EXTENDED_ATTACK_TIME .GT. 0) THEN
+            IF (ENABLE_INDIRECT_ATTACK .AND. ((T / EXTENDED_ATTACK_TIME) ** INITIAL_CONTAINMENT_SHAPE_FACTOR) .GE. 1.0) THEN
                CALL DETECT_FIRELINE
                CALL INDIRECT_ATTACK(NX, NY, T)
                CALL UNTAG_CELLS(NX,NY,TIME_OF_ARRIVAL,T,SURFACE_FIRE)
@@ -1553,7 +1554,7 @@ DO WHILE (T .le. totalDuration)
                ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"ROS",T,"ROS",1)
                ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"STS",T,"STS",1)
                ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"SEGMENT",T,"SEGMENT",1)
-               CALL LL_DUMP_ROUTINE(LIST_TAGGED,"time_of_arrival",T,"time_of_arrival",1)
+               ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"time_of_arrival",T,"time_of_arrival",1)
 
                DEALLOCATE(SUPPRESSION_TYPE_SCORE)
                DEALLOCATE(SUPPRESSION_TYPE_SCORE_RANK)
@@ -1569,7 +1570,7 @@ DO WHILE (T .le. totalDuration)
 
                T_LAST_EXTENDED_ATTACK = T
                CALL UNTAG_CELLS(NX,NY,TIME_OF_ARRIVAL,T,SURFACE_FIRE)
-               CALL LL_DUMP_ROUTINE(LIST_SUPPRESSED,"time_suppressed",T,"time_suppressed",1)
+               ! CALL LL_DUMP_ROUTINE(LIST_SUPPRESSED,"time_suppressed",T,"time_suppressed",1)
                
             ENDIF
          ELSE
