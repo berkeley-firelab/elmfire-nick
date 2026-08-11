@@ -822,7 +822,7 @@ ENABLE_INDIRECT_ATTACK             = .TRUE.     ! indirect attack model
 PCL_THRESHOLD                      = 20.0       ! pcl threshold for indirect attack
 EXTENDED_ATTACK_TIME               = 3600       ! seconds
 FL_MAX_DIRECT_ATTACK               = 8.0        ! ft
-FL_REF_INDIRECT_ATTACK             = 6.0        ! ft
+FL_REF_INDIRECT_ATTACK             = 8.0        ! ft
 SDI_MAX_DIRECT_ATTACK              = 40.0       ! 0 to 318 USDA data = SDI*100
 AVAILABLE_SUPPRESSION_CAPACITY     = 2000       ! m/hr
 INITIAL_CONTAINMENT_SHAPE_FACTOR   = 3.5
