@@ -192,12 +192,12 @@ class Case:
 
 
 # Integer-valued rasters (everything else is written Float32).
-INT_LAYERS = {"slp", "asp", "dem", "fbfm", "cc", "ch", "cbh", "cbd"}
+INT_LAYERS = {"slp", "asp", "dem", "fbfm", "cc", "ch", "cbh", "cbd", "sdi", "pcl"}
 # Rasters that live in the weather directory and are read band-by-band.
 # Live herbaceous (MLH) and live woody (MLW) moisture are NOT rasters: they are
 # supplied as constants in each .data namelist (USE_CONSTANT_LH/LW +
 # LH/LW_MOISTURE_CONTENT = 60 / 90), so no lh/lw files are generated here.
-WEATHER_LAYERS = {"ws", "wd", "m1", "m10", "m100", "sdi", "pcl"}
+WEATHER_LAYERS = {"ws", "wd", "m1", "m10", "m100"}
 # Band order ELMFIRE expects inside a multiband "landscape" GeoTIFF
 # (LANDSCAPE_FILENAME): elevation, slope, aspect, fuel model, canopy cover,
 # canopy height, canopy base height, canopy bulk density. All integer-valued,
