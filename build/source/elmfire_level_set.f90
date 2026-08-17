@@ -202,8 +202,9 @@ DO WHILE (T .le. totalDuration)
          ALLOCATE(TIME_OF_ARRIVAL (1:NX,1:NY)); TIME_OF_ARRIVAL(:,:) = -1.
          ALLOCATE(TAGGED          (1:NX,1:NY)); TAGGED(:,:) = .FALSE.
          ALLOCATE(PHIP            (1:NX,1:NY)); PHIP(:,:) = 1
-         !Majid_bav::added below
+         ! new suppression model
          ALLOCATE(PCL_HOLD_PROB            (1:NX,1:NY)); PCL_HOLD_PROB(:,:) = 0.0
+         ! new suppression model
          ALLOCATE(EVERTAGGED      (1:NX,1:NY)); EVERTAGGED(:,:) = .FALSE.
          ALLOCATE(EVERTAGGED_IX   (1:NX*NY))
          ALLOCATE(EVERTAGGED_IY   (1:NX*NY))
@@ -412,7 +413,7 @@ DO WHILE (T .le. totalDuration)
 
 #ifdef _SUPPRESSION
       IF (ENABLE_EXTENDED_ATTACK) THEN
-         ! Majid_bav::modified below
+         ! new suppression model :: modified below
          IF (EXTENDED_ATTACK_MODEL .EQ. 0) THEN
             DO IT_EA = 0, 1000
                SUPP(IT_EA)%NCELLS(:)=0
@@ -489,10 +490,10 @@ DO WHILE (T .le. totalDuration)
       ! IF (DUMP_EMBER_FLUX .AND. (.NOT. ACCUMULATE_EMBER_FLUX) ) EMBER_FLUX%R4(:,:,1) = 0
 
       IF (USE_BARRIERS) BANDTHICKNESS = 1
-      FIRE_LINE_THICKNESS = MIN(REAL(BANDTHICKNESS), FIRE_LINE_THICKNESS)
-      !Majid_bav:added below
-      ! IF (ENABLE_EXTENDED_ATTACK .AND. EXTENDED_ATTACK_MODEL .EQ. 1) BANDTHICKNESS = 1
-      
+      ! new suppression model
+      FIRE_LINE_THICKNESS = MIN(REAL(BANDTHICKNESS), FIRE_LINE_THICKNESS)  
+      ! new suppression model
+
       ! Tag bands where initial phi values are less than 0:
       IF (.NOT. RANDOM_IGNITIONS) THEN
          PHIP(:,:) = PHI0%R4(:,:,1)
@@ -571,7 +572,7 @@ DO WHILE (T .le. totalDuration)
 #endif
 
 #ifdef _SUPPRESSION
-         ! Majid_bav::modified below
+         ! new suppression model :: modified below
          IF (ENABLE_EXTENDED_ATTACK) THEN
             IF (EXTENDED_ATTACK_MODEL .EQ. 0) THEN
                IF (USE_SDI) C%SDI = SDI_FACTOR * SDI%R4(ICOL,IROW,1)
@@ -673,7 +674,7 @@ DO WHILE (T .le. totalDuration)
 #endif
 
 #ifdef _SUPPRESSION
-         ! Majid_bav::modified below
+         ! new suppression model :: modified below
          IF (ENABLE_EXTENDED_ATTACK) THEN
             IF (EXTENDED_ATTACK_MODEL .EQ. 0) THEN
                SUPP(0)%ACRES = ACRES
@@ -1093,7 +1094,7 @@ DO WHILE (T .le. totalDuration)
          
             ACRES = ACRES + ACRES_PER_PIXEL
 #ifdef _SUPPRESSION
-         ! Majid_bav::modified_below
+         ! new suppression model :: modified_below
          IF (ENABLE_EXTENDED_ATTACK) THEN
             IF (EXTENDED_ATTACK_MODEL .EQ. 0) THEN
                IF (USE_SDI) THEN
@@ -1103,7 +1104,6 @@ DO WHILE (T .le. totalDuration)
                ENDIF
             ELSE IF (EXTENDED_ATTACK_MODEL .EQ. 1) THEN
                CONTINUE
-               ! WRITE(*,*) "NEW SUPPRESSION MODEL :::: elmfire_level_set.f90:1054"
             ELSE
                WRITE(*,*) 'Error: "EXTENDED_ATTACK_MODEL" should be 0 or 1 in namelist!'
                STOP
@@ -1151,7 +1151,7 @@ DO WHILE (T .le. totalDuration)
             LIST_BURNED%TAIL%CROWN_FIRE             = C%CROWN_FIRE
             LIST_BURNED%TAIL%BURNED                 = .TRUE.
             
-            !Majid_bav::added below
+            ! new suppression model :: added below
             LIST_BURNED%TAIL%TYPE_GROUP             = C%TYPE_GROUP
             LIST_BURNED%TAIL%SEGMENT_GROUP          = C%SEGMENT_GROUP
             LIST_BURNED%TAIL%STS                    = C%STS
@@ -1339,7 +1339,7 @@ DO WHILE (T .le. totalDuration)
                CALL CFFDRS_SPREAD_RATE(LIST_TAGGED, C, daily_bui(DAY_OF_SIM))
             ENDIF
 #ifdef _SUPPRESSION
-            ! Majid_bav::modified below
+            ! new suppression model :: modified below
             IF (ENABLE_EXTENDED_ATTACK) THEN
                IF (EXTENDED_ATTACK_MODEL .EQ. 0) THEN
                   IF (USE_SDI) C%SDI = SDI_FACTOR * SDI%R4(C%IX,C%IY,1)
@@ -1460,13 +1460,13 @@ DO WHILE (T .le. totalDuration)
       777 FORMAT (I7, ',', F8.1, ',', F7.2, ',', F8.3)
 
       ! Extended attack model
-      !Majid_bav::modified below
+      ! new suppression model :: modified below
       IF (ITIMESTEP .EQ. 1) THEN
          IF (EXTENDED_ATTACK_MODEL .EQ. 0) T_LAST_EXTENDED_ATTACK = T
          IF (EXTENDED_ATTACK_MODEL .EQ. 1) T_LAST_EXTENDED_ATTACK = T
       ENDIF
 #ifdef _SUPPRESSION   
-   ! Majid_bav::modified below
+   ! new suppression model :: modified below
       IF (ENABLE_EXTENDED_ATTACK) THEN
          IF (EXTENDED_ATTACK_MODEL .EQ. 0) THEN
             IF (T - T_LAST_EXTENDED_ATTACK .GT. DT_EXTENDED_ATTACK .AND. LIST_BURNED%NUM_NODES .GT. 0) THEN
@@ -2024,7 +2024,7 @@ DO WHILE (T .le. totalDuration)
 
       IF (SIMULATION_TSTOP_HOURS .LT. 0. ) STATS_SIMULATION_TSTOP_HOURS(ICASE) = T / 3600.
 #ifdef _SUPPRESSION   
-      ! Majid_bav::modified below  
+      ! new suppression model :: modified below  
       IF (ENABLE_EXTENDED_ATTACK) THEN
          IF (EXTENDED_ATTACK_MODEL .EQ. 0) THEN
             IF (STATS_FINAL_CONTAINMENT_FRAC(ICASE) .LT. 0.) STATS_FINAL_CONTAINMENT_FRAC(ICASE) = SUPP(IT_EA)%TARGET_CONTAINMENT

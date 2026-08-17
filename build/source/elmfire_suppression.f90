@@ -1303,11 +1303,16 @@ DO I = 1, LIST_TAGGED%NUM_SEGMENTS
 ENDDO
 
 
-IF (T .GE. 86400.0 .AND. EXTENDED_ATTACK_TIME .EQ. 864000.0) THEN
+IF (T .GE. 86400.0 .AND. EXTENDED_ATTACK_TIME .EQ. -1.0) THEN
    EXTENDED_ATTACK_TIME = (T/SUPP(IT)%FIRE_LINE_LENGTH) * FIRELINE_LENGTH_REF * FIRE_LINE_THICKNESS
 ENDIF
 
-NORM_TIME = T / EXTENDED_ATTACK_TIME
+IF (EXTENDED_ATTACK_TIME .EQ. -1.0) THEN
+   NORM_TIME = T / 864000.0
+ELSE
+   NORM_TIME = T / EXTENDED_ATTACK_TIME
+ENDIF
+
 CONTAINMENT_COEF = NORM_TIME ** INITIAL_CONTAINMENT_SHAPE_FACTOR
 CONTAINMENT_COEF = MIN(CONTAINMENT_COEF, 1.0)
 
@@ -1446,8 +1451,9 @@ DEALLOCATE(SEG_CANDIDATE)
 END SUBROUTINE DIRECT_ATTACK
 ! *****************************************************************************
 
-
+! *****************************************************************************
 SUBROUTINE CALC_OTSU_PCL_THRESHOLD(NX, NY, PCL_R4, PCL_THRESHOLD_INTERNAL)
+! *****************************************************************************
 
    IMPLICIT NONE
 
@@ -1587,9 +1593,6 @@ SUBROUTINE CALC_OTSU_PCL_THRESHOLD(NX, NY, PCL_R4, PCL_THRESHOLD_INTERNAL)
 ! *****************************************************************************
 END SUBROUTINE CALC_OTSU_PCL_THRESHOLD
 ! *****************************************************************************
-
-
-
 
 
 ! *****************************************************************************
@@ -1752,7 +1755,7 @@ DO I = 1, LIST_TAGGED%NUM_NODES
    IF (PCL_HOLD_PROB(C%IX, C%IY) .NE. 0.0) THEN
 
       CALL RANDOM_NUMBER(R)
-      F_FL = 1.0 / (1.0 + C%FLAME_LENGTH / FL_REF_INDIRECT_ATTACK)
+      F_FL = 1.0 / (1.0 + C%FLAME_LENGTH / FL_MAX_DIRECT_ATTACK)
       R = R*100
       IF (R .LT. PCL_MEAN_SEG(NINT(PCL_HOLD_PROB(C%IX, C%IY)))*F_FL) THEN
          PCL_MEAN_SEG(NINT(PCL_HOLD_PROB(C%IX, C%IY))) = 100

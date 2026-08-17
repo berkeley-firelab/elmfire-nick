@@ -106,7 +106,7 @@ USE_CONSTANT_LH, USE_CONSTANT_LW, USE_EXISTING_BSQS, USE_LAND_VALUE, USE_POPULAT
 USE_TILED_IO, USE_BARRIERS, WEATHER_DIRECTORY, WS_AT_10M, WS_IN_KPH, VRT_INSTEAD_OF_TIF, SDI_FILENAME, TIMED_LOCATIONS_CSV, & 
 ONLY_READ_NEEDED_WX_BANDS, START_DC, START_DMC, DAILY_WEATHER_FILENAME, SURFACE_SPREAD_MODEL, &
 LANDSCAPE_FILENAME, &
-! Majid_bav::added below
+! new suppression model :: added below
 PCL_FILENAME
 
 IF (IRANK_WORLD .EQ. 0) WRITE(*,*) 'Reading &INPUTS namelist group'
@@ -146,7 +146,7 @@ PHI_FILENAME                   = ' '
 POPULATION_DENSITY_FILENAME    = ' '
 REAL_ESTATE_VALUE_FILENAME     = ' '
 SDI_FILENAME                   = ' '
-PCL_FILENAME                   = ' ' !Majid_bav:: added this
+PCL_FILENAME                   = ' ' ! new suppression model :: added this
 SLP_FILENAME                   = ' '
 ERC_FILENAME                   = ' '
 IGNITIONS_CSV_FILENAME         = ' '
@@ -795,10 +795,10 @@ INTEGER :: IOS
 NAMELIST /SUPPRESSION/ AREA_NO_CONTAINMENT_CHANGE, B_SDI, DT_EXTENDED_ATTACK, &
                        ENABLE_EXTENDED_ATTACK, ENABLE_INITIAL_ATTACK, ENABLE_INDIRECT_ATTACK,&
                        INITIAL_ATTACK_TIME, MAX_CONTAINMENT_PER_DAY, SDI_FACTOR, USE_SDI, USE_SDI_LOG_FUNCTION, &
-                       ! Majid_bav::added below
+                       ! new suppression model :: added below
                        EXTENDED_ATTACK_MODEL, EXTENDED_ATTACK_TIME, AVAILABLE_SUPPRESSION_CAPACITY, DELTA_ROS, DELTA_FL, &
                         DELTA_SDI, DELTA_PCL, FIRE_LINE_THICKNESS, SDI_MAX_DIRECT_ATTACK, FL_MAX_DIRECT_ATTACK, PCL_THRESHOLD, &
-                        FL_REF_INDIRECT_ATTACK, INITIAL_CONTAINMENT_SHAPE_FACTOR, FIRELINE_LENGTH_REF
+                        INITIAL_CONTAINMENT_SHAPE_FACTOR, FIRELINE_LENGTH_REF
 
 
 IF (IRANK_WORLD .EQ. 0) WRITE(*,*) 'Reading &SUPPRESSION namelist group'
@@ -816,24 +816,25 @@ USE_SDI                     = .FALSE.
 USE_SDI_LOG_FUNCTION        = .FALSE.
 
 
-! Majid_bav::added below
+! new suppression model :: added below
 EXTENDED_ATTACK_MODEL              = 0          ! 0: legacy model; 1: new model.
 ENABLE_INDIRECT_ATTACK             = .TRUE.     ! indirect attack model
-PCL_THRESHOLD                      = 30.0       ! pcl threshold for indirect attack
-EXTENDED_ATTACK_TIME               = 3600       ! seconds
-FL_MAX_DIRECT_ATTACK               = 8.0        ! ft
-FL_REF_INDIRECT_ATTACK             = 8.0        ! ft
-SDI_MAX_DIRECT_ATTACK              = 100.0       ! 0 to 318 USDA data = SDI*100
+EXTENDED_ATTACK_TIME               = -1.0       ! seconds when suppression capacity is full; if <0 it will be estimated based on the mean fireline growth in first day of simulation and FIRELINE_LENGTH_REF. The simulation should be more than 1 day; if >0 it will be the fixed assigned value.
+INITIAL_CONTAINMENT_SHAPE_FACTOR   = 10         ! determine how fast the suppression capacity increases from zero to full. larger value has more delay and increases suddenly.
 AVAILABLE_SUPPRESSION_CAPACITY     = 2000       ! m/hr
-INITIAL_CONTAINMENT_SHAPE_FACTOR   = 3.5
-FIRELINE_LENGTH_REF                = 150000     ! m
+FIRELINE_LENGTH_REF                = 15000      ! m
 
+! default values are suggested
+PCL_THRESHOLD                      = 30.0       ! pcl threshold for indirect attack
+FL_MAX_DIRECT_ATTACK               = 8.0        ! ft
+SDI_MAX_DIRECT_ATTACK              = 100.0      ! 0 to 318 USDA data = SDI*100
 FIRE_LINE_THICKNESS                = 1          ! num cells
-
 DELTA_ROS                          = 10         ! ft/min
 DELTA_FL                           = 2          ! ft
 DELTA_SDI                          = 10         ! 0 to 318 USDA data = SDI*100
 DELTA_PCL                          = 10         ! 0 to 100 USDA data = PCL*100
+
+
 
 READ(LUINPUT,NML=SUPPRESSION,IOSTAT=IOS)
 

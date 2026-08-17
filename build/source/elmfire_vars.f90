@@ -41,7 +41,7 @@ CHARACTER(400) ::  ADJ_FILENAME,  ASP_FILENAME,  BARRIER_FILENAME, BLDG_AREA_FIL
                    FMC_FILENAME, M1_FILENAME, M10_FILENAME, M100_FILENAME, MLH_FILENAME, MLW_FILENAME, &
                    PYROMES_FILENAME, RH_FILENAME, SDI_FILENAME, TMP_FILENAME, WD_FILENAME, WS_FILENAME, TIMED_LOCATIONS_CSV, &
                    DAILY_WEATHER_FILENAME, SURFACE_SPREAD_MODEL, &
-                  ! Majid_bav::added below
+                  ! new suppression model :: added below
                    PCL_FILENAME
 
 ! Directories:
@@ -167,17 +167,19 @@ LOGICAL :: ENABLE_SMOKE_OUTPUTS
 ! ************************************************ &SUPPRESSION ************************************************ 
 REAL :: AREA_NO_CONTAINMENT_CHANGE, B_SDI, INITIAL_ATTACK_TIME, DT_EXTENDED_ATTACK, &
         MAX_CONTAINMENT_PER_DAY, SDI_FACTOR, &
-        !Majid_bav::added below
+        ! new suppression model :: added below
         EXTENDED_ATTACK_MODEL, AVAILABLE_SUPPRESSION_CAPACITY, DELTA_ROS, DELTA_FL, DELTA_SDI, DELTA_PCL, FIRE_LINE_THICKNESS, SDI_MAX_DIRECT_ATTACK, FL_MAX_DIRECT_ATTACK, &
-         IX_SUPP_START, IY_SUPP_START, PCL_THRESHOLD, FL_REF_INDIRECT_ATTACK, INITIAL_CONTAINMENT_SHAPE_FACTOR, FIRELINE_LENGTH_REF
+         IX_SUPP_START, IY_SUPP_START, PCL_THRESHOLD, INITIAL_CONTAINMENT_SHAPE_FACTOR, FIRELINE_LENGTH_REF
+         ! new suppression model
 REAL(8) :: EXTENDED_ATTACK_TIME 
 
 LOGICAL :: ENABLE_EXTENDED_ATTACK, ENABLE_INITIAL_ATTACK, USE_SDI, USE_SDI_LOG_FUNCTION, ENABLE_INDIRECT_ATTACK
 
-!Majid_bav::added below
+! new suppression model :: added below
 REAL,    ALLOCATABLE :: SUPPRESSION_TYPE_SCORE(:)
 REAL,    ALLOCATABLE :: PCL_MEAN_SEG(:)
 INTEGER, ALLOCATABLE :: SUPPRESSION_TYPE_SCORE_RANK(:)
+! new suppression model
 
 ! ************************************************ &TIME_CONTROL ************************************************ 
 REAL :: BURN_PERIOD_CENTER_FRAC,BURN_PERIOD_LENGTH, DT_INTERPOLATE_M1, DT_INTERPOLATE_M10, &
@@ -215,7 +217,7 @@ TYPE(C_PTR) :: ASP_PTR, CBH_PTR, CBD_PTR, CC_PTR, CH_PTR, DEM_PTR, FBFM_PTR, SLP
                BLDG_FOOTPRINT_FRAC_PTR, BLDG_FUEL_MODEL_PTR, BLDG_NONBURNABLE_FRAC_PTR, BLDG_SEPARATION_DIST_PTR, &
                PYROMES_PTR, STATS_FINAL_CONTAINMENT_FRAC_PTR, &
                STATS_PM2P5_RELEASE_PTR, STATS_HRR_PEAK_PTR, &
-               ! Majid_bav::added below
+               ! new suppression model :: added below
                PCL_PTR
 
 TYPE(MPI_WIN) :: WIN_ASP,WIN_CBH,WIN_CBD,WIN_CC,WIN_CH,WIN_DEM,WIN_FBFM,WIN_SLP,WIN_ADJ,WIN_PHI0,WIN_POPULATION_DENSITY, &
@@ -228,7 +230,7 @@ TYPE(MPI_WIN) :: WIN_ASP,WIN_CBH,WIN_CBD,WIN_CC,WIN_CH,WIN_DEM,WIN_FBFM,WIN_SLP,
                  WIN_STATS_WALL_CLOCK_TIME, WIN_ISNONBURNABLE, WIN_TIMINGS, WIN_IGN_MASK, WIN_SDI, WIN_BLDG_AREA, &
                  WIN_BLDG_FOOTPRINT_FRAC, WIN_BLDG_FUEL_MODEL, WIN_BLDG_NONBURNABLE_FRAC, WIN_BLDG_SEPARATION_DIST, &
                  WIN_PYROMES, WIN_STATS_FINAL_CONTAINMENT_FRAC, WIN_STATS_PM2P5_RELEASE, WIN_STATS_HRR_PEAK, &
-                 !Majid_bav::added below
+                 ! new suppression model :: added below
                  WIN_PCL
 
 INTEGER :: ARRAYSHAPE_ANALYSIS_SINGLEBAND(1:3), ARRAYSHAPE_WX(1:3), ARRAYSHAPE_STATS(1), &
@@ -263,8 +265,9 @@ INTEGER*2, POINTER, DIMENSION(:,:) :: SURFACE_FIRE, EMBER_COUNT
 LOGICAL*1, ALLOCATABLE, DIMENSION (:,:) :: TAGGED
 LOGICAL*1, POINTER, DIMENSION (:,:) :: ISNONBURNABLE
 REAL, ALLOCATABLE, DIMENSION(:,:) :: PHIP
-!Majid_bav::added below
+! new suppression model :: added below
 REAL, ALLOCATABLE, DIMENSION(:,:) :: PCL_HOLD_PROB
+
 LOGICAL*1, ALLOCATABLE, DIMENSION(:,:) :: EVERTAGGED
 REAL(8), ALLOCATABLE, DIMENSION (:,:) :: TIME_OF_ARRIVAL, EMBER_TOA
 
@@ -459,7 +462,7 @@ TYPE SUPPRESSION_TRACKER
    REAL    :: SDIBAR
    INTEGER :: IXCEN
    INTEGER :: IYCEN
-   !Majid_bav:added below
+   ! new suppression model :: added below
    REAL    :: FIRE_LINE_LENGTH
    REAL    :: SUPPRESSED_FIRELINE_LENGTH
    REAL    :: INDIRECT_SUPPRESSED_FIRELINE_LENGTH
@@ -519,7 +522,7 @@ TYPE(RASTER_TYPE), TARGET :: ADJ, ANALYSIS_SURFACE_FIRE, ANALYSIS_TIMES_BURNED, 
                              FLAME_LENGTH_BIN_COUNT, FLAME_LENGTH_MAX, FBFM, IGN_MASK, LAND_VALUE, OMCOSSLPRAD, &
                              PHI0, POPULATION_DENSITY, REAL_ESTATE_VALUE, SLP, ERC, MFOL, IGNFAC, M1, M10, M100, &
                              MLH, MLW, PYROMES, WD, WS, WAF, EMBER_FLUX, TIMES_BURNED, TIMES_BURNED_HOURLY, SDI, &
-                             !Majid_bav:added below
+                             ! new suppression model :: added below
                              PCL
 
 TYPE(RASTER_TYPE), TARGET :: BLDG_AREA             ! Previously HAMADA_A
@@ -548,7 +551,7 @@ END TYPE UCB_ELLIPSE
 ! Use array to save ellipse parameters for efficiency
 TYPE(UCB_ELLIPSE), ALLOCATABLE :: ELLIPSE_PROPERTY_MAP(:,:)
 
-! Majid_bav::added below
+! new suppression model :: added below
 TYPE NODE_PTR
    TYPE(NODE), POINTER :: P => NULL()
 END TYPE NODE_PTR
@@ -566,7 +569,7 @@ TYPE NODE
    LOGICAL :: JUST_TAGGED       = .TRUE.
    LOGICAL :: TEST_INTERFACE    = .FALSE.      !Interface Model
    LOGICAL :: WTU_SPREAD        = .FALSE.
-   LOGICAL :: FIRE_LINE         = .FALSE.      ! Majid_bav::added this
+   LOGICAL :: FIRE_LINE         = .FALSE.      ! new suppression model :: added this
 
    REAL :: CRITICAL_FLIN                 = 9E9
    REAL :: DPHIDX_LIMITED                = 0.
@@ -639,7 +642,7 @@ TYPE NODE
    REAL    :: SUPPRESSION_ADJUSTMENT_FACTOR = 1.0
    INTEGER :: SUPPRESSION_IDEG              = 9999
    REAL    :: SDI                           = 0.
-   !Majid_bav::added below
+   ! new suppression model :: added below
    REAL    :: PCL                           = 0.
    INTEGER :: TYPE_GROUP                    = -1   ! 2:head; 1:flank; 0:back
    INTEGER :: SEGMENT_GROUP                 = -1

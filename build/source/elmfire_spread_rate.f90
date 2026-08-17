@@ -113,7 +113,7 @@ DO I = 1, NUM_NODES
    C%PHIS_SURFACE = MIN(FMT%PHISTERM * C%TANSLP2, PHIS_MAX)
 
 #ifdef _SUPPRESSION
-   ! Majid_bav::modified below
+   ! new suppression model :: modified below
    IF (ENABLE_EXTENDED_ATTACK) THEN
       IF (EXTENDED_ATTACK_MODEL .EQ. 0) THEN
          C%VS0 = (C%ADJ + PERTURB_ADJ) * C%SUPPRESSION_ADJUSTMENT_FACTOR * DIURNAL_ADJUSTMENT_FACTOR * C%IR * FMT%XI / RHOBEPSQIG !ft/min
@@ -124,6 +124,7 @@ DO I = 1, NUM_NODES
          STOP
       ENDIF
    ENDIF
+   ! new suppression model
 #endif
    IF (.NOT. ENABLE_EXTENDED_ATTACK) C%VS0 = (C%ADJ + PERTURB_ADJ) * DIURNAL_ADJUSTMENT_FACTOR * C%IR * FMT%XI / RHOBEPSQIG !ft/min
 
@@ -262,7 +263,7 @@ DO I = 1, NUM_NODES
    ROS = RSI_c * BE ! m/min
    C%VELOCITY_DMS_SURFACE = ROS * 3.28 * (C%ADJ + PERTURB_ADJ) * DIURNAL_ADJUSTMENT_FACTOR !ft/min
 #ifdef _SUPPRESSION
-   ! Majid_bav::modified below
+   ! new suppression model :: modified below
    IF (ENABLE_EXTENDED_ATTACK) THEN
       IF (EXTENDED_ATTACK_MODEL .EQ. 0) THEN
          C%VELOCITY_DMS_SURFACE = C%VELOCITY_DMS_SURFACE * C%SUPPRESSION_ADJUSTMENT_FACTOR
@@ -273,6 +274,7 @@ DO I = 1, NUM_NODES
          STOP
       ENDIF
    ENDIF
+   ! new suppression model
 #endif
    
    FFMC = (14867.2 - 59.5*M)/(147.2+M)
