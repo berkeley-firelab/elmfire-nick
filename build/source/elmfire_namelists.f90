@@ -802,8 +802,7 @@ NAMELIST /SUPPRESSION/ AREA_NO_CONTAINMENT_CHANGE, B_SDI, DT_EXTENDED_ATTACK, &
 
 
 IF (IRANK_WORLD .EQ. 0) WRITE(*,*) 'Reading &SUPPRESSION namelist group'
-
-!Set default values:
+! Set default values:
 B_SDI                       = 1.0
 DT_EXTENDED_ATTACK          = 3600.
 ENABLE_EXTENDED_ATTACK      = .FALSE.
@@ -815,25 +814,23 @@ SDI_FACTOR                  = 1.0
 USE_SDI                     = .FALSE.
 USE_SDI_LOG_FUNCTION        = .FALSE.
 
-
-! new suppression model :: added below
-EXTENDED_ATTACK_MODEL              = 0          ! 0: legacy model; 1: new model.
-ENABLE_INDIRECT_ATTACK             = .TRUE.     ! indirect attack model
-EXTENDED_ATTACK_TIME               = -1.0       ! seconds when suppression capacity is full; if <0 it will be estimated based on the mean fireline growth in first day of simulation and FIRELINE_LENGTH_REF. The simulation should be more than 1 day; if >0 it will be the fixed assigned value.
-INITIAL_CONTAINMENT_SHAPE_FACTOR   = 10         ! determine how fast the suppression capacity increases from zero to full. larger value has more delay and increases suddenly.
+! Spatially explicit suppression model
+EXTENDED_ATTACK_MODEL              = 0          ! 0: Area-Growth-Based Containment Model; 1: Spatially Explicit Suppression Model
+ENABLE_INDIRECT_ATTACK             = .TRUE.     ! Enable indirect attack
+EXTENDED_ATTACK_TIME               = -1.0       ! Time (s) when full suppression capacity is available. If <0, estimated from first-day fireline growth and FIRELINE_LENGTH_REF
+INITIAL_CONTAINMENT_SHAPE_FACTOR   = 10         ! Controls buildup of suppression capacity; larger values produce greater initial delay and a sharper increase
 AVAILABLE_SUPPRESSION_CAPACITY     = 2000       ! m/hr
 FIRELINE_LENGTH_REF                = 15000      ! m
 
-! default values are suggested
-PCL_THRESHOLD                      = 30.0       ! pcl threshold for indirect attack
-FL_MAX_DIRECT_ATTACK               = 8.0        ! ft
-SDI_MAX_DIRECT_ATTACK              = 100.0      ! 0 to 318 USDA data = SDI*100
-FIRE_LINE_THICKNESS                = 1          ! num cells
+! Suggested default values
+PCL_THRESHOLD                      = 30.0       ! PCL threshold for indirect attack (0--100)
+FL_MAX_DIRECT_ATTACK               = 8.0        ! ft; reference flame length used for both direct and indirect attack
+SDI_MAX_DIRECT_ATTACK              = 100.0      ! Reference SDI; USDA SDI data stored as SDI*100
+FIRE_LINE_THICKNESS                = 1          ! Number of cells used to represent the active fireline
 DELTA_ROS                          = 10         ! ft/min
 DELTA_FL                           = 2          ! ft
-DELTA_SDI                          = 10         ! 0 to 318 USDA data = SDI*100
-DELTA_PCL                          = 10         ! 0 to 100 USDA data = PCL*100
-
+DELTA_SDI                          = 10         ! SDI units; USDA SDI data stored as SDI*100
+DELTA_PCL                          = 10         ! PCL units (0--100)
 
 
 READ(LUINPUT,NML=SUPPRESSION,IOSTAT=IOS)
