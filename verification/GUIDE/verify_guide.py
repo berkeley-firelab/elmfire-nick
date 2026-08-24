@@ -192,7 +192,7 @@ class Case:
 
 
 # Integer-valued rasters (everything else is written Float32).
-INT_LAYERS = {"slp", "asp", "dem", "fbfm", "cc", "ch", "cbh", "cbd"}
+INT_LAYERS = {"slp", "asp", "dem", "fbfm", "cc", "ch", "cbh", "cbd", "sdi", "pcl"}
 # Rasters that live in the weather directory and are read band-by-band.
 # Live herbaceous (MLH) and live woody (MLW) moisture are NOT rasters: they are
 # supplied as constants in each .data namelist (USE_CONSTANT_LH/LW +
@@ -209,7 +209,7 @@ BASE_LAYERS = dict(
     slp=0, asp=0, dem=0, cc=0, ch=0, cbh=0, cbd=0,
     adj=1.0, phi=1.0, ws=0.0, wd=0.0,
     m1=6.0, m10=7.0, m100=8.0,
-    fbfm=3,
+    fbfm=3, sdi=10, pcl=50
 )
 
 
@@ -366,10 +366,19 @@ CASES = [
               "start/end clock hours against the calculated burn-period bounds.",
     ),
     Case(
-        name="Suppression-extended",
-        data_rel="Suppression/extended_attack/extended_attack.data",
+        name="Suppression-extended-m0",
+        data_rel="Suppression/extended_attack_m0/extended_attack.data",
         layers=L(fbfm=8, ws=0.0, m1=6.0),
         targets=[Target("time at simulation end", 88200.0, "s", tol_pct=15.0)],
+        metric="sim_end_time",
+        notes="Extended attack contains the fire and ends the run; success metric "
+              "is the simulation end time (tstop), analytically ~10800 s.",
+    ),
+    Case(
+        name="Suppression-extended-m1",
+        data_rel="Suppression/extended_attack_m1/extended_attack.data",
+        layers=L(fbfm=8, ws=0.0, m1=6.0),
+        targets=[Target("time at simulation end", 110800.0, "s", tol_pct=15.0)],
         metric="sim_end_time",
         notes="Extended attack contains the fire and ends the run; success metric "
               "is the simulation end time (tstop), analytically ~10800 s.",
@@ -412,8 +421,8 @@ def case_input_filenames(nml):
         "m1": "M1_FILENAME", "m10": "M10_FILENAME", "m100": "M100_FILENAME",
         "asp": "ASP_FILENAME", "slp": "SLP_FILENAME", "dem": "DEM_FILENAME",
         "fbfm": "FBFM_FILENAME", "cc": "CC_FILENAME", "ch": "CH_FILENAME",
-        "cbh": "CBH_FILENAME", "cbd": "CBD_FILENAME",
-        "adj": "ADJ_FILENAME", "phi": "PHI_FILENAME",
+        "cbh": "CBH_FILENAME", "cbd": "CBD_FILENAME", "sdi": "SDI_FILENAME",
+        "adj": "ADJ_FILENAME", "phi": "PHI_FILENAME", "pcl": "PCL_FILENAME",
     }
     files = {}
     for var, key in mapping.items():

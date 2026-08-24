@@ -207,6 +207,9 @@ DO WHILE (T .le. totalDuration)
          ALLOCATE(TIME_OF_ARRIVAL (1:NX,1:NY)); TIME_OF_ARRIVAL(:,:) = -1.
          ALLOCATE(TAGGED          (1:NX,1:NY)); TAGGED(:,:) = .FALSE.
          ALLOCATE(PHIP            (1:NX,1:NY)); PHIP(:,:) = 1
+         ! new suppression model
+         ALLOCATE(PCL_HOLD_PROB            (1:NX,1:NY)); PCL_HOLD_PROB(:,:) = 0.0
+         ! new suppression model
          ALLOCATE(EVERTAGGED      (1:NX,1:NY)); EVERTAGGED(:,:) = .FALSE.
          ALLOCATE(EVERTAGGED_IX   (1:NX*NY))
          ALLOCATE(EVERTAGGED_IY   (1:NX*NY))
@@ -407,6 +410,7 @@ DO WHILE (T .le. totalDuration)
       ACRES_SDI                   = 0.
 
       LIST_TAGGED                 = NEW_DLL(); LIST_TAGGED%NUM_NODES=0
+      LIST_SUPPRESSION_BLOCK      = NEW_DLL(); LIST_SUPPRESSION_BLOCK%NUM_NODES=0
       LIST_BURNED                 = NEW_DLL(); LIST_BURNED%NUM_NODES=0
       LIST_SUPPRESSED             = NEW_DLL(); LIST_SUPPRESSED%NUM_NODES=0
       LIST_WUI_BURNING            = NEW_DLL(); LIST_WUI_BURNING%NUM_NODES=0
@@ -422,23 +426,74 @@ DO WHILE (T .le. totalDuration)
 
 #ifdef _SUPPRESSION
       IF (ENABLE_EXTENDED_ATTACK) THEN
-         DO IT_EA = 0, 1000
-            SUPP(IT_EA)%NCELLS(:)=0
-            SUPP(IT_EA)%VELOCITY(:)=0.
-            SUPP(IT_EA)%VELOCITY_SMOOTHED(:)=0.
-            SUPP(IT_EA)%FIRELINE_FRACTION(:)=0.
-            SUPP(IT_EA)%SUPPRESSED_FRACTION(:)=0.
-            SUPP(IT_EA)%T=0.
-            SUPP(IT_EA)%ACRES=0.
-            SUPP(IT_EA)%ACRES_SDI=0.
-            SUPP(IT_EA)%TARGET_CONTAINMENT=0.
-            SUPP(IT_EA)%DC_PER_DAY=0.
-            SUPP(IT_EA)%DADT=0.
-            SUPP(IT_EA)%DASDIDT=0.
-            SUPP(IT_EA)%SDIBAR=0.
-            SUPP(IT_EA)%IXCEN=0
-            SUPP(IT_EA)%IYCEN=0
-         ENDDO
+         ! new suppression model :: modified below
+         IF (EXTENDED_ATTACK_MODEL .EQ. 0) THEN
+            DO IT_EA = 0, 1000
+               SUPP(IT_EA)%NCELLS(:)=0
+               SUPP(IT_EA)%VELOCITY(:)=0.
+               SUPP(IT_EA)%VELOCITY_SMOOTHED(:)=0.
+               SUPP(IT_EA)%FIRELINE_FRACTION(:)=0.
+               SUPP(IT_EA)%SUPPRESSED_FRACTION(:)=0.
+               SUPP(IT_EA)%T=0.
+               SUPP(IT_EA)%ACRES=0.
+               SUPP(IT_EA)%ACRES_SDI=0.
+               SUPP(IT_EA)%TARGET_CONTAINMENT=0.
+               SUPP(IT_EA)%DC_PER_DAY=0.
+               SUPP(IT_EA)%DADT=0.
+               SUPP(IT_EA)%DASDIDT=0.
+               SUPP(IT_EA)%SDIBAR=0.
+               SUPP(IT_EA)%IXCEN=0
+               SUPP(IT_EA)%IYCEN=0
+
+               SUPP(IT_EA)%FIRE_LINE_LENGTH=0.
+               SUPP(IT_EA)%SUPPRESSED_FIRELINE_LENGTH=0.
+               SUPP(IT_EA)%INDIRECT_SUPPRESSED_FIRELINE_LENGTH = 0.
+               SUPP(IT_EA)%CONTAINMENT=0.
+            ENDDO
+         ELSE IF (EXTENDED_ATTACK_MODEL .EQ. 1) THEN
+
+            IF (ENABLE_INDIRECT_ATTACK) CALL CALCULATE_PCL_HOLD_MAP(NX, NY)
+
+            DO IY = 1, NY
+               DO IX = 1, NX
+
+                  IF (PCL_HOLD_PROB(IX,IY) .NE. 0.0) THEN
+                     CALL APPEND(LIST_SUPPRESSION_BLOCK, IX, IY, T)
+                     LIST_SUPPRESSION_BLOCK%TAIL%TIME_SUPPRESSED = PCL_HOLD_PROB(IX,IY)
+                  ENDIF
+
+               ENDDO
+            ENDDO
+
+            CALL LL_DUMP_ROUTINE(LIST_SUPPRESSION_BLOCK,"indirect_suppression_block", T,"time_suppressed",1)
+
+
+            DO IT_EA = 0, 1000
+               SUPP(IT_EA)%NCELLS(:)=0
+               SUPP(IT_EA)%VELOCITY(:)=0.
+               SUPP(IT_EA)%VELOCITY_SMOOTHED(:)=0.
+               SUPP(IT_EA)%FIRELINE_FRACTION(:)=0.
+               SUPP(IT_EA)%SUPPRESSED_FRACTION(:)=0.
+               SUPP(IT_EA)%T=0.
+               SUPP(IT_EA)%ACRES=0.
+               SUPP(IT_EA)%ACRES_SDI=0.
+               SUPP(IT_EA)%TARGET_CONTAINMENT=0.
+               SUPP(IT_EA)%DC_PER_DAY=0.
+               SUPP(IT_EA)%DADT=0.
+               SUPP(IT_EA)%DASDIDT=0.
+               SUPP(IT_EA)%SDIBAR=0.
+               SUPP(IT_EA)%IXCEN=0
+               SUPP(IT_EA)%IYCEN=0
+
+               SUPP(IT_EA)%FIRE_LINE_LENGTH=0.
+               SUPP(IT_EA)%SUPPRESSED_FIRELINE_LENGTH=0.
+               SUPP(IT_EA)%INDIRECT_SUPPRESSED_FIRELINE_LENGTH = 0.
+               SUPP(IT_EA)%CONTAINMENT=0.
+            ENDDO
+         ELSE
+            WRITE(*,*) 'Error: "EXTENDED_ATTACK_MODEL" should be 0 or 1 in namelist!'
+            STOP
+         ENDIF
       ENDIF
 #endif
       IT_EA=0
@@ -448,6 +503,10 @@ DO WHILE (T .le. totalDuration)
       ! IF (DUMP_EMBER_FLUX .AND. (.NOT. ACCUMULATE_EMBER_FLUX) ) EMBER_FLUX%R4(:,:,1) = 0
 
       IF (USE_BARRIERS) BANDTHICKNESS = 1
+      ! new suppression model
+      FIRE_LINE_THICKNESS = MIN(REAL(BANDTHICKNESS), FIRE_LINE_THICKNESS)  
+      ! new suppression model
+
       ! Tag bands where initial phi values are less than 0:
       IF (.NOT. RANDOM_IGNITIONS) THEN
          PHIP(:,:) = PHI0%R4(:,:,1)
@@ -526,7 +585,18 @@ DO WHILE (T .le. totalDuration)
 #endif
 
 #ifdef _SUPPRESSION
-               IF (ENABLE_EXTENDED_ATTACK .AND. USE_SDI) C%SDI = SDI_FACTOR * SDI%R4(ICOL,IROW,1)
+         ! new suppression model :: modified below
+         IF (ENABLE_EXTENDED_ATTACK) THEN
+            IF (EXTENDED_ATTACK_MODEL .EQ. 0) THEN
+               IF (USE_SDI) C%SDI = SDI_FACTOR * SDI%R4(ICOL,IROW,1)
+            ELSE IF (EXTENDED_ATTACK_MODEL .EQ. 1) THEN
+               C%SDI = SDI%R4(ICOL,IROW,1)
+               C%PCL = PCL%R4(ICOL,IROW,1)
+            ELSE
+               WRITE(*,*) 'Error: "EXTENDED_ATTACK_MODEL" should be 0 or 1 in namelist!'
+               STOP
+            ENDIF
+         ENDIF
 #endif
             ENDIF
          ENDDO
@@ -617,7 +687,19 @@ DO WHILE (T .le. totalDuration)
 #endif
 
 #ifdef _SUPPRESSION
-         IF (ENABLE_EXTENDED_ATTACK) SUPP(0)%ACRES = ACRES
+         ! new suppression model :: modified below
+         IF (ENABLE_EXTENDED_ATTACK) THEN
+            IF (EXTENDED_ATTACK_MODEL .EQ. 0) THEN
+               SUPP(0)%ACRES = ACRES
+            ELSE IF (EXTENDED_ATTACK_MODEL .EQ. 1) THEN
+               WRITE(*,*)
+               WRITE(*,'(A)') 'Time (s),Suppressed Line (m),Fire Line (m),Contained'
+               CONTINUE
+            ELSE
+               WRITE(*,*) 'Error: "EXTENDED_ATTACK_MODEL" should be 0 or 1 in namelist!'
+               STOP
+            ENDIF
+         ENDIF
 #endif
          ICOUNT = 0
          DO IY = 1, NY
@@ -1025,13 +1107,22 @@ DO WHILE (T .le. totalDuration)
          
             ACRES = ACRES + ACRES_PER_PIXEL
 #ifdef _SUPPRESSION
-            IF (ENABLE_EXTENDED_ATTACK) THEN
+         ! new suppression model :: modified_below
+         IF (ENABLE_EXTENDED_ATTACK) THEN
+            IF (EXTENDED_ATTACK_MODEL .EQ. 0) THEN
                IF (USE_SDI) THEN
                   ACRES_SDI = ACRES_SDI + ACRES_PER_PIXEL * (1.0 + C%SDI )
                ELSE
                   ACRES_SDI = ACRES
                ENDIF
+            ELSE IF (EXTENDED_ATTACK_MODEL .EQ. 1) THEN
+               CONTINUE
+            ELSE
+               WRITE(*,*) 'Error: "EXTENDED_ATTACK_MODEL" should be 0 or 1 in namelist!'
+               STOP
             ENDIF
+
+         ENDIF
 #endif
             C%BURNED               = .TRUE.
             C%TIME_OF_ARRIVAL      = T
@@ -1072,6 +1163,11 @@ DO WHILE (T .le. totalDuration)
             LIST_BURNED%TAIL%CRITICAL_FLIN          = C%CRITICAL_FLIN
             LIST_BURNED%TAIL%CROWN_FIRE             = C%CROWN_FIRE
             LIST_BURNED%TAIL%BURNED                 = .TRUE.
+            
+            ! new suppression model :: added below
+            LIST_BURNED%TAIL%TYPE_GROUP             = C%TYPE_GROUP
+            LIST_BURNED%TAIL%SEGMENT_GROUP          = C%SEGMENT_GROUP
+            LIST_BURNED%TAIL%STS                    = C%STS
             
             LIST_BURNED%TAIL%IFBFM                  = C%IFBFM
             LIST_BURNED%TAIL%WS20_NOW               = C%WS20_NOW
@@ -1256,7 +1352,18 @@ DO WHILE (T .le. totalDuration)
                CALL CFFDRS_SPREAD_RATE(LIST_TAGGED, C, daily_bui(DAY_OF_SIM))
             ENDIF
 #ifdef _SUPPRESSION
-            IF (ENABLE_EXTENDED_ATTACK .AND. USE_SDI) C%SDI = SDI_FACTOR * SDI%R4(C%IX,C%IY,1)
+            ! new suppression model :: modified below
+            IF (ENABLE_EXTENDED_ATTACK) THEN
+               IF (EXTENDED_ATTACK_MODEL .EQ. 0) THEN
+                  IF (USE_SDI) C%SDI = SDI_FACTOR * SDI%R4(C%IX,C%IY,1)
+               ELSE IF (EXTENDED_ATTACK_MODEL .EQ. 1) THEN
+                     C%PCL = PCL%R4(C%IX,C%IY,1)
+                     C%SDI = SDI%R4(C%IX,C%IY,1)
+               ELSE
+                  WRITE(*,*) 'Error: "EXTENDED_ATTACK_MODEL" should be 0 or 1 in namelist!'
+                  STOP
+               ENDIF
+            ENDIF
 #endif
          ENDIF
          C => C%NEXT
@@ -1366,49 +1473,123 @@ DO WHILE (T .le. totalDuration)
       777 FORMAT (I7, ',', F8.1, ',', F7.2, ',', F8.3)
 
       ! Extended attack model
-      IF (ITIMESTEP .EQ. 1) T_LAST_EXTENDED_ATTACK = T
+      ! new suppression model :: modified below
+      IF (ITIMESTEP .EQ. 1) THEN
+         IF (EXTENDED_ATTACK_MODEL .EQ. 0) T_LAST_EXTENDED_ATTACK = T
+         IF (EXTENDED_ATTACK_MODEL .EQ. 1) T_LAST_EXTENDED_ATTACK = T
+      ENDIF
 #ifdef _SUPPRESSION   
-      IF (ENABLE_EXTENDED_ATTACK .AND. T - T_LAST_EXTENDED_ATTACK .GT. DT_EXTENDED_ATTACK .AND. LIST_BURNED%NUM_NODES .GT. 0) THEN
-         IT_EA = IT_EA + 1
-         DT_DAY = (T - T_LAST_EXTENDED_ATTACK) / 86400.
-         SUPP(IT_EA)%T         = T
-         SUPP(IT_EA)%ACRES     = ACRES
-         SUPP(IT_EA)%ACRES_SDI = ACRES_SDI
+   ! new suppression model :: modified below
+      IF (ENABLE_EXTENDED_ATTACK) THEN
+         IF (EXTENDED_ATTACK_MODEL .EQ. 0) THEN
+            IF (T - T_LAST_EXTENDED_ATTACK .GT. DT_EXTENDED_ATTACK .AND. LIST_BURNED%NUM_NODES .GT. 0) THEN
+               IT_EA = IT_EA + 1
+               DT_DAY = (T - T_LAST_EXTENDED_ATTACK) / 86400.
+               SUPP(IT_EA)%T         = T
+               SUPP(IT_EA)%ACRES     = ACRES
+               SUPP(IT_EA)%ACRES_SDI = ACRES_SDI
 
-         SUPP(IT_EA)%DADT    = (ACRES     - SUPP(IT_EA-1)%ACRES    ) / DT_DAY
-         SUPP(IT_EA)%DASDIDT = (ACRES_SDI - SUPP(IT_EA-1)%ACRES_SDI) / DT_DAY
-         IF (SUPP(IT_EA)%DADT .GT. 0.) THEN
-            SUPP(IT_EA)%SDIBAR = MIN(MAX(SUPP(IT_EA)%DASDIDT / SUPP(IT_EA)%DADT - 1.0, 0.0), 3.0)
-         ELSE
-            SUPP(IT_EA)%SDIBAR = 0
-         ENDIF
-         !IF ( ABS(SUPP(IT_EA)%DADT) .LT. 1E-6 ) THEN
-         !   SUPP(IT_EA)%DC_PER_DAY = 0.
-         !ELSE
-         IF (USE_SDI_LOG_FUNCTION) THEN
-            SUPP(IT_EA)%DC_PER_DAY = 0.01 * DIURNAL_ADJUSTMENT_FACTOR * MAX_CONTAINMENT_PER_DAY * (1. - LOG10(SUPP(IT_EA)%DADT) / LOG10(AREA_NO_CONTAINMENT_CHANGE) )
-         ELSE
-            SUPP(IT_EA)%DC_PER_DAY = 0.01 * DIURNAL_ADJUSTMENT_FACTOR * MAX_CONTAINMENT_PER_DAY * (1. - SUPP(IT_EA)%DADT        / AREA_NO_CONTAINMENT_CHANGE       )
-         ENDIF
-         !ENDIF
-         IF (SUPP(IT_EA)%DC_PER_DAY .GT. 0.) THEN
-            SUPP(IT_EA)%DC_PER_DAY = SUPP(IT_EA)%DC_PER_DAY * EXP(-B_SDI * SUPP(IT_EA)%SDIBAR)
-         ELSE
-            SUPP(IT_EA)%DC_PER_DAY = SUPP(IT_EA)%DC_PER_DAY * EXP( B_SDI * SUPP(IT_EA)%SDIBAR)
-         ENDIF
-         
-         SUPP(IT_EA)%TARGET_CONTAINMENT = SUPP(IT_EA-1)%TARGET_CONTAINMENT  + SUPP(IT_EA)%DC_PER_DAY * DT_DAY
-         IF (SUPP(IT_EA)%TARGET_CONTAINMENT .GT. 1. ) SUPP(IT_EA)%TARGET_CONTAINMENT = 1.
-         IF (SUPP(IT_EA)%TARGET_CONTAINMENT .LT. 0. ) SUPP(IT_EA)%TARGET_CONTAINMENT = 0.
+               SUPP(IT_EA)%DADT    = (ACRES     - SUPP(IT_EA-1)%ACRES    ) / DT_DAY
+               SUPP(IT_EA)%DASDIDT = (ACRES_SDI - SUPP(IT_EA-1)%ACRES_SDI) / DT_DAY
+               IF (SUPP(IT_EA)%DADT .GT. 0.) THEN
+                  SUPP(IT_EA)%SDIBAR = MIN(MAX(SUPP(IT_EA)%DASDIDT / SUPP(IT_EA)%DADT - 1.0, 0.0), 3.0)
+               ELSE
+                  SUPP(IT_EA)%SDIBAR = 0
+               ENDIF
+               ! IF ( ABS(SUPP(IT_EA)%DADT) .LT. 1E-6 ) THEN
+               !    SUPP(IT_EA)%DC_PER_DAY = 0.
+               ! ELSE
+               IF (USE_SDI_LOG_FUNCTION) THEN
+                  SUPP(IT_EA)%DC_PER_DAY = 0.01 * DIURNAL_ADJUSTMENT_FACTOR * MAX_CONTAINMENT_PER_DAY * (1. - LOG10(SUPP(IT_EA)%DADT) / LOG10(AREA_NO_CONTAINMENT_CHANGE) )
+               ELSE
+                  SUPP(IT_EA)%DC_PER_DAY = 0.01 * DIURNAL_ADJUSTMENT_FACTOR * MAX_CONTAINMENT_PER_DAY * (1. - SUPP(IT_EA)%DADT        / AREA_NO_CONTAINMENT_CHANGE       )
+               ENDIF
+               ! ENDIF
+               IF (SUPP(IT_EA)%DC_PER_DAY .GT. 0.) THEN
+                  SUPP(IT_EA)%DC_PER_DAY = SUPP(IT_EA)%DC_PER_DAY * EXP(-B_SDI * SUPP(IT_EA)%SDIBAR)
+               ELSE
+                  SUPP(IT_EA)%DC_PER_DAY = SUPP(IT_EA)%DC_PER_DAY * EXP( B_SDI * SUPP(IT_EA)%SDIBAR)
+               ENDIF
+               
+               SUPP(IT_EA)%TARGET_CONTAINMENT = SUPP(IT_EA-1)%TARGET_CONTAINMENT  + SUPP(IT_EA)%DC_PER_DAY * DT_DAY
+               IF (SUPP(IT_EA)%TARGET_CONTAINMENT .GT. 1. ) SUPP(IT_EA)%TARGET_CONTAINMENT = 1.
+               IF (SUPP(IT_EA)%TARGET_CONTAINMENT .LT. 0. ) SUPP(IT_EA)%TARGET_CONTAINMENT = 0.
 
-         print *, T, ACRES, SUPP(IT_EA)%TARGET_CONTAINMENT, SUPP(IT_EA)%DC_PER_DAY, SUPP(IT_EA)%DADT
-         
-         CALL CENTROID(IT_EA)
-         CALL CONTAINMENT(IT_EA,T)
-         CALL UNTAG_CELLS(NX,NY,TIME_OF_ARRIVAL,T,SURFACE_FIRE)
-         T_LAST_EXTENDED_ATTACK = T
+               print *, T, ACRES, SUPP(IT_EA)%TARGET_CONTAINMENT, SUPP(IT_EA)%DC_PER_DAY, SUPP(IT_EA)%DADT
+               
+               CALL CENTROID(IT_EA)
+               CALL CONTAINMENT(IT_EA,T)
+               CALL UNTAG_CELLS(NX,NY,TIME_OF_ARRIVAL,T,SURFACE_FIRE)
+               T_LAST_EXTENDED_ATTACK = T
 
-         CONTINUE
+            ENDIF
+
+         ELSE IF (EXTENDED_ATTACK_MODEL .EQ. 1) THEN
+            IF (ENABLE_INDIRECT_ATTACK .AND. ((T / EXTENDED_ATTACK_TIME) ** INITIAL_CONTAINMENT_SHAPE_FACTOR) .GE. 1.0) THEN
+               CALL DETECT_FIRELINE
+               CALL INDIRECT_ATTACK(NX, NY, T)
+               CALL UNTAG_CELLS(NX,NY,TIME_OF_ARRIVAL,T,SURFACE_FIRE)
+
+               C => LIST_TAGGED%HEAD
+               DO I = 1, LIST_TAGGED%NUM_NODES
+                  C%FIRE_LINE = .FALSE.
+                  C => C%NEXT
+               ENDDO
+            ENDIF
+            IF (T - T_LAST_EXTENDED_ATTACK .GT. DT_EXTENDED_ATTACK) THEN
+
+               IT_EA = IT_EA + 1
+               SUPP(IT_EA)%T = T
+
+               IF (IT_EA .EQ. 1) THEN
+                  DO I = 1, LIST_SUPPRESSED%NUM_NODES
+                     SUPP(IT_EA)%INDIRECT_SUPPRESSED_FIRELINE_LENGTH = SUPP(IT_EA)%INDIRECT_SUPPRESSED_FIRELINE_LENGTH + ANALYSIS_CELLSIZE
+                  ENDDO
+               ELSE
+                  I = IT_EA
+                  DO WHILE (I .GE. 2)
+                     SUPP(IT_EA)%INDIRECT_SUPPRESSED_FIRELINE_LENGTH = SUPP(IT_EA)%INDIRECT_SUPPRESSED_FIRELINE_LENGTH - SUPP(I-1)%INDIRECT_SUPPRESSED_FIRELINE_LENGTH
+                     I = I-1
+                  ENDDO
+                  DO I = 1, LIST_SUPPRESSED%NUM_NODES
+                     SUPP(IT_EA)%INDIRECT_SUPPRESSED_FIRELINE_LENGTH = SUPP(IT_EA)%INDIRECT_SUPPRESSED_FIRELINE_LENGTH + ANALYSIS_CELLSIZE
+                  ENDDO
+               ENDIF
+
+
+               CALL SEGMENT_FIRELINE
+               CALL CALCULATE_STS
+               CALL SORT_STS
+               CALL DIRECT_ATTACK(T, IT_EA, rank_finished, DT, ICASE, TSTOP)
+               
+               
+               ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"time_suppressed",T,"time_suppressed",1)
+               ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"ROS",T,"ROS",1)
+               ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"STS",T,"STS",1)
+               ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"SEGMENT",T,"SEGMENT",1)
+               ! CALL LL_DUMP_ROUTINE(LIST_TAGGED,"time_of_arrival",T,"time_of_arrival",1)
+
+               DEALLOCATE(SUPPRESSION_TYPE_SCORE)
+               DEALLOCATE(SUPPRESSION_TYPE_SCORE_RANK)
+
+               
+               C => LIST_TAGGED%HEAD
+               DO I = 1, LIST_TAGGED%NUM_NODES
+                  C%FIRE_LINE = .FALSE.
+                  C%SEGMENT_GROUP = -1
+                  C%STS = -1
+                  C => C%NEXT
+               ENDDO
+
+               T_LAST_EXTENDED_ATTACK = T
+               CALL UNTAG_CELLS(NX,NY,TIME_OF_ARRIVAL,T,SURFACE_FIRE)
+               ! CALL LL_DUMP_ROUTINE(LIST_SUPPRESSED,"time_suppressed",T,"time_suppressed",1)
+               
+            ENDIF
+         ELSE
+            WRITE(*,*) 'Error: "EXTENDED_ATTACK_MODEL" should be 0 or 1 in namelist!'
+            STOP
+         ENDIF
       ENDIF
 #endif   
 
@@ -1873,7 +2054,17 @@ DO WHILE (T .le. totalDuration)
 
       IF (SIMULATION_TSTOP_HOURS .LT. 0. ) STATS_SIMULATION_TSTOP_HOURS(ICASE) = T / 3600.
 #ifdef _SUPPRESSION   
-      IF (ENABLE_EXTENDED_ATTACK .AND. STATS_FINAL_CONTAINMENT_FRAC(ICASE) .LT. 0.) STATS_FINAL_CONTAINMENT_FRAC(ICASE) = SUPP(IT_EA)%TARGET_CONTAINMENT
+      ! new suppression model :: modified below  
+      IF (ENABLE_EXTENDED_ATTACK) THEN
+         IF (EXTENDED_ATTACK_MODEL .EQ. 0) THEN
+            IF (STATS_FINAL_CONTAINMENT_FRAC(ICASE) .LT. 0.) STATS_FINAL_CONTAINMENT_FRAC(ICASE) = SUPP(IT_EA)%TARGET_CONTAINMENT
+         ELSE IF (EXTENDED_ATTACK_MODEL .EQ. 1) THEN
+            IF (STATS_FINAL_CONTAINMENT_FRAC(ICASE) .LT. 0.) STATS_FINAL_CONTAINMENT_FRAC(ICASE) = SUPP(IT_EA)%CONTAINMENT
+         ELSE
+            WRITE(*,*) 'Error: "EXTENDED_ATTACK_MODEL" should be 0 or 1 in namelist!'
+            STOP
+         ENDIF
+      ENDIF
 #endif   
 
       CALL ACCUMULATE_CPU_USAGE(61, IT1, IT2)
@@ -2044,7 +2235,7 @@ DO
 
    IF (C%TIME_SUPPRESSED .GT. 0.) THEN
       CALL APPEND(LIST_SUPPRESSED, IX, IY, T)
-!      LIST_SUPPRESSED%TAIL = C
+      LIST_SUPPRESSED%TAIL%TIME_SUPPRESSED = T
       NUM_DELETED = NUM_DELETED + 1
       CALL DELETE_NODE(LIST_TAGGED, C)
       TAGGED(IX,IY) = .FALSE.
