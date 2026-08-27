@@ -56,7 +56,7 @@ REAL, POINTER, DIMENSION(:,:), SAVE :: M1_LO, M1_HI, M10_LO, M10_HI, M100_LO, M1
 REAL, POINTER, SAVE, DIMENSION(:,:,:) :: A_TIMES_BURNED
 
 LOGICAL :: IA_HAS_OCCURRED, LOPEN, GO, CALL_SPOTTING, JUST_INTERPOLATED, DUMP_SMOKE_OUTPUTS, RUN, &
-            INITIATED, START_CALCS, IS_FINAL_DUMP
+            INITIATED, START_CALCS, IS_FINAL_DUMP, HAS_PENDING_SPOTTING_SOURCE
 LOGICAL, SAVE :: FIRSTCALL
 LOGICAL, DIMENSION(1:100) :: ALREADY_IGNITED
 
@@ -1263,17 +1263,33 @@ DO WHILE (T .le. totalDuration)
 
       ENDDO ! I = 1, LIST_TAGGED%NUM_NODES
 
+      HAS_PENDING_SPOTTING_SOURCE = .FALSE.
 #ifdef _UMDSPOTTING
       IF (ENABLE_SPOTTING .AND. (.NOT. USE_SUPERSEDED_SPOTTING)) THEN
          C => LIST_BURNED%HEAD
          DO I = 1, LIST_BURNED%NUM_NODES
 
 #ifdef _WUI
-            ! Refresh transient HRRPUA for Hamada model, to be used in eulerian firebrand model
-            IF(USE_BLDG_SPREAD_MODEL .AND. BLDG_SPREAD_MODEL_TYPE .EQ. 1) CALL HRR_TRANSIENT(C, T)
+            ! Refresh the source node itself for every WUI model type.  Model 2
+            ! also updates HRR_TRANSIENT_MAP through LIST_WUI_BURNING, but the
+            ! spotting loop operates on the separate LIST_BURNED node.
+            IF (USE_BLDG_SPREAD_MODEL .AND. C%IFBFM .EQ. 91) CALL HRR_TRANSIENT(C, T)
 #endif
             CALL_SPOTTING = .FALSE.
             IF (.NOT. C%SPOTTING_DURATION_CALCULATED) CALL CALC_SPOTTING_DURATION(C)
+
+            ! Tracker lists can legitimately be empty during the growth phase
+            ! of a source or between emission and transport intervals.  Record
+            ! whether this source can still emit so the generic small-fire
+            ! termination test below does not end the simulation prematurely.
+            IF (C%SPOTTING_DURATION_CALCULATED) THEN
+               IF (REAL(C%T_END_SPOTTING, 8) .GT. T) HAS_PENDING_SPOTTING_SOURCE = .TRUE.
+#ifdef _WUI
+            ELSE IF (USE_BLDG_SPREAD_MODEL .AND. C%IFBFM .EQ. 91 .AND. C%IBLDGFM .NE. NO_DATA) THEN
+               IF (T .LT. C%TIME_OF_ARRIVAL + REAL(BUILDING_FUEL_MODEL_TABLE(C%IBLDGFM)%T_DECAY, 8)) &
+                  HAS_PENDING_SPOTTING_SOURCE = .TRUE.
+#endif
+            ENDIF
 
             ! Integrate each eligible part of the source emission history once.
             ! A cell can enter LIST_BURNED after its recorded arrival, so T
@@ -1287,7 +1303,10 @@ DO WHILE (T .le. totalDuration)
             DT_SPOTTING = MAX(0.0, REAL(T_EMISSION_END - T_EMISSION_START))
             IF (DT_SPOTTING .GT. 1E-5) THEN
                IF(C%IFBFM .EQ. 91 .AND. USE_BLDG_SPREAD_MODEL) THEN
-                  FLIN = C%HRR_TRANSIENT+1E-5
+                  ! Convert physical HRRPUA to fireline intensity.  The former
+                  ! numerical epsilon could create a tracker at large DT but
+                  ! not small DT, making run survival depend on resolution.
+                  FLIN = MAX(0.0, C%HRR_TRANSIENT) * ANALYSIS_CELLSIZE
                ELSE
                   FLIN = C%FLIN_SURFACE
                ENDIF
@@ -1443,8 +1462,9 @@ DO WHILE (T .le. totalDuration)
             rank_finished = 1
             DT = DT_METEOROLOGY
          ELSE
-            IF((trim(ACCUMULATION_MODEL) .eq. 'EULERIAN' .AND. LIST_EMBER_TRACKER%NUM_NODES .LT. 1) .OR. &
-               (trim(ACCUMULATION_MODEL) .eq. 'LAGRANGIAN' .AND. NUM_TRACKED_EMBERS .LT. 1)) THEN
+            IF (.NOT. HAS_PENDING_SPOTTING_SOURCE .AND. &
+               ((trim(ACCUMULATION_MODEL) .eq. 'EULERIAN' .AND. LIST_EMBER_TRACKER%NUM_NODES .LT. 1) .OR. &
+                (trim(ACCUMULATION_MODEL) .eq. 'LAGRANGIAN' .AND. NUM_TRACKED_EMBERS .LT. 1))) THEN
                if (FEEDBACK_LEVEL .ge. 3) then
                WRITE(LOG_MSG,'(A,I0,A)') '[',ICASE,'] STOPPING: LESS THAN 2 NODES TAGGED FOR FIRE SPREAD'
                WRITE(*,'(A)') TRIM(LOG_MSG)

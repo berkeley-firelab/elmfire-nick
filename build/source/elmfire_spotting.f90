@@ -1083,7 +1083,7 @@ IF (USE_PHYSICAL_SPOTTING_DURATION) THEN
       IF (C%IFBFM .EQ. 91 ) THEN
          IF(USE_BLDG_SPREAD_MODEL) THEN
             HRRPUA_CRIT_LOCAL = CRITICAL_SPOTTING_FIRELINE_INTENSITY(FBFM%I2(C%IX,C%IY,1))/ANALYSIS_CELLSIZE
-            IF (C%HRR_TRANSIENT .GE. HRRPUA_CRIT_LOCAL) THEN
+            IF (C%HRR_TRANSIENT .GT. HRRPUA_CRIT_LOCAL) THEN
                ! Assumed fire curve with linear growth and decay phases
                HRRPUA_PEAK_LOCAL = BUILDING_FUEL_MODEL_TABLE(C%IBLDGFM)%HRRPUA_PEAK
                T_EARLY_LOCAL = BUILDING_FUEL_MODEL_TABLE(C%IBLDGFM)%T_EARLY
@@ -1110,7 +1110,10 @@ ELSE
    ENDIF
 ENDIF ! USE_PHYSICAL_SPOTTING_DURATION
 
-C%SPOTTING_DURATION_CALCULATED = .TRUE.
+! A building can be examined before its growing design fire reaches the
+! spotting threshold.  Leave the flag false in that state so a later time
+! step retries the calculation instead of permanently suppressing emissions.
+C%SPOTTING_DURATION_CALCULATED = C%T_START_SPOTTING .GE. 0.0 .AND. C%T_END_SPOTTING .GT. C%T_START_SPOTTING
 ! *****************************************************************************
 END SUBROUTINE CALC_SPOTTING_DURATION
 ! *****************************************************************************
