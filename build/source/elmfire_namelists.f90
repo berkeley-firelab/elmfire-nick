@@ -136,7 +136,10 @@ SLP_FILENAME, ERC_FILENAME, M100_FILENAME, M10_FILENAME, M1_FILENAME, MLH_FILENA
 PYROMES_FILENAME, USE_BSQ_XML_HEADER, ROTATE_ASP, ROTATE_WD, WD_FILENAME, WS_FILENAME, USE_CONSTANT_FMC, &
 USE_CONSTANT_LH, USE_CONSTANT_LW, USE_EXISTING_BSQS, USE_LAND_VALUE, USE_POPULATION_DENSITY, USE_REAL_ESTATE_VALUE, &
 USE_TILED_IO, USE_BARRIERS, WEATHER_DIRECTORY, WS_AT_10M, WS_IN_KPH, VRT_INSTEAD_OF_TIF, SDI_FILENAME, TIMED_LOCATIONS_CSV, & 
-ONLY_READ_NEEDED_WX_BANDS, START_DC, START_DMC, DAILY_WEATHER_FILENAME, SURFACE_SPREAD_MODEL, LANDSCAPE_FILENAME
+ONLY_READ_NEEDED_WX_BANDS, START_DC, START_DMC, DAILY_WEATHER_FILENAME, SURFACE_SPREAD_MODEL, &
+LANDSCAPE_FILENAME, &
+! new suppression model :: added below
+PCL_FILENAME
 
 IF (IRANK_WORLD .EQ. 0) WRITE(*,*) 'Reading &INPUTS namelist group'
 
@@ -175,6 +178,7 @@ PHI_FILENAME                   = ' '
 POPULATION_DENSITY_FILENAME    = ' '
 REAL_ESTATE_VALUE_FILENAME     = ' '
 SDI_FILENAME                   = ' '
+PCL_FILENAME                   = ' ' ! new suppression model :: added this
 SLP_FILENAME                   = ' '
 ERC_FILENAME                   = ' '
 IGNITIONS_CSV_FILENAME         = ' '
@@ -829,12 +833,16 @@ INTEGER :: IOS
 CHARACTER(256) :: IOSMSG
 
 NAMELIST /SUPPRESSION/ AREA_NO_CONTAINMENT_CHANGE, B_SDI, DT_EXTENDED_ATTACK, &
-                       ENABLE_EXTENDED_ATTACK, ENABLE_INITIAL_ATTACK, &
-                       INITIAL_ATTACK_TIME, MAX_CONTAINMENT_PER_DAY, SDI_FACTOR, USE_SDI, USE_SDI_LOG_FUNCTION
+                       ENABLE_EXTENDED_ATTACK, ENABLE_INITIAL_ATTACK, ENABLE_INDIRECT_ATTACK,&
+                       INITIAL_ATTACK_TIME, MAX_CONTAINMENT_PER_DAY, SDI_FACTOR, USE_SDI, USE_SDI_LOG_FUNCTION, &
+                       ! new suppression model :: added below
+                       EXTENDED_ATTACK_MODEL, EXTENDED_ATTACK_TIME, AVAILABLE_SUPPRESSION_CAPACITY, DELTA_ROS, DELTA_FL, &
+                        DELTA_SDI, DELTA_PCL, FIRE_LINE_THICKNESS, SDI_MAX_DIRECT_ATTACK, FL_MAX_DIRECT_ATTACK, PCL_THRESHOLD, &
+                        INITIAL_CONTAINMENT_SHAPE_FACTOR, FIRELINE_LENGTH_REF
+
 
 IF (IRANK_WORLD .EQ. 0) WRITE(*,*) 'Reading &SUPPRESSION namelist group'
-
-!Set default values:
+! Set default values:
 B_SDI                       = 1.0
 DT_EXTENDED_ATTACK          = 3600.
 ENABLE_EXTENDED_ATTACK      = .FALSE.
@@ -846,7 +854,35 @@ SDI_FACTOR                  = 1.0
 USE_SDI                     = .FALSE.
 USE_SDI_LOG_FUNCTION        = .FALSE.
 
+! Spatially explicit suppression model
+EXTENDED_ATTACK_MODEL              = 0          ! 0: Area-Growth-Based Containment Model; 1: Spatially Explicit Suppression Model
+ENABLE_INDIRECT_ATTACK             = .TRUE.     ! Enable indirect attack
+EXTENDED_ATTACK_TIME               = -1.0       ! Time (s) when full suppression capacity is available. If <0, estimated from first-day fireline growth and FIRELINE_LENGTH_REF
+INITIAL_CONTAINMENT_SHAPE_FACTOR   = 10         ! Controls buildup of suppression capacity; larger values produce greater initial delay and a sharper increase
+AVAILABLE_SUPPRESSION_CAPACITY     = 2000       ! m/hr
+FIRELINE_LENGTH_REF                = 15000      ! m
+
+! Suggested default values
+PCL_THRESHOLD                      = 30.0       ! PCL threshold for indirect attack (0--100)
+FL_MAX_DIRECT_ATTACK               = 8.0        ! ft; reference flame length used for both direct and indirect attack
+SDI_MAX_DIRECT_ATTACK              = 100.0      ! Reference SDI; USDA SDI data stored as SDI*100
+FIRE_LINE_THICKNESS                = 1          ! Number of cells used to represent the active fireline
+DELTA_ROS                          = 10         ! ft/min
+DELTA_FL                           = 2          ! ft
+DELTA_SDI                          = 10         ! SDI units; USDA SDI data stored as SDI*100
+DELTA_PCL                          = 10         ! PCL units (0--100)
+
+
 READ(LUINPUT,NML=SUPPRESSION,IOSTAT=IOS,IOMSG=IOSMSG)
+
+IF (ENABLE_EXTENDED_ATTACK .AND. EXTENDED_ATTACK_MODEL .EQ. 1) USE_SDI = .TRUE.
+
+IF (INITIAL_CONTAINMENT_SHAPE_FACTOR .LT. 1.0) THEN
+   WRITE(*,*) 'Error: Problem with namelist group &SUPPRESSION.'
+   WRITE(*,*) 'INITIAL_CONTAINMENT_SHAPE_FACTOR should be larger or equal to 1.0'
+   STOP
+ENDIF
+
 IF (IOS > 0) THEN
    WRITE(*,*) 'Error reading &SUPPRESSION namelist group: ', TRIM(IOSMSG)
    STOP

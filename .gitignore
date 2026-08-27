@@ -99,6 +99,7 @@ examples/smoke/STARTUP
 # Validation, verification & tutorials (generated outputs)
 # ============================================================
 tutorials/05-UMD-spotting
+tutorials/01-constant-wind
 validation/01-single-fire/ca-county_20180701_062200
 validation/02-multi-fire/2*
 verification/01-elliptical-shape/exact_ellipses
